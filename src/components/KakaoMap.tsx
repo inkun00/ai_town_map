@@ -72,8 +72,8 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onPi
     setError("");
     navigator.geolocation.getCurrentPosition(({coords})=>{const location={lat:coords.latitude,lng:coords.longitude};const kakao=window.kakao;mapRef.current?.setCenter(new kakao!.maps.LatLng(location.lat,location.lng));mapRef.current?.setLevel(4);onPickRef.current?.(location,"gps");},()=>setError("현재 위치를 가져오지 못했습니다. 장소를 검색하거나 지도를 눌러주세요."),{enableHighAccuracy:true,timeout:10000,maximumAge:30000});
   }
-  function findPlace(event:React.FormEvent) {
-    event.preventDefault();const kakao=window.kakao;if(!kakao || !search.trim()) return;
+  function findPlace() {
+    const kakao=window.kakao;if(!kakao || !search.trim()) return;
     setSearching(true);setError("");
     new kakao.maps.services.Places().keywordSearch(search.trim(),(results,status)=>{
       setSearching(false);
@@ -87,7 +87,7 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onPi
   return <div className={`kakao-map-shell ${compact?"kakao-map-shell--compact":""}`}>
     <Script src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false&libraries=services,clusterer`} strategy="afterInteractive" onReady={()=>window.kakao?.maps.load(()=>setReady(true))} onError={()=>setError("카카오 지도를 불러오지 못했습니다. 키와 등록 도메인을 확인해 주세요.")}/>
     <div className="kakao-map" ref={elementRef} role="application" aria-label="카카오 지도"/>
-    {onPick && <div className="kakao-map-controls"><form onSubmit={findPlace}><label className="sr-only" htmlFor={compact?"place-search-compact":"place-search-main"}>장소 검색</label><input id={compact?"place-search-compact":"place-search-main"} value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="장소 검색"/><button type="submit" disabled={!ready||searching}>{searching?"검색 중":"검색"}</button></form><button type="button" onClick={locate} disabled={!ready}>◎ 현재 위치</button></div>}
+    {onPick && <div className="kakao-map-controls"><div className="kakao-map-search"><label className="sr-only" htmlFor={compact?"place-search-compact":"place-search-main"}>장소 검색</label><input id={compact?"place-search-compact":"place-search-main"} value={search} onChange={(event)=>setSearch(event.target.value)} onKeyDown={(event)=>{if(event.key==="Enter"){event.preventDefault();event.stopPropagation();if(!event.nativeEvent.isComposing) findPlace();}}} placeholder="장소 검색"/><button type="button" onClick={findPlace} disabled={!ready||searching}>{searching?"검색 중":"검색"}</button></div><button type="button" onClick={locate} disabled={!ready}>◎ 현재 위치</button></div>}
     {error && <div className="kakao-map-error" role="status">{error}</div>}
   </div>;
 }
