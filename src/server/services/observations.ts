@@ -145,7 +145,7 @@ export async function savePhoto(mapId:string,id:string,session:AppSession,conten
     const row=await client.query<{author_member_id:string;status:string}>("SELECT author_member_id,status FROM app.observations WHERE map_id=$1 AND id=$2 FOR UPDATE",[mapId,id]);
     if(!mayEdit(map)||!row.rows[0] || row.rows[0].author_member_id!==map.member_id || !["pending","published"].includes(row.rows[0].status)) throw new ApiError(404,"NOT_FOUND","기록을 찾을 수 없습니다.");
     await client.query(`INSERT INTO app.observation_photos(map_id,observation_id,uploaded_by,content,mime) VALUES($1,$2,$3,$4,'image/webp') ON CONFLICT(observation_id) DO UPDATE SET content=excluded.content,uploaded_by=excluded.uploaded_by,created_at=now()`,[mapId,id,session.principalId,content]);
-    if(row.rows[0].status==="published"&&map.moderation==="approval") await client.query("UPDATE app.observations SET status='pending',version=version+1,updated_at=now() WHERE id=$1",[id]);
+    await client.query("UPDATE app.observations SET status=CASE WHEN status='published' AND $2='approval' THEN 'pending' ELSE status END,version=version+1,updated_at=now() WHERE id=$1",[id,map.moderation]);
     await client.query("UPDATE app.maps SET data_revision=data_revision+1 WHERE id=$1",[mapId]);
     const latest=await client.query<{status:string;version:string}>("SELECT status,version FROM app.observations WHERE id=$1",[id]);
     return {photoUrl:`/api/v1/maps/${mapId}/observations/${id}/photo`,status:latest.rows[0].status,version:latest.rows[0].version};

@@ -4,11 +4,11 @@ import { PGlite } from "@electric-sql/pglite";
 const db = new PGlite();
 try {
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql"]){
+  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql", "004_analysis_proposals.sql"]){
     await db.exec(await readFile(`db/migrations/${name}`,"utf8"));
   }
   const result = await db.query("SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema IN ('app','app_private')");
-  if (result.rows[0].count < 20) throw new Error("Application tables were not created");
+  if (result.rows[0].count < 22) throw new Error("Application tables were not created");
   const privileges = await db.query("SELECT has_table_privilege('anon','app.maps','SELECT') AS anon_read, has_table_privilege('app_backend','app.maps','SELECT') AS backend_read, has_table_privilege('app_backend','app.theme_templates','UPDATE') AS template_update");
   if (privileges.rows[0].anon_read || !privileges.rows[0].backend_read || privileges.rows[0].template_update) throw new Error("Database grants are not isolated");
   await db.exec(`

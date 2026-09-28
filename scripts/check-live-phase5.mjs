@@ -25,7 +25,7 @@ try{
   if(observation.status!=="pending")throw new Error("Approval map should create pending observation");
   const observationPath=`/api/v1/maps/${mapId}/observations/${observation.id}`;
   const png=await sharp({create:{width:12,height:12,channels:3,background:"green"}}).png().toBuffer();
-  expect(await api(`${observationPath}/photo`,guest,{method:"POST",body:png,mime:"image/png"}),201,"pending photo upload");
+  observation.version=expect(await api(`${observationPath}/photo`,guest,{method:"POST",body:png,mime:"image/png"}),201,"pending photo upload").version;
   expect(await api(`${observationPath}/photo`,null),404,"pending photo hidden");
   const pendingBlocked=expect(await api(`/api/v1/maps/${mapId}/members/${member.id}`,owner,{method:"PATCH",version:member.version,body:{status:"blocked"}}),200,"block pending author");
   expect(await api(`/api/v1/maps/${mapId}/observations?scope=mine`,guest),403,"blocked private records denied");

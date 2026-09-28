@@ -59,7 +59,7 @@
 
 CreateMap은 저장된 템플릿 version을 복사한다. 직접 만들기에는 완전한 categories/emojiOptions/questions/pin/features 설정을 함께 보낸다. 요청에 UUID를 임의 지정하지 않고 템플릿 key를 서버가 실제 지도별 ID로 바꾼다. owner는 세션에서 결정한다. 생성 마법사의 미완성 내용은 로컬 초안이며 POST 성공 때 active 지도가 된다.
 
-현재 구현 입력은 위 제품 계약의 일부다. `center`는 `null`을 허용하고, 제안서 활성화는 `proposalsEnabled`, 직접 만들기는 `custom: { categories, pinMode }`로 전달한다. `GET /maps`의 응답은 `data: { items, nextCursor }`이며 `scope=deleted`는 소유자의 복구 가능 지도만 반환한다. 지도 설정 변경·soft delete·복구와 참여자 관리, 관찰 기록·댓글·신고·검수 경로가 구현됐다. 초안/제출 분리와 제안서·내보내기는 후속 단계다.
+현재 구현 입력은 위 제품 계약의 일부다. `center`는 `null`을 허용하고, 제안서 활성화는 `proposalsEnabled`, 직접 만들기는 `custom: { categories, pinMode }`로 전달한다. `GET /maps`의 응답은 `data: { items, nextCursor }`이며 `scope=deleted`는 소유자의 복구 가능 지도만 반환한다. 지도 설정·참여자·관찰·댓글·신고·검수와 6단계 통계·CSV·제안서가 구현됐다. 아래 표의 초기 설계와 실제 경로 차이는 문서 끝의 6단계 구현 계약을 따른다. 관찰의 별도 초안/제출 분리는 후속이다.
 
 `capabilities`는 `canCreateObservation`, `canModerate`, `canManageMap`, `canCreateProposal`, `canComment` 등 UI용 boolean이다. API 서버는 이를 클라이언트로부터 다시 받지 않고 매번 권한을 계산한다.
 
@@ -201,3 +201,26 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 - 지도 SDK 실패: 목록·기록 조회 API는 사용 가능. 위치가 없는 draft는 submit 불가지만 저장 가능.
 
 구현 전 OpenAPI를 생성할 때 이 계약의 조건부 기능 검사와 권한 표를 설명으로 유지하고, JSON Schema만으로 표현되지 않는 지도 간 참조·상태·동시성 검사를 서버 테스트로 추가한다.
+
+## 6단계 실제 구현 계약 (2026-09-29)
+
+| 경로 | 실제 입력·반환 및 권한 |
+|---|---|
+| GET `/maps/{mapId}/analysis` | `filter` 쿼리에 JSON 전달. `{category?,rating?,from?,to?,bbox?:[west,south,east,north],question?,answer?}`. 지도 읽기 권한. 게시 기록 `items`와 `stats`, `filter`, `filterFingerprint`, `dataRevision`, `generatedAt` 반환 |
+| POST `/maps/{mapId}/exports` | 관리자·CSRF. `{filter,includeAuthor=false,includeCoordinates=false}`. 200 CSV 직접 반환, UTF-8 BOM, private/no-store. 비동기 export job 경로는 사용하지 않음 |
+| GET `/maps/{mapId}/proposals` | `scope=published/mine/review/archive`, `cursor?`. mine은 활성 멤버 본인, review/archive는 관리자. 50건씩 `{items,nextCursor}` |
+| POST `/maps/{mapId}/proposals` | 활성 멤버·활성 지도·proposalsEnabled. CSRF·Idempotency-Key. `{title,problem,solution,expectedEffect,responsibleParty,followUp,evidenceIds,filter}`. 제목 필수, 나머지 본문은 초안 저장 시 빈 문자열 허용. 근거 최대 30개 |
+| GET `/maps/{mapId}/proposals/{id}` | 작성자/관리자는 최신 작업본, 그 외는 확정본. `view=published`는 항상 현재 확정본만. 지도 읽기 권한 재검사. `evidence.state=current/changed/unavailable`, `statsChanged` 포함 |
+| PATCH 같은 경로 | 본인·CSRF·If-Match. 전체 입력 교체와 근거 스냅샷 갱신. 확정/보관본 수정은 새 초안 버전 생성, 검토 중 수정 거부 |
+| POST `/maps/{mapId}/proposals/{id}/actions` | CSRF·If-Match, `{action:submit/approve/request_changes/unpublish,reason?}`. submit은 본인, 나머지는 관리자. 수정 요청·공유 중단은 사유 필수 |
+| DELETE `/maps/{mapId}/proposals/{id}` | 본인 또는 관리자·CSRF·If-Match. soft delete, 즉시 공유 차단 |
+
+필터의 from/to는 한국 시간 기준 **등록일**이며 종료일을 포함한다. 기본 지역 범위는 지도 전체이고, bbox는 사용자가 선택한 화면 영역을 고정한 값이다. 지도 이동 자체로 집계 영역이 자동 바뀌지 않는다. 지도·목록·차트는 analysis의 같은 items를 사용한다. 10,000건을 넘으면 `422 NARROW_FILTER`로 조건 축소를 요구하며 부분 집계를 반환하지 않는다.
+
+통계 구조는 `{total,byCategory,byRating,ratedCount,ratingExcludedCount,questions,byDay,firstDay,lastDay}`. 평가 미사용 지도는 byRating/ratedCount/ratingExcludedCount가 null이다. 질문 통계는 지도 설정 버전 `configRevision`으로 분리한다. 현재 질문 정의는 지도 생성 시 고정되어 있고 설정 수정 API는 없다. 유효 응답을 분모로 사용하고 확인 못함/해당 없음/미응답 수를 별도 제공한다. 0 분모 percent는 null이다.
+
+제안서 스냅샷은 근거 ID·관찰 version·집계 수치·필터·시각만 포함한다. 관찰 본문과 사진은 읽는 시점의 게시 상태를 확인하여 가져온다. submit/approve는 저장 이후 데이터 revision 또는 근거 version이 바뀌면 `409 EVIDENCE_CHANGED`를 반환한다. 공유된 버전의 내용을 새 초안으로 자동 덮어쓰지 않는다. 이전 확정본은 별도 버전으로 유지한다.
+
+웹 공유·인쇄 경로는 `/maps/{mapId}/proposals/{id}`다. 현재 확정본만 조회하며 익명 공개 토큰은 없다. 캐시 정책은 API 모두 private/no-store다. CSV와 인쇄물은 내려받은 뒤 서버의 접근 철회가 적용되지 않으므로, 공유 범위 변경은 웹 조회에 즉시 적용되는 것으로 정의한다.
+
+모바일 메모리와 응답 크기를 제한하기 위해 JSON/CSV 응답이 UTF-8 기준 3,500,000바이트를 넘는 경우에도 `NARROW_FILTER`를 반환한다. 일부 기록만 잘라서 집계하지 않는다.

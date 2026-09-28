@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 
 export type Coordinates={lat:number;lng:number};
 export type MapPoint={id:string;title:string;emoji:string;color:string;location:Coordinates};
-type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean};
+type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean};
 type KakaoApi={maps:{load:(callback:()=>void)=>void;LatLng:new(lat:number,lng:number)=>unknown;Map:new(element:HTMLElement,options:Record<string,unknown>)=>KakaoMapObject;Marker:new(options:Record<string,unknown>)=>KakaoMarker;MarkerImage:new(src:string,size:unknown,options?:Record<string,unknown>)=>unknown;Size:new(width:number,height:number)=>unknown;Point:new(x:number,y:number)=>unknown;MarkerClusterer:new(options:Record<string,unknown>)=>{addMarkers:(markers:KakaoMarker[])=>void;clear:()=>void};services:{Places:new()=>{keywordSearch:(term:string,callback:(result:{x:string;y:string;place_name:string}[],status:string)=>void)=>void};Status:{OK:string}};event:{addListener:(target:unknown,name:string,callback:(event?:{latLng?:{getLat:()=>number;getLng:()=>number}})=>void)=>void}}};
-type KakaoMapObject={setCenter:(center:unknown)=>void;relayout:()=>void;getCenter:()=>{getLat:()=>number;getLng:()=>number};setLevel:(level:number)=>void};
+type KakaoMapObject={setCenter:(center:unknown)=>void;relayout:()=>void;getCenter:()=>{getLat:()=>number;getLng:()=>number};getBounds:()=>{getSouthWest:()=>{getLat:()=>number;getLng:()=>number};getNorthEast:()=>{getLat:()=>number;getLng:()=>number}};setLevel:(level:number)=>void};
 type KakaoMarker={setMap:(map:KakaoMapObject|null)=>void};
 declare global {interface Window {kakao?:KakaoApi}}
 
@@ -20,13 +20,14 @@ function markerImage(kakao:KakaoApi,glyph:string,color:string,selected:boolean) 
   return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,new kakao.maps.Size(42,50),{offset:new kakao.maps.Point(21,48)});
 }
 
-export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onPick,chosen,compact=false}:Props) {
+export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false}:Props) {
   const elementRef=useRef<HTMLDivElement>(null);
   const mapRef=useRef<KakaoMapObject|null>(null);
   const pinRef=useRef<KakaoMarker[]>([]);
   const clusterRef=useRef<{clear:()=>void}|null>(null);
   const chosenRef=useRef<KakaoMarker|null>(null);
   const onPickRef=useRef(onPick); onPickRef.current=onPick;
+  const boundsRef=useRef(onBoundsChange);boundsRef.current=onBoundsChange;
   const [ready,setReady]=useState(false);
   const [error,setError]=useState("");
   const [search,setSearch]=useState("");
@@ -38,8 +39,10 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onPi
     const start=center??defaultCenter;
     const map=new kakao.maps.Map(elementRef.current,{center:new kakao.maps.LatLng(start.lat,start.lng),level:compact?4:5});
     mapRef.current=map;
+    const reportBounds=()=>{const bounds=map.getBounds(),sw=bounds.getSouthWest(),ne=bounds.getNorthEast();boundsRef.current?.([sw.getLng(),sw.getLat(),ne.getLng(),ne.getLat()]);};
+    kakao.maps.event.addListener(map,"idle",reportBounds);
     if(onPickRef.current) kakao.maps.event.addListener(map,"click",(event)=>{const latLng=event?.latLng;if(latLng) onPickRef.current?.({lat:latLng.getLat(),lng:latLng.getLng()},"manual");});
-    const timer=window.setTimeout(()=>map.relayout(),80);
+    const timer=window.setTimeout(()=>{map.relayout();reportBounds();},80);
     return ()=>{window.clearTimeout(timer);mapRef.current=null;};
   },[ready,compact]);
 
