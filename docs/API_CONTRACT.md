@@ -59,7 +59,7 @@
 
 CreateMap은 저장된 템플릿 version을 복사한다. 직접 만들기에는 완전한 categories/emojiOptions/questions/pin/features 설정을 함께 보낸다. 요청에 UUID를 임의 지정하지 않고 템플릿 key를 서버가 실제 지도별 ID로 바꾼다. owner는 세션에서 결정한다. 생성 마법사의 미완성 내용은 로컬 초안이며 POST 성공 때 active 지도가 된다.
 
-3단계 구현 입력은 위 제품 계약의 일부다. `center`는 4단계 위치 선택 전까지 `null`을 허용하고, 제안서 활성화는 `proposalsEnabled`, 직접 만들기는 `custom: { categories, pinMode }`로 전달한다. 현재 `GET /maps`의 응답은 `data: { items, nextCursor }`이며, 편집·삭제·회원 관리와 관찰 기록 경로는 아직 구현되지 않았다.
+현재 구현 입력은 위 제품 계약의 일부다. `center`는 `null`을 허용하고, 제안서 활성화는 `proposalsEnabled`, 직접 만들기는 `custom: { categories, pinMode }`로 전달한다. `GET /maps`의 응답은 `data: { items, nextCursor }`이며 `scope=deleted`는 소유자의 복구 가능 지도만 반환한다. 지도 설정 변경·soft delete·복구와 참여자 관리, 관찰 기록·댓글·신고·검수 경로가 구현됐다. 초안/제출 분리와 제안서·내보내기는 후속 단계다.
 
 `capabilities`는 `canCreateObservation`, `canModerate`, `canManageMap`, `canCreateProposal`, `canComment` 등 UI용 boolean이다. API 서버는 이를 클라이언트로부터 다시 받지 않고 매번 권한을 계산한다.
 
@@ -186,6 +186,8 @@ GET에는 `filter=<URL-encoded JSON>` 하나로 전달한다. 최대 8KB. 필터
 | GET `/maps/{mapId}/exports/{id}/content` | 없음 | admin 재검사, CSV 스트림, private/no-store |
 
 댓글 정렬은 createdAt ASC,id ASC. 일반 목록 cursor 공통 규칙을 적용한다. 제안서 공유·인쇄는 `/maps/{mapId}/proposals/{id}` 웹 경로에서 동일 조회 정책을 사용하며 별도 익명 공개 토큰을 만들지 않는다.
+
+5단계 현재 구현에서는 댓글·신고·검수·참여자 목록에 고정 상한을 적용하며 cursor는 아직 반환하지 않는다. 댓글은 게시 기록에만 작성되고, 지도 보관 중에는 새 댓글·신고를 받지 않는다. `POST /maps/{mapId}/restore`는 소유자가 30일 이내 삭제한 지도를 보관 상태로 되살린다.
 
 export는 처음에 published 필터만 지원한다. 승인 상태는 published임을 명시하고 질문 버전·관찰 시각을 포함한다. 정밀 좌표·작성자 닉네임은 각각 명시적으로 선택한 경우만 포함하고 principal/auth ID는 출력하지 않는다. 셀 수식 주입 방지·UTF-8·따옴표 escaping을 적용한다. 결과 유효기간 24시간, 다운로드 시 현재 dataRevision이 생성 때와 다르면 재생성을 요구해 숨김·삭제된 자료가 옛 파일에서 새로 노출되지 않게 한다.
 

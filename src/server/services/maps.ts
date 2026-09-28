@@ -24,6 +24,7 @@ export const createMapSchema = z.strictObject({
   center: z.strictObject({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().default(null),
   initialZoom: z.number().int().min(1).max(14).default(5),
   proposalsEnabled: z.boolean().optional(),
+  commentsEnabled:z.boolean().optional(),
   custom: z.strictObject({ categories: z.array(categorySchema).min(1).max(12), pinMode: z.enum(["single", "category", "rating"]) }).optional(),
 });
 export type CreateMapInput = z.infer<typeof createMapSchema>;
@@ -35,7 +36,7 @@ type MapRow = QueryResultRow & {
   status: MapPolicyInput["status"]; pin_mode: Theme["pin"]["mode"]; rating_enabled: boolean;
   ideas_enabled: boolean; proposals_enabled: boolean; comments_enabled: boolean; config_revision: number;
   version: string; created_at: Date; member_role?: "admin" | "participant" | null; member_status?: "active" | "blocked" | "left" | null;
-  center_lat: number | null; center_lng: number | null; initial_zoom: number;
+  center_lat: number | null; center_lng: number | null; initial_zoom: number;deleted_at:Date|null;
 };
 
 function mapDto(row: MapRow, principalId: string | null) {
@@ -43,9 +44,9 @@ function mapDto(row: MapRow, principalId: string | null) {
   return {
     id: row.id, title: row.title, description: row.description, themeKey: row.theme_key,
     location: row.location_label, center: row.center_lat === null ? null : { lat: row.center_lat, lng: row.center_lng }, initialZoom: row.initial_zoom, activityContext: row.activity_context, visibility: row.visibility,
-    status: row.status, isMine: member?.status === "active", isOwner: principalId === row.owner_principal_id,
-    capabilities: { canRead: canReadMap(principalId, { visibility: row.visibility, status: row.status, ownerPrincipalId: row.owner_principal_id }, member), canManageMap: canManageMap(principalId, { visibility: row.visibility, status: row.status, ownerPrincipalId: row.owner_principal_id }, member), canCreateObservation: member?.status === "active" && row.status === "active" && (row.participation === "invited" || (row.participation === "admin_only" && (principalId === row.owner_principal_id || member.role === "admin"))) },
-    configRevision: row.config_revision, version: row.version, createdAt: row.created_at,
+    status: row.status, participation:row.participation, moderation:row.moderation, commentsEnabled:row.comments_enabled, isMine: member?.status === "active", isOwner: principalId === row.owner_principal_id,
+    capabilities: { canRead: canReadMap(principalId, { visibility: row.visibility, status: row.status, ownerPrincipalId: row.owner_principal_id }, member), canManageMap: canManageMap(principalId, { visibility: row.visibility, status: row.status, ownerPrincipalId: row.owner_principal_id }, member), canModerate:canManageMap(principalId,{visibility:row.visibility,status:row.status,ownerPrincipalId:row.owner_principal_id},member),canComment:member?.status==="active"&&row.status==="active"&&row.comments_enabled, canCreateObservation: member?.status === "active" && row.status === "active" && (row.participation === "invited" || (row.participation === "admin_only" && (principalId === row.owner_principal_id || member.role === "admin"))) },
+    configRevision: row.config_revision, version: row.version, createdAt: row.created_at,deletedAt:row.deleted_at,
   };
 }
 
@@ -65,8 +66,8 @@ export async function getMap(mapId: string, session: AppSession | null) {
   });
 }
 
-export async function listMaps(scope: "public" | "mine", session: AppSession | null, limit: number, cursor?: string, q?: string, themeKey?: string) {
-  if (scope === "mine" && !session) throw new ApiError(401, "LOGIN_REQUIRED", "로그인이 필요합니다.");
+export async function listMaps(scope: "public" | "mine"|"deleted", session: AppSession | null, limit: number, cursor?: string, q?: string, themeKey?: string) {
+  if (scope !== "public" && !session) throw new ApiError(401, "LOGIN_REQUIRED", "로그인이 필요합니다.");
   let after: { createdAt: string; id: string } | null = null;
   if (cursor) {
     if (cursor.length > 512) throw new ApiError(422, "INVALID_CURSOR", "목록을 다시 열어 주세요.");
@@ -77,8 +78,7 @@ export async function listMaps(scope: "public" | "mine", session: AppSession | n
   const rows = await query<MapRow>(
     `SELECT m.*, mm.role AS member_role, mm.status AS member_status
        FROM app.maps m LEFT JOIN app.map_members mm ON mm.map_id = m.id AND mm.principal_id = $1
-      WHERE m.status = 'active'
-        AND (($2 = 'public' AND m.visibility = 'public') OR ($2 = 'mine' AND mm.status = 'active'))
+      WHERE (($2 = 'public' AND m.visibility = 'public' AND m.status='active') OR ($2 = 'mine' AND mm.status = 'active' AND m.status IN ('active','archived')) OR ($2='deleted' AND m.owner_principal_id=$1 AND m.status='deleted' AND m.deleted_at>now()-interval '30 days'))
         AND ($3::text IS NULL OR m.title ILIKE '%' || $3 || '%' OR m.location_label ILIKE '%' || $3 || '%')
         AND ($4::text IS NULL OR m.theme_key = $4)
         AND ($5::timestamptz IS NULL OR (m.created_at, m.id) < ($5, $6::uuid))
@@ -124,7 +124,7 @@ export async function createMap(input: CreateMapInput, session: AppSession, key:
     const theme = buildMapTheme(base, custom, input.proposalsEnabled);
     const inserted = await client.query<MapRow>(`INSERT INTO app.maps(
       owner_principal_id,template_id,theme_key,title,description,location_label,activity_context,center_lat,center_lng,initial_zoom,visibility,participation,moderation,pin_mode,single_color,rating_enabled,ideas_enabled,proposals_enabled,comments_enabled)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`, [session.principalId, template.rows[0].id, input.themeKey, input.title, input.description, input.locationLabel, input.activityContext, input.center?.lat ?? null, input.center?.lng ?? null, input.initialZoom, input.visibility, input.participation, input.moderation, theme.pin.mode, theme.pin.mode === "single" ? "#285943" : null, theme.features.ratingEnabled, theme.features.ideasEnabled, theme.features.proposalsEnabled, theme.features.commentsEnabled]);
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`, [session.principalId, template.rows[0].id, input.themeKey, input.title, input.description, input.locationLabel, input.activityContext, input.center?.lat ?? null, input.center?.lng ?? null, input.initialZoom, input.visibility, input.participation, input.moderation, theme.pin.mode, theme.pin.mode === "single" ? "#285943" : null, theme.features.ratingEnabled, theme.features.ideasEnabled, theme.features.proposalsEnabled, input.commentsEnabled??theme.features.commentsEnabled]);
     const map = inserted.rows[0];
     await client.query("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'지도 개설자')", [map.id, session.principalId]);
     const identifiers = { categories: {} as Record<string, string>, emojiOptions: {} as Record<string, string>, ratingOptions: {} as Record<string, string>, questionVersions: {} as Record<string, string> };

@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
-    const scope = z.enum(["public", "mine"]).parse(params.get("scope") ?? "public");
+    const scope = z.enum(["public", "mine","deleted"]).parse(params.get("scope") ?? "public");
     const limit = z.coerce.number().int().min(1).max(50).parse(params.get("limit") ?? 30);
     const q = params.get("q")?.slice(0, 100) || undefined;
     return ok(await listMaps(scope, await getSession(request), limit, params.get("cursor") ?? undefined, q, params.get("themeKey") ?? undefined));

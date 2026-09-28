@@ -6,7 +6,7 @@ import { createObservation, listObservations, observationSchema } from "@/server
 export const runtime="nodejs";
 type Context={params:Promise<{mapId:string}>};
 export async function GET(request:NextRequest,{params}:Context) {
-  try { const {mapId}=await params; return ok(await listObservations(requireUuid(mapId),await getSession(request))); }
+  try { const {mapId}=await params; const scope=request.nextUrl.searchParams.get("scope")??"published";if(!["published","mine","review"].includes(scope))throw new ApiError(422,"INVALID_SCOPE","목록 범위를 확인해 주세요.");return ok(await listObservations(requireUuid(mapId),await getSession(request),scope as "published"|"mine"|"review")); }
   catch(error) { return failure(error); }
 }
 export async function POST(request:NextRequest,{params}:Context) {

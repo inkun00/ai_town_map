@@ -77,6 +77,7 @@ export type DemoPoint = {
   status?: "pending" | "published" | "hidden" | "deleted";
   version?: string;
   canEdit?: boolean;
+  canDelete?: boolean;
   rawAnswers?: Record<string, string[]>;
 };
 
