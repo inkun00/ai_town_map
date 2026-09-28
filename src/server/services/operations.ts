@@ -13,6 +13,7 @@ function memberDto(row:MemberRow,ownerId:string){return{id:row.id,nickname:row.n
 
 export async function changeMapSettings(mapId:string,session:AppSession,version:string,input:z.infer<typeof mapSettingsInput>){
   return withTransaction(async(client)=>{
+    await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);
     const map=await communityMap(client,mapId,session);requireAdmin(map,session);
     if(map.version!==version)throw new ApiError(412,"VERSION_CHANGED","지도 설정이 다른 곳에서 변경됐습니다.");
     const owner=map.owner_principal_id===session.principalId;
@@ -25,7 +26,7 @@ export async function changeMapSettings(mapId:string,session:AppSession,version:
 }
 
 export async function deleteMap(mapId:string,session:AppSession,version:string){
-  return withTransaction(async(client)=>{const map=await communityMap(client,mapId,session);if(map.owner_principal_id!==session.principalId)throw new ApiError(403,"OWNER_REQUIRED","지도 개설자만 삭제할 수 있습니다.");if(map.version!==version)throw new ApiError(412,"VERSION_CHANGED","지도 설정이 변경됐습니다.");await client.query("UPDATE app.maps SET status='deleted',deleted_at=now(),deleted_by=$2,version=version+1,updated_at=now() WHERE id=$1",[mapId,session.principalId]);await audit(client,mapId,session,"map.delete","map",mapId);});
+  return withTransaction(async(client)=>{await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);const map=await communityMap(client,mapId,session);if(map.owner_principal_id!==session.principalId)throw new ApiError(403,"OWNER_REQUIRED","지도 개설자만 삭제할 수 있습니다.");if(map.version!==version)throw new ApiError(412,"VERSION_CHANGED","지도 설정이 변경됐습니다.");await client.query("UPDATE app.maps SET status='deleted',deleted_at=now(),deleted_by=$2,version=version+1,updated_at=now() WHERE id=$1",[mapId,session.principalId]);await audit(client,mapId,session,"map.delete","map",mapId);});
 }
 
 export async function restoreMap(mapId:string,session:AppSession,version:string){

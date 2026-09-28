@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import {readBoundedBody} from "@/lib/read-bounded-body";
 import { getSession, requireCsrf, requireSession } from "@/server/auth/session";
 import { ApiError, failure, ok, requireUuid } from "@/server/http";
 import { photoAccess, savePhoto } from "@/server/services/observations";
@@ -20,7 +21,9 @@ export async function POST(request:NextRequest,{params}:Context) {
     if(!["image/jpeg","image/png","image/webp","image/heic","image/heif"].includes(mime??"")) throw new ApiError(415,"IMAGE_REQUIRED","JPG, PNG, WebP 또는 HEIC 사진을 선택해 주세요.");
     const size=Number(request.headers.get("content-length"));
     if(size>10*1024*1024) throw new ApiError(413,"IMAGE_TOO_LARGE","사진은 10MB 이하여야 합니다.");
-    const source=Buffer.from(await request.arrayBuffer());
+    let source:Buffer;
+    try {source=await readBoundedBody(request.body,10*1024*1024);}
+    catch(error){if(error instanceof RangeError)throw new ApiError(413,"IMAGE_TOO_LARGE","사진은 10MB 이하여야 합니다.");throw error;}
     if(!source.length || source.length>10*1024*1024) throw new ApiError(413,"IMAGE_TOO_LARGE","사진은 10MB 이하여야 합니다.");
     let content:Buffer;
     try { content=await sharp(source,{limitInputPixels:40_000_000}).rotate().resize({width:1600,height:1600,fit:"inside",withoutEnlargement:true}).webp({quality:78}).toBuffer(); }

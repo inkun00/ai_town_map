@@ -1,6 +1,8 @@
 "use client";
 
 import Script from "next/script";
+import {PointDialog} from "./PointDialog";
+import {groupMapPoints} from "@/domain/map-points";
 import { useEffect, useRef, useState } from "react";
 
 export type Coordinates={lat:number;lng:number};
@@ -32,6 +34,11 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
   const [error,setError]=useState("");
   const [search,setSearch]=useState("");
   const [searching,setSearching]=useState(false);
+  const [overlapIds,setOverlapIds]=useState<string[]>([]);
+  const overlapPoints=points.filter(point=>overlapIds.includes(point.id));
+  const [gpsCandidate,setGpsCandidate]=useState<{location:Coordinates;accuracy:number}|null>(null);
+  const [locating,setLocating]=useState(false);
+  const lookupRef=useRef(0);
 
   useEffect(()=>{
     if(!ready || !elementRef.current || !window.kakao || mapRef.current) return;
@@ -41,9 +48,9 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     mapRef.current=map;
     const reportBounds=()=>{const bounds=map.getBounds(),sw=bounds.getSouthWest(),ne=bounds.getNorthEast();boundsRef.current?.([sw.getLng(),sw.getLat(),ne.getLng(),ne.getLat()]);};
     kakao.maps.event.addListener(map,"idle",reportBounds);
-    if(onPickRef.current) kakao.maps.event.addListener(map,"click",(event)=>{const latLng=event?.latLng;if(latLng) onPickRef.current?.({lat:latLng.getLat(),lng:latLng.getLng()},"manual");});
+    if(onPickRef.current) kakao.maps.event.addListener(map,"click",(event)=>{const latLng=event?.latLng;if(latLng) {lookupRef.current++;setLocating(false);setSearching(false);setGpsCandidate(null);onPickRef.current?.({lat:latLng.getLat(),lng:latLng.getLng()},"manual");}});
     const timer=window.setTimeout(()=>{map.relayout();reportBounds();},80);
-    return ()=>{window.clearTimeout(timer);mapRef.current=null;};
+    return ()=>{window.clearTimeout(timer);lookupRef.current++;mapRef.current=null;};
   },[ready,compact]);
 
   useEffect(()=>{const kakao=window.kakao;if(ready && kakao && mapRef.current && center) mapRef.current.setCenter(new kakao.maps.LatLng(center.lat,center.lng));},[ready,center]);
@@ -52,9 +59,10 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     const kakao=window.kakao,map=mapRef.current;
     if(!ready || !kakao || !map) return;
     clusterRef.current?.clear(); pinRef.current.forEach((marker)=>marker.setMap(null));
-    const markers=points.map((point)=>{
-      const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(point.location.lat,point.location.lng),image:markerImage(kakao,point.emoji,point.color,point.id===selectedId),title:point.title});
-      kakao.maps.event.addListener(marker,"click",()=>onSelectPoint?.(point.id));
+    const markers=groupMapPoints(points).map((group)=>{
+      const point=group.find(item=>item.id===selectedId)??group[0];
+      const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(point.location.lat,point.location.lng),image:markerImage(kakao,point.emoji,point.color,point.id===selectedId),title:group.length>1?`${point.title} 외 ${group.length-1}개 기록`:point.title});
+      kakao.maps.event.addListener(marker,"click",()=>{if(group.length>1)setOverlapIds(group.map(item=>item.id));else onSelectPoint?.(point.id);});
       return marker;
     });
     pinRef.current=markers;
@@ -67,18 +75,22 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     const kakao=window.kakao,map=mapRef.current;
     if(!ready || !kakao || !map) return;
     chosenRef.current?.setMap(null); chosenRef.current=null;
-    if(chosen) {const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(chosen.lat,chosen.lng),image:markerImage(kakao,"📍","#267253",true)});marker.setMap(map);chosenRef.current=marker;map.setCenter(new kakao.maps.LatLng(chosen.lat,chosen.lng));}
-  },[ready,chosen]);
+    const picked=gpsCandidate?.location??chosen;
+    if(picked) {const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(picked.lat,picked.lng),image:markerImage(kakao,"📍","#267253",true)});marker.setMap(map);chosenRef.current=marker;map.setCenter(new kakao.maps.LatLng(picked.lat,picked.lng));}
+  },[ready,chosen,gpsCandidate]);
 
   function locate() {
     if(!navigator.geolocation) {setError("위치 기능을 사용할 수 없습니다. 장소를 검색하거나 지도를 눌러주세요.");return;}
-    setError("");
-    navigator.geolocation.getCurrentPosition(({coords})=>{const location={lat:coords.latitude,lng:coords.longitude};const kakao=window.kakao;mapRef.current?.setCenter(new kakao!.maps.LatLng(location.lat,location.lng));mapRef.current?.setLevel(4);onPickRef.current?.(location,"gps");},()=>setError("현재 위치를 가져오지 못했습니다. 장소를 검색하거나 지도를 눌러주세요."),{enableHighAccuracy:true,timeout:10000,maximumAge:30000});
+    setError("");setLocating(true);setSearching(false);setGpsCandidate(null);
+    const lookup=++lookupRef.current;
+    navigator.geolocation.getCurrentPosition(({coords})=>{if(lookup!==lookupRef.current)return;setLocating(false);if(!mapRef.current)return;setGpsCandidate({location:{lat:coords.latitude,lng:coords.longitude},accuracy:Math.ceil(coords.accuracy)});mapRef.current.setLevel(4);},()=>{if(lookup!==lookupRef.current)return;setLocating(false);setError("현재 위치를 가져오지 못했습니다. 장소를 검색하거나 지도를 눌러주세요.");},{enableHighAccuracy:true,timeout:10000,maximumAge:30000});
   }
   function findPlace() {
     const kakao=window.kakao;if(!kakao || !search.trim()) return;
-    setSearching(true);setError("");
+    setSearching(true);setLocating(false);setError("");setGpsCandidate(null);
+    const lookup=++lookupRef.current;
     new kakao.maps.services.Places().keywordSearch(search.trim(),(results,status)=>{
+      if(lookup!==lookupRef.current)return;
       setSearching(false);
       if(status!==kakao.maps.services.Status.OK || !results.length) {setError("장소를 찾지 못했습니다. 다른 이름을 검색하거나 지도를 눌러주세요.");return;}
       const location={lat:Number(results[0].y),lng:Number(results[0].x)};
@@ -86,11 +98,13 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
       onPickRef.current?.(location,"search",results[0].place_name);
     });
   }
-  if(!key) return <div className={`kakao-map-shell ${compact?"kakao-map-shell--compact":""}`}><div className="kakao-map-unavailable"><strong>카카오 지도 키 설정이 필요합니다.</strong><span>개발 환경의 NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY와 등록 도메인을 확인해 주세요.</span></div></div>;
+  if(!key) return <div className={`kakao-map-shell ${compact?"kakao-map-shell--compact":""}`}><div className="kakao-map-unavailable"><strong>지도를 준비하고 있습니다.</strong><span>잠시 후 다시 접속해 주세요. 기존 기록은 목록에서 확인할 수 있어요.</span></div></div>;
   return <div className={`kakao-map-shell ${compact?"kakao-map-shell--compact":""}`}>
-    <Script src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false&libraries=services,clusterer`} strategy="afterInteractive" onReady={()=>window.kakao?.maps.load(()=>setReady(true))} onError={()=>setError("카카오 지도를 불러오지 못했습니다. 키와 등록 도메인을 확인해 주세요.")}/>
-    <div className="kakao-map" ref={elementRef} role="application" aria-label="카카오 지도"/>
-    {onPick && <div className="kakao-map-controls"><div className="kakao-map-search"><label className="sr-only" htmlFor={compact?"place-search-compact":"place-search-main"}>장소 검색</label><input id={compact?"place-search-compact":"place-search-main"} value={search} onChange={(event)=>setSearch(event.target.value)} onKeyDown={(event)=>{if(event.key==="Enter"){event.preventDefault();event.stopPropagation();if(!event.nativeEvent.isComposing) findPlace();}}} placeholder="장소 검색"/><button type="button" onClick={findPlace} disabled={!ready||searching}>{searching?"검색 중":"검색"}</button></div><button type="button" onClick={locate} disabled={!ready}>◎ 현재 위치</button></div>}
+    <Script src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false&libraries=services,clusterer`} strategy="afterInteractive" onReady={()=>window.kakao?.maps.load(()=>setReady(true))} onError={()=>setError("지도를 불러오지 못했습니다. 연결 상태를 확인하고 새로고침해 주세요. 기존 기록은 목록에서 볼 수 있어요.")}/>
+    <div className="kakao-map" ref={elementRef} role="region" aria-label="카카오 지도"/>
+    {onPick && <div className="kakao-map-controls"><div className="kakao-map-search"><label className="sr-only" htmlFor={compact?"place-search-compact":"place-search-main"}>장소 검색</label><input id={compact?"place-search-compact":"place-search-main"} value={search} onChange={(event)=>setSearch(event.target.value)} onKeyDown={(event)=>{if(event.key==="Enter"){event.preventDefault();event.stopPropagation();if(!event.nativeEvent.isComposing) findPlace();}}} placeholder="장소 검색"/><button type="button" onClick={findPlace} disabled={!ready||searching}>{searching?"검색 중":"검색"}</button></div><button type="button" onClick={locate} disabled={!ready||locating}>{locating?"위치 확인 중":"◎ 현재 위치"}</button></div>}
+    {gpsCandidate && <div className="gps-confirm" role="status"><span>현재 위치의 예상 오차는 약 {gpsCandidate.accuracy}m입니다. 핀을 확인하고, 다르면 지도를 눌러 조정해 주세요.</span><button type="button" onClick={()=>{onPickRef.current?.(gpsCandidate.location,"gps");setGpsCandidate(null);}}>이 위치 사용</button></div>}
+    {overlapPoints.length>0 && <PointDialog label="같은 위치의 기록" onClose={()=>setOverlapIds([])}><h2>같은 위치의 기록 {overlapPoints.length}개</h2><p>살펴볼 기록을 선택해 주세요.</p><div className="overlap-records">{overlapPoints.map(point=><button type="button" key={point.id} onClick={()=>{setOverlapIds([]);onSelectPoint?.(point.id);}}><span aria-hidden="true">{point.emoji}</span> {point.title}</button>)}</div><button type="button" className="button button--light button--full" onClick={()=>setOverlapIds([])}>닫기</button></PointDialog>}
     {error && <div className="kakao-map-error" role="status">{error}</div>}
   </div>;
 }

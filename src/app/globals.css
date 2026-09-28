@@ -31,3 +31,19 @@
 @media print{@page{size:A4;margin:18mm}html,body{height:auto!important;overflow:visible!important;background:white!important}.proposal-share{max-width:none;margin:0;padding:0;box-shadow:none;min-height:0}.no-print{display:none!important}.proposal-document{margin:0}.proposal-document h1{font-size:22pt}.proposal-document h2{break-after:avoid}.proposal-document p,.proposal-document li{font-size:10pt}.proposal-document section{break-inside:auto}.proposal-evidence{background:white;border:1px solid #ccc}.proposal-document .analysis-error{border:1px solid #777;background:white;color:black}.print-source{font-size:9pt!important}}
 
 .evidence-photo{display:block;width:100%;max-height:240px;object-fit:contain;margin:10px 0;border-radius:8px}
+
+/* Stage 7: native focus containment, touch targets and location confirmation. */
+.boot-screen{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;gap:20px}
+.point-dialog{border:0;padding:0;background:transparent;color:var(--ink);width:min(100%,460px);max-width:100%;max-height:85dvh;overflow:visible;margin:auto auto 0}
+.point-dialog::backdrop{background:#152f2470}
+.point-dialog .point-sheet{max-height:85dvh;overscroll-behavior:contain}
+.point-dialog h2{font-size:19px}.point-dialog p{line-height:1.6}
+.overlap-records{display:grid;gap:8px;margin:16px 0}.overlap-records button{min-height:48px;border:1px solid var(--line);border-radius:10px;background:#f5f9f1;color:var(--ink);text-align:left;padding:10px 14px;overflow-wrap:anywhere}.overlap-records span{font-size:24px;vertical-align:middle;margin-right:8px}
+.gps-confirm{position:absolute;left:10px;right:10px;bottom:32px;z-index:2;background:white;border-radius:10px;padding:10px;box-shadow:var(--shadow);font-size:12px;line-height:1.5;display:grid;gap:8px}
+.gps-confirm button{min-height:44px;border:0;border-radius:8px;background:var(--accent);color:white;font-weight:700}
+.kakao-map-controls button,.kakao-map-controls input{min-height:44px}.kakao-map-controls button{font-size:12px}.kakao-map-error{bottom:32px;font-size:12px}
+.round-icon,.sheet-close{min-width:44px;min-height:44px}
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #4b95d9;outline-offset:2px}
+@media(max-width:600px){.app-frame input,.app-frame textarea,.app-frame select,.point-dialog input,.point-dialog textarea,.point-dialog select{font-size:16px}}
+
+.map-canvas>.kakao-map-shell{isolation:isolate;z-index:0}.map-canvas>.map-legend{z-index:1;bottom:32px}.map-canvas>.map-floating-action{z-index:1;bottom:116px}

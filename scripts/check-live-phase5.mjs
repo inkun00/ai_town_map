@@ -62,6 +62,12 @@ try{
   if(expect(await api(commentsPath,guest),200,"blocked public comment view").items[0]?.canEdit)throw new Error("Blocked member retained edit capability");
   expect(await api(`/api/v1/maps/${mapId}/members/${member.id}`,owner,{method:"PATCH",version:blocked.version,body:{status:"active"}}),200,"restore member");
   const settings=expect(await api(`/api/v1/maps/${mapId}`,owner),200,"map settings");
+  const simultaneous=await Promise.all([
+    api(`/api/v1/maps/${mapId}`,owner,{method:"PATCH",version:settings.version,body:{commentsEnabled:true}}),
+    api(`/api/v1/maps/${mapId}`,owner,{method:"PATCH",version:settings.version,body:{commentsEnabled:true}}),
+  ]);
+  if(simultaneous.map(result=>result.status).sort().join(",")!=="200,412")throw new Error("Concurrent map settings did not reject the stale writer");
+  settings.version=simultaneous.find(result=>result.status===200).data.version;
   const disabled=expect(await api(`/api/v1/maps/${mapId}`,owner,{method:"PATCH",version:settings.version,body:{commentsEnabled:false}}),200,"disable comments");
   expect(await api(commentsPath,guest,{method:"POST",key:randomUUID(),body:{body:"댓글 비활성 상태"}}),403,"disabled comments denied");
   if(expect(await api(commentsPath,null),200,"read old comments").items.length!==1)throw new Error("Existing comment became invisible");

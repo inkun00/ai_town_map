@@ -25,13 +25,21 @@ try {
   accountId=(await admin.query("INSERT INTO app.principals(kind,auth_user_id) VALUES('account',$1) RETURNING id",[randomUUID()])).rows[0].id;
   const sessionToken=token();csrf=token();cookie=`moa_dev_session=${sessionToken}; moa_dev_csrf=${csrf}`;
   await admin.query("INSERT INTO app_private.sessions(principal_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')",[accountId,hash(sessionToken),hash(csrf)]);
-  for(const themeKey of ["ecology","universal_design"]) {
+  for(const themeKey of ["ecology","universal_design","safety","weather_life"]) {
     const result=await api("/api/v1/maps",{method:"POST",key:randomUUID(),body:{themeKey,themeVersion:1,title:`4단계 검사 ${themeKey}`,locationLabel:"검사 위치",activityContext:"community",visibility:themeKey==="universal_design"?"public":"invite_only",moderation:themeKey==="universal_design"?"approval":"immediate",center:{lat:37.5665,lng:126.978}}});
     expect(result,201,`${themeKey} create map`);mapIds.push(result.data.id);
   }
   const configs=[];
   for(const id of mapIds) {const result=await api(`/api/v1/maps/${id}/configuration`);expect(result,200,"config");configs.push(result.data);}
   const input=(theme,ratingKey=null)=>({configRevision:1,title:"테스트 지점",body:"현장에서 직접 확인한 관찰 기록입니다.",locationLabel:"검사 지점",locationSource:"manual",location:{lat:37.5665,lng:126.978},categoryKey:theme.categories[0].key,emojiKey:theme.categories[0].emojiOptions[0].key,ratingKey,answers:Object.fromEntries(theme.questions.filter((q)=>q.required).map((q)=>[q.key,[q.type==="text"?"현장 관찰":q.type==="boolean"?"yes":q.options?.[0]?.key??"unknown"]]))});
+  for(let index=2;index<mapIds.length;index++){
+    const theme=configs[index].theme;
+    const record=await api(`/api/v1/maps/${mapIds[index]}/observations`,{method:"POST",key:randomUUID(),body:input(theme,theme.rating.options[0].key)});
+    expect(record,201,"additional theme record");
+    const analysis=await api(`/api/v1/maps/${mapIds[index]}/analysis`);expect(analysis,200,"additional theme analysis");
+    if(analysis.data.stats.total!==1||analysis.data.stats.ratedCount!==1||record.data.emojiKey!==theme.categories[0].emojiOptions[0].key)throw new Error("Theme record/analysis mismatch");
+    if(theme.key==="weather_life"&&theme.pin.mode!=="category")throw new Error("Weather must use type colors rather than impact colors");
+  }
   const ecologyInput=input(configs[0].theme);
   const key=randomUUID();const path=`/api/v1/maps/${mapIds[0]}/observations`;
   const first=await api(path,{method:"POST",key,body:ecologyInput});expect(first,201,"ecology observation");
@@ -51,6 +59,11 @@ try {
   const edited=await api(`${path}/${first.data.id}`,{method:"PATCH",body:{...ecologyInput,title:"수정된 지점"},extraHeaders:{"If-Match":`"${first.data.version}"`}});expect(edited,200,"edit observation");
   expect(await api(`${path}/${first.data.id}`,{method:"PATCH",body:ecologyInput,extraHeaders:{"If-Match":`"${first.data.version}"`}}),412,"stale edit");
   const png=await sharp({create:{width:10,height:10,channels:3,background:"red"}}).png().toBuffer();
+  expect(await api(`${path}/${first.data.id}/photo`,{method:"POST",body:Buffer.from("invalid image"),extraHeaders:{"Content-Type":"image/png"}}),415,"invalid photo rejected");
+  expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput,extraHeaders:{"X-CSRF-Token":"wrong"}}),403,"invalid CSRF rejected");
+  expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput,extraHeaders:{Origin:"https://example.invalid"}}),403,"cross-origin write rejected");
+  const afterFailure=await api(path);expect(afterFailure,200,"record retained after photo failure");
+  if(afterFailure.data.items.length!==1||afterFailure.data.items[0].body!==ecologyInput.body)throw new Error("Photo failure lost or duplicated the record");
   const photo=await api(`${path}/${first.data.id}/photo`,{method:"POST",body:png,extraHeaders:{"Content-Type":"image/png"}});expect(photo,201,"photo upload");
   expect(await api(`/api/v1/maps/${mapIds[1]}/observations/${second.data.id}/photo`,{method:"POST",body:png,extraHeaders:{"Content-Type":"image/png"}}),201,"pending photo upload");
   expect(await api(`/api/v1/maps/${mapIds[1]}/observations/${second.data.id}/photo`,{anonymous:true}),404,"pending photo private");
