@@ -49,3 +49,15 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px soli
 .map-canvas>.kakao-map-shell{isolation:isolate;z-index:0}.map-canvas>.map-legend{z-index:1;bottom:32px}.map-canvas>.map-floating-action{z-index:1;bottom:116px}
 
 .feature-settings{margin:20px 0}.feature-settings h2{font-size:18px}.feature-settings p{font-size:13px;line-height:1.6}.feature-settings summary{min-height:44px;padding:12px 0;font-weight:700;cursor:pointer}.emoji-setting{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;font-size:13px}.emoji-setting>span{flex:1;min-width:0}.emoji-setting button{min-height:44px;flex:none}
+
+/* Draft recovery and photo transport feedback stay usable at phone widths. */
+.record-fields { display: contents; border: 0; margin: 0; padding: 0; min-width: 0; }
+.draft-notice { background: #eff5f0; border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.6; }
+.draft-notice p { margin: 4px 0; }
+.draft-recovery { flex: 0 0 auto; max-height: 150px; overflow: auto; padding: 10px 18px; background: #f5f4e9; font-size: 12px; border-bottom: 1px solid var(--line); }
+.draft-recovery div { display: flex; gap: 8px; align-items: center; }
+.draft-recovery button { min-height: 44px; border: 0; background: transparent; color: #216449; text-align: left; overflow-wrap: anywhere; }
+.draft-recovery button:first-child { flex: 1; }
+.upload-status { position: fixed; z-index: 45; left: max(12px, calc(50% - 218px)); right: max(12px, calc(50% - 218px)); bottom: 86px; max-height: 210px; overflow: auto; padding: 14px; border: 1px solid #a5bcae; border-radius: 12px; background: #fff; box-shadow: 0 4px 20px #122a2520; font-size: 13px; line-height: 1.6; }
+.upload-status progress { display: block; width: 100%; margin-top: 8px; accent-color: #257655; }
+.upload-status button, .upload-status a { display: inline-flex; align-items: center; min-height: 44px; margin: 4px 8px 0 0; color: #216449; }

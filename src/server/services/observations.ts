@@ -143,9 +143,12 @@ export async function photoAccess(mapId:string,id:string,session:AppSession|null
 
 export async function savePhoto(mapId:string,id:string,session:AppSession,content:Buffer) {
   return withTransaction(async(client)=>{
+    await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);
     const map=await mapAccess(client,mapId,session);
     const row=await client.query<{author_member_id:string;status:string}>("SELECT author_member_id,status FROM app.observations WHERE map_id=$1 AND id=$2 FOR UPDATE",[mapId,id]);
     if(!mayEdit(map)||!row.rows[0] || row.rows[0].author_member_id!==map.member_id || !["pending","published"].includes(row.rows[0].status)) throw new ApiError(404,"NOT_FOUND","기록을 찾을 수 없습니다.");
+    const existingPhoto=await client.query<{content:Buffer}>("SELECT content FROM app.observation_photos WHERE observation_id=$1 AND map_id=$2",[id,mapId]);
+    if(existingPhoto.rows[0]?.content.equals(content)){const current=(await client.query<{status:string;version:string}>("SELECT status,version FROM app.observations WHERE id=$1",[id])).rows[0];return {photoUrl:`/api/v1/maps/${mapId}/observations/${id}/photo`,...current};}
     await client.query(`INSERT INTO app.observation_photos(map_id,observation_id,uploaded_by,content,mime) VALUES($1,$2,$3,$4,'image/webp') ON CONFLICT(observation_id) DO UPDATE SET content=excluded.content,uploaded_by=excluded.uploaded_by,created_at=now()`,[mapId,id,session.principalId,content]);
     await client.query("UPDATE app.observations SET status=CASE WHEN status='published' AND $2='approval' THEN 'pending' ELSE status END,version=version+1,updated_at=now() WHERE id=$1",[id,map.moderation]);
     await client.query("UPDATE app.maps SET data_revision=data_revision+1 WHERE id=$1",[mapId]);
@@ -156,7 +159,7 @@ export async function savePhoto(mapId:string,id:string,session:AppSession,conten
 
 export async function moderateObservation(mapId:string,id:string,session:AppSession,version:string,action:"approve"|"hide"|"restore"|"request_changes",reason?:string){
   return withTransaction(async(client)=>{
-    const map=await mapAccess(client,mapId,session);
+    await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);const map=await mapAccess(client,mapId,session);
     if(!isModerator(map,session)) throw new ApiError(403,"ADMIN_REQUIRED","지도 관리자만 할 수 있습니다.");
     const existing=await client.query<ObservationRow>(`${rowSql} WHERE o.map_id=$1 AND o.id=$2 FOR UPDATE OF o`,[mapId,id]);
     const row=existing.rows[0];if(!row)throw new ApiError(404,"NOT_FOUND","기록을 찾을 수 없습니다.");
@@ -173,5 +176,5 @@ export async function moderateObservation(mapId:string,id:string,session:AppSess
 }
 
 export async function deleteObservation(mapId:string,id:string,session:AppSession,version:string){
-  return withTransaction(async(client)=>{const map=await mapAccess(client,mapId,session);const existing=await client.query<ObservationRow>(`${rowSql} WHERE o.map_id=$1 AND o.id=$2 FOR UPDATE OF o`,[mapId,id]);const row=existing.rows[0];if(!row||row.status==="deleted")throw new ApiError(404,"NOT_FOUND","기록을 찾을 수 없습니다.");if(!(map.member_status==="active"&&row.author_member_id===map.member_id)&&!isModerator(map,session))throw new ApiError(403,"WRITE_FORBIDDEN","기록을 삭제할 수 없습니다.");if(row.version!==version)throw new ApiError(412,"VERSION_CHANGED","기록이 다른 곳에서 변경됐습니다.");await client.query("UPDATE app.observations SET status='deleted',deleted_at=now(),version=version+1,updated_at=now() WHERE id=$1",[id]);await client.query("UPDATE app.maps SET data_revision=data_revision+1 WHERE id=$1",[mapId]);await audit(client,mapId,session,"observation.delete","observation",id);});
+  return withTransaction(async(client)=>{await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);const map=await mapAccess(client,mapId,session);const existing=await client.query<ObservationRow>(`${rowSql} WHERE o.map_id=$1 AND o.id=$2 FOR UPDATE OF o`,[mapId,id]);const row=existing.rows[0];if(!row||row.status==="deleted")throw new ApiError(404,"NOT_FOUND","기록을 찾을 수 없습니다.");if(!(map.member_status==="active"&&row.author_member_id===map.member_id)&&!isModerator(map,session))throw new ApiError(403,"WRITE_FORBIDDEN","기록을 삭제할 수 없습니다.");if(row.version!==version)throw new ApiError(412,"VERSION_CHANGED","기록이 다른 곳에서 변경됐습니다.");await client.query("UPDATE app.observations SET status='deleted',deleted_at=now(),version=version+1,updated_at=now() WHERE id=$1",[id]);await client.query("UPDATE app.maps SET data_revision=data_revision+1 WHERE id=$1",[mapId]);await audit(client,mapId,session,"observation.delete","observation",id);});
 }

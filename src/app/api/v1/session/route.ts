@@ -1,3 +1,4 @@
+import {createHash} from "node:crypto";
 import { NextRequest } from "next/server";
 import { csrfTokenFromCookie, getSession, requireCsrf, requireSession, revokeSession, clearSessionCookies } from "@/server/auth/session";
 import { failure, noContent, ok } from "@/server/http";
@@ -7,7 +8,7 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession(request);
-    return ok(session ? { kind: session.kind, expiresAt: session.expiresAt, csrfToken: csrfTokenFromCookie(request, session) } : null);
+    return ok(session ? { draftScope: createHash("sha256").update(`record-draft:${session.principalId}`).digest("hex"), kind: session.kind, expiresAt: session.expiresAt, csrfToken: csrfTokenFromCookie(request, session) } : null);
   } catch (error) { return failure(error); }
 }
 

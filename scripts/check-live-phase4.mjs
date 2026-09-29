@@ -65,6 +65,8 @@ try {
   const afterFailure=await api(path);expect(afterFailure,200,"record retained after photo failure");
   if(afterFailure.data.items.length!==1||afterFailure.data.items[0].body!==ecologyInput.body)throw new Error("Photo failure lost or duplicated the record");
   const photo=await api(`${path}/${first.data.id}/photo`,{method:"POST",body:png,extraHeaders:{"Content-Type":"image/png"}});expect(photo,201,"photo upload");
+  const repeatedPhoto=await api(`${path}/${first.data.id}/photo`,{method:"POST",body:png,extraHeaders:{"Content-Type":"image/png"}});expect(repeatedPhoto,201,"photo retry");
+  if(repeatedPhoto.data.version!==photo.data.version)throw new Error("Identical photo retry changed observation version");
   expect(await api(`/api/v1/maps/${mapIds[1]}/observations/${second.data.id}/photo`,{method:"POST",body:png,extraHeaders:{"Content-Type":"image/png"}}),201,"pending photo upload");
   expect(await api(`/api/v1/maps/${mapIds[1]}/observations/${second.data.id}/photo`,{anonymous:true}),404,"pending photo private");
   const image=await api(`${path}/${first.data.id}/photo`);expect(image,200,"photo read");
