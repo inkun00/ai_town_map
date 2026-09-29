@@ -13,7 +13,7 @@
 - 세션이 있는 POST 개설·draft 생성·제출·댓글·제안 생성·검수 명령·export 요청에는 `Idempotency-Key` UUID를 요구한다. 24시간 내 같은 body 재시도는 동일 결과, 다른 body면 `409 IDEMPOTENCY_CONFLICT`. 로그인과 최초 게스트 입장은 예외이며 아래 입장 재시도 규칙을 따른다.
 - 201은 신규 생성, 200은 조회·수정·상태 전이 및 이미 완료된 제출 재시도, 202는 작업 접수, 204는 logout/폐기 성공. pending은 실패가 아니라 성공 응답의 상태다.
 - 권한에 따른 401/403/404는 PERMISSIONS의 규칙을 따른다. 413 본문·파일 초과, 415 지원하지 않는 파일, 422 입력/기능 미사용, 429 요청 제한, 503 외부 서비스 장애. 429는 Retry-After 포함.
-- 주요 업무 오류: `INVITE_INVALID`(만료·폐기·잘못된 코드 통합), `INVITE_EXHAUSTED`, `MEMBERSHIP_BLOCKED`, `FEATURE_DISABLED`, `MAP_CLOSED`, `THEME_LOCKED`, `CONFIG_CHANGED`, `INVALID_EMOJI`, `RATING_NOT_ALLOWED`, `ATTACHMENT_NOT_READY`, `EVIDENCE_CHANGED`.
+- 주요 업무 오류: `INVITE_INVALID`(잘못된 코드·삭제 지도), `INVITE_EXPIRED`(만료), `INVITE_REVOKED`(철회), `INVITE_EXHAUSTED`, `INVITE_RATE_LIMIT`, `MEMBERSHIP_BLOCKED`, `FEATURE_DISABLED`, `MAP_CLOSED`, `THEME_LOCKED`, `CONFIG_CHANGED`, `INVALID_EMOJI`, `RATING_NOT_ALLOWED`, `ATTACHMENT_NOT_READY`, `EVIDENCE_CHANGED`. 일치하는 초대 코드의 상태만 구분하며 지도·참여자 정보는 오류에 포함하지 않는다. 요청 제한 429에는 `Retry-After` 초 단위 헤더를 포함한다.
 
 ## 2. 인증·지도 생성·참여
 
@@ -246,3 +246,10 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 웹 UI는 원본 20MiB 이하를 브라우저에서 JPEG, 긴 변 1,600px 이하, 1,500KiB 이하로 변환해 기존 사진 API로 전송한다. 서버의 10MiB 입력/2MiB 결과 제한은 별도 방어로 유지한다. HEIC/HEIF는 브라우저가 디코딩할 때만 변환하고 불가능하면 JPG/PNG 재선택을 안내한다. 진행률 100%는 전송 완료이며 최종 성공은 서버 응답을 받은 뒤 표시한다.
 
 초안은 서버 API가 아닌 같은 탭의 sessionStorage에 보관한다. 24시간 복구 기간, 사용자·지도·새 기록/수정 기록별 키 분리, 성공/사용자 삭제/로그아웃 시 정리를 적용한다. 본문 응답 유실 시 동일 요청 키와 본문을 유지하고, 본문 저장 확인 후에는 사진만 다시 올린다. 수정 요청 응답 유실은 기존 If-Match 충돌로 안전하게 멈추며 자동 덮어쓰지 않는다. 사진 Blob은 보관하지 않아 새로고침 후 재선택이 필요하다.
+
+## 7단계 지도 목록·초대 안내 보완
+
+- `GET /maps`: limit 기본 30, 최대 50. 홈은 공개·참여 목록별 20개씩 요청하며 `nextCursor`가 있으면 더 불러온다. q는 지도 이름/지역의 부분 문자열(최대 100자), themeKey는 별도 주제 필터다. `%`, `_`는 와일드카드로 해석하지 않는다.
+- 커서는 UTC 마이크로초 생성 시각과 UUID를 보존한다. 클라이언트는 커서를 그대로 돌려주고 검색 조건 변경 시 버린다. 잘못된 날짜/UUID/커서는 422 `INVALID_CURSOR`다.
+- `POST /invites/redeem`: 만료·철회·보관 지도는 각각 422 `INVITE_EXPIRED`, `INVITE_REVOKED`, `MAP_CLOSED`. 삭제 지도·없는 코드는 422 `INVITE_INVALID`, 횟수 소진은 409 `INVITE_EXHAUSTED`, 차단은 403 `MEMBERSHIP_BLOCKED`다. 기존 참가자의 유효 초대 재사용은 횟수를 추가 소비하지 않는다.
+- 구현·검증 근거: [초대·목록 검토](STAGE7_DIRECTORY_REVIEW.md).
