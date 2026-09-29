@@ -61,3 +61,21 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px soli
 .upload-status { position: fixed; z-index: 45; left: max(12px, calc(50% - 218px)); right: max(12px, calc(50% - 218px)); bottom: 86px; max-height: 210px; overflow: auto; padding: 14px; border: 1px solid #a5bcae; border-radius: 12px; background: #fff; box-shadow: 0 4px 20px #122a2520; font-size: 13px; line-height: 1.6; }
 .upload-status progress { display: block; width: 100%; margin-top: 8px; accent-color: #257655; }
 .upload-status button, .upload-status a { display: inline-flex; align-items: center; min-height: 44px; margin: 4px 8px 0 0; color: #216449; }
+/* Neutral high-contrast badges carry meaning independently of marker color. */
+.rating-symbol, .rating-picker i.rating-symbol { display:inline-grid; place-items:center; flex:none; width:22px; height:22px; border:1.5px solid #111827; border-radius:50%; background:#fff; color:#111827; font:800 16px/1 Arial,sans-serif; }
+.rating-meaning { display:inline-flex; gap:6px; align-items:center; color:#334155; font-size:12px; line-height:1.5; }
+.map-pin>span { position:relative; }
+.map-pin-symbol { position:absolute; left:14px; top:14px; display:grid; place-items:center; width:22px; height:22px; border:1.5px solid #111827; border-radius:50%; background:#fff; color:#111827; font:800 16px/1 Arial,sans-serif; }
+.map-legend { max-height:180px; overflow:auto; }
+.map-legend p { margin:6px 0; color:#334155; font-size:12px; line-height:1.45; }
+.map-legend>div, .map-legend .category-legend { display:flex; flex-wrap:wrap; gap:8px 12px; color:#334155; font-size:12px; line-height:1.5; }
+.map-legend .rating-symbol { display:inline-grid; width:20px; height:20px; font-size:15px; }
+.map-legend .legend-swatch { width:10px; height:10px; border:1px solid #475569; }
+.map-legend small { display:block; margin-top:7px; color:#475569; font-size:11px; line-height:1.5; }
+.map-legend summary { min-height:44px; display:list-item; align-content:center; color:#334155; font-size:12px; cursor:pointer; }
+.map-canvas>.map-floating-action { top:14px; bottom:auto; }
+.map-toolbar__top button { min-height:44px; min-width:72px; font-size:12px; }
+.point-row small, .point-sheet__title small { color:#526553; }
+.point-row, .overlap-records button { overflow-wrap:anywhere; }
+.overlap-records small { display:flex; align-items:center; gap:6px; margin-top:6px; color:#334155; }
+@media (forced-colors:active) { .rating-symbol, .map-pin-symbol { border-color:CanvasText; background:Canvas; color:CanvasText; } }

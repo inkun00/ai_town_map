@@ -1,12 +1,13 @@
 "use client";
 
 import Script from "next/script";
+import {pinSvg,type RatingMeaning} from "@/domain/point-presentation";
 import {PointDialog} from "./PointDialog";
 import {groupMapPoints} from "@/domain/map-points";
 import { useEffect, useRef, useState } from "react";
 
 export type Coordinates={lat:number;lng:number};
-export type MapPoint={id:string;title:string;emoji:string;color:string;location:Coordinates};
+export type MapPoint={id:string;title:string;emoji:string;color:string;description?:string;rating?:RatingMeaning|null;location:Coordinates};
 type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean};
 type KakaoApi={maps:{load:(callback:()=>void)=>void;LatLng:new(lat:number,lng:number)=>unknown;Map:new(element:HTMLElement,options:Record<string,unknown>)=>KakaoMapObject;Marker:new(options:Record<string,unknown>)=>KakaoMarker;MarkerImage:new(src:string,size:unknown,options?:Record<string,unknown>)=>unknown;Size:new(width:number,height:number)=>unknown;Point:new(x:number,y:number)=>unknown;MarkerClusterer:new(options:Record<string,unknown>)=>{addMarkers:(markers:KakaoMarker[])=>void;clear:()=>void};services:{Places:new()=>{keywordSearch:(term:string,callback:(result:{x:string;y:string;place_name:string}[],status:string)=>void)=>void};Status:{OK:string}};event:{addListener:(target:unknown,name:string,callback:(event?:{latLng?:{getLat:()=>number;getLng:()=>number}})=>void)=>void}}};
 type KakaoMapObject={setCenter:(center:unknown)=>void;relayout:()=>void;getCenter:()=>{getLat:()=>number;getLng:()=>number};getBounds:()=>{getSouthWest:()=>{getLat:()=>number;getLng:()=>number};getNorthEast:()=>{getLat:()=>number;getLng:()=>number}};setLevel:(level:number)=>void};
@@ -15,11 +16,9 @@ declare global {interface Window {kakao?:KakaoApi}}
 
 const defaultCenter={lat:37.5665,lng:126.978};
 const key=process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY;
-function markerImage(kakao:KakaoApi,glyph:string,color:string,selected:boolean) {
-  const safeGlyph=glyph.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
-  const safeColor=/^#[0-9a-f]{6}$/i.test(color)?color:"#287554";
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="52" height="62" viewBox="0 0 52 62"><path d="M26 60C18 49 2 36 2 25a24 24 0 1 1 48 0C50 36 34 49 26 60Z" fill="${safeColor}" stroke="${selected?"#173b28":"white"}" stroke-width="${selected?4:3}"/><circle cx="26" cy="25" r="18" fill="white"/><text x="26" y="34" text-anchor="middle" font-size="23">${safeGlyph}</text></svg>`;
-  return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,new kakao.maps.Size(42,50),{offset:new kakao.maps.Point(21,48)});
+function markerImage(kakao:KakaoApi,glyph:string,color:string,selected:boolean,symbol?:string,count=1) {
+  const svg=pinSvg(glyph,color,selected,symbol,count);
+  return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,new kakao.maps.Size(48,54),{offset:new kakao.maps.Point(21,50)});
 }
 
 export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false}:Props) {
@@ -61,7 +60,7 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     clusterRef.current?.clear(); pinRef.current.forEach((marker)=>marker.setMap(null));
     const markers=groupMapPoints(points).map((group)=>{
       const point=group.find(item=>item.id===selectedId)??group[0];
-      const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(point.location.lat,point.location.lng),image:markerImage(kakao,point.emoji,point.color,point.id===selectedId),title:group.length>1?`${point.title} 외 ${group.length-1}개 기록`:point.title});
+      const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(point.location.lat,point.location.lng),image:markerImage(kakao,point.emoji,point.color,point.id===selectedId,point.rating?.symbol,group.length),title:group.length>1?`같은 위치의 기록 ${group.length}개 · 개별 평가 확인`:(point.description??point.title)});
       kakao.maps.event.addListener(marker,"click",()=>{if(group.length>1)setOverlapIds(group.map(item=>item.id));else onSelectPoint?.(point.id);});
       return marker;
     });
@@ -104,7 +103,7 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     <div className="kakao-map" ref={elementRef} role="region" aria-label="카카오 지도"/>
     {onPick && <div className="kakao-map-controls"><div className="kakao-map-search"><label className="sr-only" htmlFor={compact?"place-search-compact":"place-search-main"}>장소 검색</label><input id={compact?"place-search-compact":"place-search-main"} value={search} onChange={(event)=>setSearch(event.target.value)} onKeyDown={(event)=>{if(event.key==="Enter"){event.preventDefault();event.stopPropagation();if(!event.nativeEvent.isComposing) findPlace();}}} placeholder="장소 검색"/><button type="button" onClick={findPlace} disabled={!ready||searching}>{searching?"검색 중":"검색"}</button></div><button type="button" onClick={locate} disabled={!ready||locating}>{locating?"위치 확인 중":"◎ 현재 위치"}</button></div>}
     {gpsCandidate && <div className="gps-confirm" role="status"><span>현재 위치의 예상 오차는 약 {gpsCandidate.accuracy}m입니다. 핀을 확인하고, 다르면 지도를 눌러 조정해 주세요.</span><button type="button" onClick={()=>{onPickRef.current?.(gpsCandidate.location,"gps");setGpsCandidate(null);}}>이 위치 사용</button></div>}
-    {overlapPoints.length>0 && <PointDialog label="같은 위치의 기록" onClose={()=>setOverlapIds([])}><h2>같은 위치의 기록 {overlapPoints.length}개</h2><p>살펴볼 기록을 선택해 주세요.</p><div className="overlap-records">{overlapPoints.map(point=><button type="button" key={point.id} onClick={()=>{setOverlapIds([]);onSelectPoint?.(point.id);}}><span aria-hidden="true">{point.emoji}</span> {point.title}</button>)}</div><button type="button" className="button button--light button--full" onClick={()=>setOverlapIds([])}>닫기</button></PointDialog>}
+    {overlapPoints.length>0 && <PointDialog label="같은 위치의 기록" onClose={()=>setOverlapIds([])}><h2>같은 위치의 기록 {overlapPoints.length}개</h2><p>살펴볼 기록을 선택해 주세요.</p><div className="overlap-records">{overlapPoints.map(point=><button type="button" key={point.id} aria-label={point.description??point.title} onClick={()=>{setOverlapIds([]);onSelectPoint?.(point.id);}}><span aria-hidden="true">{point.emoji}</span> <span>{point.title}{point.rating&&<small><span className="rating-symbol" aria-hidden="true">{point.rating.symbol}</span> {point.rating.label}</small>}</span></button>)}</div><button type="button" className="button button--light button--full" onClick={()=>setOverlapIds([])}>닫기</button></PointDialog>}
     {error && <div className="kakao-map-error" role="status">{error}</div>}
   </div>;
 }

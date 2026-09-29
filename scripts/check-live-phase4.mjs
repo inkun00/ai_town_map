@@ -4,6 +4,8 @@ import { loadEnvFile } from "node:process";
 import nextEnv from "@next/env";
 import pg from "pg";
 import sharp from "sharp";
+import {existsSync,writeFileSync,unlinkSync} from "node:fs";
+import {setTimeout as pause} from "node:timers/promises";
 
 if(process.env.RUN_LIVE_PHASE4!=="1") throw new Error("Set RUN_LIVE_PHASE4=1 to run this test");
 nextEnv.loadEnvConfig(process.cwd());loadEnvFile(".env.migrate.local");
@@ -91,6 +93,15 @@ try {
   expect(await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:category.emojiOptions.at(-1).key},extraHeaders:{"If-Match":`"${setting.version}"`}}),409,"last active emoji protected");
   expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"If-Match":`"${setting.version}"`}}),200,"restore emoji");
   expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput}),201,"restored emoji accepted");
+  if(process.env.PHASE4_UI_CHECK==="1"){
+    // Only this run's synthetic maps become visible for manual browser QA.
+    await admin.query("UPDATE app.maps SET visibility='public' WHERE id=ANY($1::uuid[])",[mapIds]);
+    const marker=".phase4-ui-check.json";
+    writeFileSync(marker,JSON.stringify(mapIds.map((id,index)=>({theme:["ecology","universal_design","safety","weather_life"][index],url:`${base}/?map=${id}`}))));
+    console.log("Synthetic UI fixtures ready; remove .phase4-ui-check.json to resume cleanup (10-minute maximum).");
+    for(let i=0;i<600&&existsSync(marker);i++)await pause(1000);
+    if(existsSync(marker))unlinkSync(marker);
+  }
   console.log("Live Phase 4 API smoke passed: emoji/rating rules, idempotency, map isolation, edit version, photo processing");
 } finally {
   if(accountId) {
