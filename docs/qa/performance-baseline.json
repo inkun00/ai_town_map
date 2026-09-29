@@ -1,0 +1,907 @@
+{
+  "measuredAt": "2026-09-29T12:06:48.691Z",
+  "origin": "https://ai-town-map.vercel.app",
+  "mode": "anonymous sequential full-response requests from developer Windows host; no network throttling; first observation is not proven cold start",
+  "publicMaps": 1,
+  "samplesPerRoute": 30,
+  "summary": {
+    "status": {
+      "requests": 30,
+      "failures": 0,
+      "firstObservedMs": 226,
+      "p50Ms": 213,
+      "p95Ms": 281,
+      "maxMs": 433,
+      "maxBytes": 53,
+      "regions": [
+        "icn1::iad1"
+      ]
+    },
+    "publicMaps": {
+      "requests": 30,
+      "failures": 0,
+      "firstObservedMs": 385,
+      "p50Ms": 387,
+      "p95Ms": 451,
+      "maxMs": 458,
+      "maxBytes": 643,
+      "regions": [
+        "icn1::iad1"
+      ]
+    },
+    "configuration": {
+      "requests": 30,
+      "failures": 0,
+      "firstObservedMs": 1096,
+      "p50Ms": 1075,
+      "p95Ms": 1458,
+      "maxMs": 1460,
+      "maxBytes": 4817,
+      "regions": [
+        "icn1::iad1"
+      ]
+    },
+    "analysis": {
+      "requests": 30,
+      "failures": 0,
+      "firstObservedMs": 1432,
+      "p50Ms": 1414,
+      "p95Ms": 1955,
+      "maxMs": 2025,
+      "maxBytes": 1283,
+      "regions": [
+        "icn1::iad1"
+      ]
+    }
+  },
+  "samples": {
+    "status": [
+      {
+        "status": 200,
+        "ms": 226,
+        "headerMs": 225,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 433,
+        "headerMs": 432,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 225,
+        "headerMs": 224,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 213,
+        "headerMs": 213,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 215,
+        "headerMs": 214,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 210,
+        "headerMs": 210,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 226,
+        "headerMs": 225,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 203,
+        "headerMs": 202,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 247,
+        "headerMs": 246,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 204,
+        "headerMs": 202,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 281,
+        "headerMs": 281,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 203,
+        "headerMs": 201,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 255,
+        "headerMs": 255,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 209,
+        "headerMs": 208,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 214,
+        "headerMs": 214,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 204,
+        "headerMs": 204,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 220,
+        "headerMs": 219,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 203,
+        "headerMs": 203,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 206,
+        "headerMs": 205,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 204,
+        "headerMs": 203,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 205,
+        "headerMs": 204,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 214,
+        "headerMs": 213,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 225,
+        "headerMs": 224,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 204,
+        "headerMs": 203,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 206,
+        "headerMs": 205,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 216,
+        "headerMs": 216,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 208,
+        "headerMs": 207,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 237,
+        "headerMs": 236,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 213,
+        "headerMs": 212,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 208,
+        "headerMs": 207,
+        "bytes": 53,
+        "region": "icn1::iad1"
+      }
+    ],
+    "publicMaps": [
+      {
+        "status": 200,
+        "ms": 385,
+        "headerMs": 384,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 381,
+        "headerMs": 380,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 376,
+        "headerMs": 376,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 385,
+        "headerMs": 384,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 396,
+        "headerMs": 396,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 387,
+        "headerMs": 386,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 390,
+        "headerMs": 389,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 380,
+        "headerMs": 379,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 414,
+        "headerMs": 414,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 458,
+        "headerMs": 457,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 451,
+        "headerMs": 450,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 435,
+        "headerMs": 435,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 394,
+        "headerMs": 393,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 374,
+        "headerMs": 374,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 382,
+        "headerMs": 381,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 424,
+        "headerMs": 424,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 399,
+        "headerMs": 398,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 383,
+        "headerMs": 382,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 391,
+        "headerMs": 390,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 385,
+        "headerMs": 385,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 380,
+        "headerMs": 379,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 379,
+        "headerMs": 379,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 387,
+        "headerMs": 387,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 382,
+        "headerMs": 382,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 373,
+        "headerMs": 373,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 379,
+        "headerMs": 378,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 393,
+        "headerMs": 393,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 407,
+        "headerMs": 406,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 414,
+        "headerMs": 413,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 406,
+        "headerMs": 405,
+        "bytes": 643,
+        "region": "icn1::iad1"
+      }
+    ],
+    "configuration": [
+      {
+        "status": 200,
+        "ms": 1096,
+        "headerMs": 1095,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1061,
+        "headerMs": 1060,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1067,
+        "headerMs": 1066,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1071,
+        "headerMs": 1071,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1073,
+        "headerMs": 1073,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1285,
+        "headerMs": 1284,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1065,
+        "headerMs": 1065,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1104,
+        "headerMs": 1104,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1339,
+        "headerMs": 1339,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1460,
+        "headerMs": 1460,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1458,
+        "headerMs": 1458,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1278,
+        "headerMs": 1277,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1072,
+        "headerMs": 1071,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1068,
+        "headerMs": 1067,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1075,
+        "headerMs": 1074,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1080,
+        "headerMs": 1079,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1067,
+        "headerMs": 1066,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1078,
+        "headerMs": 1077,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1067,
+        "headerMs": 1066,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1068,
+        "headerMs": 1067,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1068,
+        "headerMs": 1068,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1065,
+        "headerMs": 1065,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1069,
+        "headerMs": 1068,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1066,
+        "headerMs": 1065,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1075,
+        "headerMs": 1075,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1079,
+        "headerMs": 1078,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1190,
+        "headerMs": 1190,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1199,
+        "headerMs": 1198,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1231,
+        "headerMs": 1230,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1102,
+        "headerMs": 1101,
+        "bytes": 4817,
+        "region": "icn1::iad1"
+      }
+    ],
+    "analysis": [
+      {
+        "status": 200,
+        "ms": 1432,
+        "headerMs": 1431,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1422,
+        "headerMs": 1420,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1651,
+        "headerMs": 1650,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1413,
+        "headerMs": 1412,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1412,
+        "headerMs": 1412,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1411,
+        "headerMs": 1410,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1411,
+        "headerMs": 1410,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1585,
+        "headerMs": 1585,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1887,
+        "headerMs": 1887,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 2025,
+        "headerMs": 2024,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1955,
+        "headerMs": 1954,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1488,
+        "headerMs": 1488,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1409,
+        "headerMs": 1409,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1408,
+        "headerMs": 1407,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1412,
+        "headerMs": 1412,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1410,
+        "headerMs": 1409,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1421,
+        "headerMs": 1419,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1414,
+        "headerMs": 1413,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1412,
+        "headerMs": 1411,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1406,
+        "headerMs": 1406,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1405,
+        "headerMs": 1404,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1406,
+        "headerMs": 1406,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1423,
+        "headerMs": 1422,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1424,
+        "headerMs": 1424,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1412,
+        "headerMs": 1412,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1445,
+        "headerMs": 1445,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1586,
+        "headerMs": 1585,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1615,
+        "headerMs": 1615,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1594,
+        "headerMs": 1593,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      },
+      {
+        "status": 200,
+        "ms": 1409,
+        "headerMs": 1409,
+        "bytes": 1283,
+        "region": "icn1::iad1"
+      }
+    ]
+  }
+}
