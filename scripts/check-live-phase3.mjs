@@ -4,6 +4,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { loadEnvFile } from "node:process";
 import nextEnv from "@next/env";
 import pg from "pg";
+import { existsSync, writeFileSync, unlinkSync } from "node:fs";
+import { setTimeout as pause } from "node:timers/promises";
 
 if (process.env.RUN_LIVE_PHASE3 !== "1") throw new Error("Set RUN_LIVE_PHASE3=1 to run the live smoke test");
 nextEnv.loadEnvConfig(process.cwd());
@@ -53,6 +55,27 @@ try {
   const ownMaps = await api("/api/v1/maps?scope=mine", { cookie: accountCookie });
   expect(ownMaps, 200, "account map list");
   if (!createdMaps.every((id) => ownMaps.data.items.some((map) => map.id === id))) throw new Error("Created maps missing from account list");
+  // Identical microsecond timestamps exercise a cursor boundary JS Date would truncate.
+  await admin.query("UPDATE app.maps SET created_at='2026-09-01T00:00:00.123456Z' WHERE id=ANY($1::uuid[])", [createdMaps]);
+  const paged = []; let cursor = null;
+  do {
+    const result = await api(`/api/v1/maps?scope=mine&limit=2${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, {cookie:accountCookie});
+    expect(result,200,"map pagination"); paged.push(...result.data.items.map(item=>item.id)); cursor=result.data.nextCursor;
+    if(paged.length>createdMaps.length)throw new Error("Pagination duplicated rows");
+  } while(cursor);
+  if(new Set(paged).size!==createdMaps.length || !createdMaps.every(id=>paged.includes(id)))throw new Error("Pagination skipped a microsecond boundary");
+  const filtered = await api("/api/v1/maps?scope=mine&q="+encodeURIComponent("검사")+"&themeKey=ecology&limit=2", {cookie:accountCookie});
+  expect(filtered,200,"server search");
+  if(filtered.data.items.length!==1||filtered.data.items[0].themeKey!=="ecology")throw new Error("Search/theme mismatch");
+  const wildcard=await api("/api/v1/maps?scope=mine&q=%25", {cookie:accountCookie});
+  if(wildcard.data.items.length)throw new Error("Literal percent search became a wildcard");
+  const invalidCursor=Buffer.from(JSON.stringify({createdAt:"2026-09-01T00:00:00Z",id:"-".repeat(36)})).toString("base64url");
+  expect(await api(`/api/v1/maps?scope=mine&cursor=${invalidCursor}`,{cookie:accountCookie}),422,"invalid cursor");
+  const invalidDate=Buffer.from(JSON.stringify({createdAt:"2026-02-30T00:00:00Z",id:createdMaps[0]})).toString("base64url");
+  expect(await api(`/api/v1/maps?scope=mine&cursor=${invalidDate}`,{cookie:accountCookie}),422,"invalid cursor calendar date");
+  expect(await api("/api/v1/maps?scope=mine"),401,"anonymous mine list");
+  const anonymousSearch=await api("/api/v1/maps?scope=public&q="+encodeURIComponent("3단계 검사"));
+  if(anonymousSearch.data.items.some(item=>createdMaps.includes(item.id)))throw new Error("Search leaked private maps");
   const configurations = [];
   for (const id of createdMaps) {
     const result = await api(`/api/v1/maps/${id}/configuration`, { cookie: accountCookie });
@@ -102,12 +125,21 @@ try {
   const revoked = await api(`/api/v1/maps/${createdMaps[0]}/invites`, { method: "POST", cookie: accountCookie, csrf: accountCsrf, body: {} });
   expect(revoked, 201, "revocable invite creation");
   expect(await api(`/api/v1/maps/${createdMaps[0]}/invites/${revoked.data.id}`, { method: "DELETE", cookie: accountCookie, csrf: accountCsrf }), 204, "invite revocation");
-  expect(await api("/api/v1/invites/redeem", { method: "POST", body: { code: revoked.data.code, nickname: "폐기검사" } }), 422, "revoked invite denial");
+  const revokedResult=await api("/api/v1/invites/redeem", { method: "POST", body: { code: revoked.data.code, nickname: "폐기검사" } });
+  expect(revokedResult,422,"revoked invite denial");
+  if(revokedResult.code!=="INVITE_REVOKED")throw new Error("Missing revoked guidance code");
 
   const expired = await api(`/api/v1/maps/${createdMaps[0]}/invites`, { method: "POST", cookie: accountCookie, csrf: accountCsrf, body: {} });
   expect(expired, 201, "expiring invite creation");
   await admin.query("UPDATE app_private.invites SET expires_at=now()-interval '1 minute' WHERE id=$1", [expired.data.id]);
-  expect(await api("/api/v1/invites/redeem", { method: "POST", body: { code: expired.data.code, nickname: "만료검사" } }), 422, "expired invite denial");
+  const expiredResult=await api("/api/v1/invites/redeem", { method: "POST", body: { code: expired.data.code, nickname: "만료검사" } });
+  expect(expiredResult,422,"expired invite denial");
+  if(expiredResult.code!=="INVITE_EXPIRED")throw new Error("Missing expired guidance code");
+  await admin.query("UPDATE app.maps SET status='archived' WHERE id=$1",[createdMaps[0]]);
+  const closedResult=await api("/api/v1/invites/redeem",{method:"POST",body:{code:invitation.data.code,nickname:"보관검사"}});
+  expect(closedResult,422,"archived map invite");
+  if(closedResult.code!=="MAP_CLOSED")throw new Error("Missing closed map guidance code");
+  await admin.query("UPDATE app.maps SET status='active' WHERE id=$1",[createdMaps[0]]);
 
   const exhausted = await api(`/api/v1/maps/${createdMaps[0]}/invites`, { method: "POST", cookie: accountCookie, csrf: accountCsrf, body: { maxUses: 1 } });
   expect(exhausted, 201, "limited invite creation");
@@ -117,7 +149,19 @@ try {
   await admin.query("UPDATE app.map_members SET status='blocked' WHERE map_id=$1 AND principal_id=$2", [createdMaps[0], guestId]);
   expect(await api(`/api/v1/maps/${createdMaps[0]}`, { cookie: guestCookie }), 404, "blocked guest map denial");
   expect(await api("/api/v1/invites/redeem", { method: "POST", cookie: guestCookie, csrf: guestSession.data.csrfToken, body: { code: invitation.data.code, nickname: "검사참여자" } }), 403, "blocked guest re-entry denial");
-  console.log("Live API smoke passed: five themes, sessions, maps, invite boundaries, nickname isolation, blocked guest");
+  console.log("Live API smoke passed: five themes, sessions, microsecond pagination, server search, invite guidance, nickname isolation, blocked guest");
+  if(process.env.DIRECTORY_UI_CHECK==="1") {
+    const label=`목록검증-${Date.now()}`;
+    for(let i=0;i<25;i++){
+      const result=await api("/api/v1/maps",{method:"POST",cookie:accountCookie,csrf:accountCsrf,body:{themeKey:i%2?"safety":"ecology",themeVersion:1,title:`${label} ${String(i+1).padStart(2,"0")}`,locationLabel:"가상 검사 지역",visibility:"public"}});
+      expect(result,201,"UI directory fixture");createdMaps.push(result.data.id);
+    }
+    writeFileSync(".directory-ui-check.json",JSON.stringify({label,expiredCode:expired.data.code}));
+    console.log("Directory UI fixtures ready; remove .directory-ui-check.json to finish (10 minute limit)");
+    const until=Date.now()+600000;
+    while(existsSync(".directory-ui-check.json")&&Date.now()<until)await pause(1000);
+    if(existsSync(".directory-ui-check.json"))unlinkSync(".directory-ui-check.json");
+  }
 } finally {
   if (accountId) {
     await admin.query("BEGIN");

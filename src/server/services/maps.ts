@@ -35,7 +35,7 @@ type MapRow = QueryResultRow & {
   participation: "invited" | "admin_only" | "closed";
   status: MapPolicyInput["status"]; pin_mode: Theme["pin"]["mode"]; rating_enabled: boolean;
   ideas_enabled: boolean; proposals_enabled: boolean; comments_enabled: boolean; config_revision: number;
-  version: string; created_at: Date; member_role?: "admin" | "participant" | null; member_status?: "active" | "blocked" | "left" | null;
+  version: string; created_at: Date; cursor_created_at?: string; member_role?: "admin" | "participant" | null; member_status?: "active" | "blocked" | "left" | null;
   center_lat: number | null; center_lng: number | null; initial_zoom: number;deleted_at:Date|null;
 };
 
@@ -73,20 +73,21 @@ export async function listMaps(scope: "public" | "mine"|"deleted", session: AppS
     if (cursor.length > 512) throw new ApiError(422, "INVALID_CURSOR", "목록을 다시 열어 주세요.");
     try { after = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")); }
     catch { throw new ApiError(422, "INVALID_CURSOR", "목록을 다시 열어 주세요."); }
-    if (!after || !Number.isFinite(Date.parse(after.createdAt)) || !/^[0-9a-f-]{36}$/i.test(after.id)) throw new ApiError(422, "INVALID_CURSOR", "목록을 다시 열어 주세요.");
+    if (!z.object({ createdAt: z.iso.datetime({ offset: true }), id: z.uuid() }).safeParse(after).success) throw new ApiError(422, "INVALID_CURSOR", "목록을 다시 열어 주세요.");
   }
   const rows = await query<MapRow>(
-    `SELECT m.*, mm.role AS member_role, mm.status AS member_status
+    `SELECT m.*, to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_created_at, mm.role AS member_role, mm.status AS member_status
        FROM app.maps m LEFT JOIN app.map_members mm ON mm.map_id = m.id AND mm.principal_id = $1
       WHERE (($2 = 'public' AND m.visibility = 'public' AND m.status='active') OR ($2 = 'mine' AND mm.status = 'active' AND m.status IN ('active','archived')) OR ($2='deleted' AND m.owner_principal_id=$1 AND m.status='deleted' AND m.deleted_at>now()-interval '30 days'))
-        AND ($3::text IS NULL OR m.title ILIKE '%' || $3 || '%' OR m.location_label ILIKE '%' || $3 || '%')
+        AND ($3::text IS NULL OR strpos(lower(m.title), lower($3)) > 0 OR strpos(lower(m.location_label), lower($3)) > 0)
         AND ($4::text IS NULL OR m.theme_key = $4)
         AND ($5::timestamptz IS NULL OR (m.created_at, m.id) < ($5, $6::uuid))
       ORDER BY m.created_at DESC, m.id DESC LIMIT $7`,
     [session?.principalId ?? null, scope, q ?? null, themeKey ?? null, after?.createdAt ?? null, after?.id ?? null, limit + 1]);
   const items = rows.slice(0, limit).map((row) => mapDto(row, session?.principalId ?? null));
   const last = rows[limit - 1];
-  const nextCursor = rows.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: last.created_at, id: last.id })).toString("base64url") : null;
+  // Keep PostgreSQL microseconds; JS Date would truncate them and skip rows at a page boundary.
+  const nextCursor = rows.length > limit && last ? Buffer.from(JSON.stringify({ createdAt: last.cursor_created_at, id: last.id })).toString("base64url") : null;
   return { items, nextCursor };
 }
 

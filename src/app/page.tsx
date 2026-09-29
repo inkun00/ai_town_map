@@ -8,6 +8,8 @@ import {FeatureSettings} from "@/components/FeatureSettings";
 import {preparePhoto,uploadPreparedPhoto,UploadError} from "@/lib/photo-upload";
 import {draftKey,readDrafts,saveDraft,clearDrafts,type SavedRecordDraft} from "@/lib/record-draft";
 import {pointRating,pointDescription} from "@/domain/point-presentation";
+import {MapDirectory} from "@/components/MapDirectory";
+import type {LiveMap} from "@/lib/map-directory";
 import {MapLegend,RatingLabel} from "@/components/MapMeaning";
 import {PointDialog} from "@/components/PointDialog";
 import KakaoMap, { type Coordinates } from "@/components/KakaoMap";
@@ -33,7 +35,6 @@ import {
 
 type MapWithSettings = DemoMap & { categories?: Category[]; features?: Theme["features"]; pinMode?: PinMode; rating?: Theme["rating"]; isOwner?: boolean; canManageMap?: boolean; canCreateObservation?: boolean; canComment?:boolean; center?: Coordinates | null; configRevision?: number; participation?:"invited"|"admin_only"|"closed";moderation?:"immediate"|"approval";commentsEnabled?:boolean;status?:"active"|"archived";version?:string };
 type LiveSession = { draftScope:string; kind: "account" | "guest"; expiresAt: string; csrfToken: string | null };
-type LiveMap = { id: string; title: string; description: string; themeKey: ThemeKey; location: string; center: Coordinates | null; configRevision: number; visibility: "public" | "invite_only"; participation:"invited"|"admin_only"|"closed";moderation:"immediate"|"approval";commentsEnabled:boolean;status:"active"|"archived";version:string;isMine: boolean; isOwner: boolean; capabilities: { canManageMap: boolean; canCreateObservation: boolean;canComment:boolean } };
 
 function asDemoMap(map: LiveMap): MapWithSettings {
   const accent: Record<ThemeKey, string> = { universal_design: "mint", safety: "peach", ecology: "lime", weather_life: "sky", custom: "mint" };
@@ -238,14 +239,7 @@ export default function HomePage() {
         const sessionPayload = await sessionResponse.json();
         if (!sessionResponse.ok) throw new Error(sessionPayload.error?.message ?? "세션을 불러올 수 없습니다.");
         const session = sessionPayload.data as LiveSession | null;
-        const publicResponse = await fetch("/api/v1/maps?scope=public&limit=50", { cache: "no-store" });
-        const publicPayload = await publicResponse.json();
-        if (!publicResponse.ok) throw new Error(publicPayload.error?.message ?? "지도를 불러올 수 없습니다.");
-        const mineResponse = session ? await fetch("/api/v1/maps?scope=mine&limit=50", { cache: "no-store" }) : null;
-        const minePayload = mineResponse ? await mineResponse.json() : { data: { items: [] } };
-        if (mineResponse && !mineResponse.ok) throw new Error(minePayload.error?.message ?? "참여 지도를 불러올 수 없습니다.");
         const merged = new Map<string, LiveMap>();
-        for (const map of [...(publicPayload.data?.items ?? []), ...(minePayload.data?.items ?? [])] as LiveMap[]) merged.set(map.id, map);
         const directMap = new URLSearchParams(window.location.search).get("map");
         if (directMap && !merged.has(directMap)) {
           const response = await fetch(`/api/v1/maps/${encodeURIComponent(directMap)}`, { cache: "no-store" });
@@ -489,8 +483,9 @@ export default function HomePage() {
         <div className="home-scroll">
           <section className="hero"><div className="hero__text"><span className="eyebrow">우리 동네, 우리의 이야기</span><h1>함께 만드는<br /><em>모두의 지도</em></h1><p>발견한 곳에 이모지 하나씩.<br />여러분의 기록이 동네를 바꿔요.</p><button className="button button--dark" type="button" onClick={openCreate}>새 지도 만들기 <Icon name="chevron" size={18} /></button></div><div className="hero__graphic" aria-hidden="true"><div className="hero__bubble hero__bubble--one">🌳</div><div className="hero__bubble hero__bubble--two">🚸</div><div className="hero__bubble hero__bubble--three">♿</div><div className="hero__road" /></div></section>
           {liveMode && <div className="auth-banner"><div><strong>{liveSession?.kind === "account" ? "Google 계정으로 참여 중" : liveSession?.kind === "guest" ? "초대 지도로 참여 중" : "지도를 만들려면 로그인해 주세요"}</strong><small>지도 개설자는 Google 로그인, 참여자는 초대 코드로 입장해요.</small></div><div>{liveSession?.kind === "account" ? <button type="button" onClick={() => void logout()}>로그아웃</button> : !liveSession ? <a href="/api/v1/auth/google?returnTo=%2F">Google 로그인</a> : null}<a href="/join">초대 코드 입력</a></div></div>}
+          {liveMode ? <MapDirectory signedIn={!!liveSession} onOpen={map => { setMaps(items => [asDemoMap(map), ...items.filter(item => item.id !== map.id)]); openMap(map.id); }} /> : <>
           <section className="home-section"><div className="section-heading"><div><span className="eyebrow">EXPLORE</span><h2>어떤 지도를 볼까요?</h2></div></div><label className="search-field"><Icon name="search" size={19} /><span className="sr-only">지도 검색</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="지도 이름, 지역, 주제로 찾아요" /></label><div className="map-cards">{visibleMaps.map((map) => <button key={map.id} type="button" className="map-card" onClick={() => openMap(map.id)}><span className={`map-card__art map-card__art--${map.accent}`}><span>{map.coverEmoji}</span><i /><b /></span><span className="map-card__body"><ThemePill themeKey={map.themeKey} /><strong>{map.title}</strong><small>{map.description}</small><span className="map-card__meta"><span><Icon name="pin" size={14} />{map.location}</span><span>{liveMode?"기록 살펴보기":`${points.filter((point) => point.mapId === map.id).length}개의 발견`}</span></span></span><span className="map-card__arrow"><Icon name="chevron" size={19} /></span></button>)}</div>{visibleMaps.length === 0 && <EmptyState emoji="🔎" title="지도를 찾지 못했어요">다른 이름이나 지역으로 검색해 보세요.</EmptyState>}</section>
-          <section className="home-section home-section--last" id="my-maps"><div className="section-heading"><div><span className="eyebrow">MY MAPS</span><h2>{liveMode ? "내가 참여한 지도" : "내가 만든 지도"}</h2></div></div><div className="my-map-list">{maps.filter((map) => map.isMine).map((map) => <button type="button" key={map.id} onClick={() => openMap(map.id)}><span className="my-map-list__emoji">{map.coverEmoji}</span><span><strong>{map.title}</strong><small>{map.visibility === "invite_only" ? "초대 전용" : "공개 지도"} · {themeByKey[map.themeKey].label}</small></span><Icon name="chevron" size={18} /></button>)}</div></section>{liveMode && liveSession?.kind==="account" && liveSession.csrfToken && <DeletedMaps csrfToken={liveSession.csrfToken} onNotice={notify}/>}</div>
+          <section className="home-section home-section--last" id="my-maps"><div className="section-heading"><div><span className="eyebrow">MY MAPS</span><h2>{liveMode ? "내가 참여한 지도" : "내가 만든 지도"}</h2></div></div><div className="my-map-list">{maps.filter((map) => map.isMine).map((map) => <button type="button" key={map.id} onClick={() => openMap(map.id)}><span className="my-map-list__emoji">{map.coverEmoji}</span><span><strong>{map.title}</strong><small>{map.visibility === "invite_only" ? "초대 전용" : "공개 지도"} · {themeByKey[map.themeKey].label}</small></span><Icon name="chevron" size={18} /></button>)}</div></section></>}{liveMode && liveSession?.kind==="account" && liveSession.csrfToken && <DeletedMaps csrfToken={liveSession.csrfToken} onNotice={notify}/>}</div>
         <nav className="bottom-nav" aria-label="홈 탐색"><button className="bottom-nav__item bottom-nav__item--active" type="button"><Icon name="map" /><span>지도 찾기</span></button><button className="bottom-nav__item" type="button" onClick={openCreate}><Icon name="plus" /><span>지도 만들기</span></button><button className="bottom-nav__item" type="button" onClick={() => document.getElementById("my-maps")?.scrollIntoView({ behavior: "smooth" })}><Icon name="users" /><span>내 지도</span></button></nav>
       </>}
 

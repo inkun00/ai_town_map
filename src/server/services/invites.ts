@@ -71,7 +71,10 @@ export async function redeemInvite(input: z.infer<typeof redeemSchema>, existing
          FROM app_private.invites i JOIN app.maps m ON m.id=i.map_id
         WHERE i.code_hmac=$1 FOR UPDATE OF i`, [codeHash(code)]);
     const invite = found.rows[0];
-    if (!invite || invite.revoked_at || invite.expires_at.getTime() <= Date.now() || invite.status !== "active") throw new ApiError(422, "INVITE_INVALID", "초대 코드를 확인해 주세요.");
+    if (!invite || invite.status === "deleted") throw new ApiError(422, "INVITE_INVALID", "초대 코드를 확인해 주세요.");
+    if (invite.revoked_at) throw new ApiError(422, "INVITE_REVOKED", "개설자가 사용을 중지한 초대입니다. 새 초대 코드를 요청해 주세요.");
+    if (invite.expires_at.getTime() <= Date.now()) throw new ApiError(422, "INVITE_EXPIRED", "초대 기한이 지났습니다. 개설자에게 새 초대 코드를 요청해 주세요.");
+    if (invite.status !== "active") throw new ApiError(422, "MAP_CLOSED", "보관 중인 지도입니다. 개설자에게 지도 재개를 요청해 주세요.");
     if (existing) {
       const membership = await client.query<{ status: string }>("SELECT status FROM app.map_members WHERE map_id=$1 AND principal_id=$2 FOR UPDATE", [invite.map_id, existing.principalId]);
       if (membership.rows[0]?.status === "active") return { mapId: invite.map_id, session: null, repeated: true };

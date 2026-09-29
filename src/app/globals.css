@@ -79,3 +79,10 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px soli
 .point-row, .overlap-records button { overflow-wrap:anywhere; }
 .overlap-records small { display:flex; align-items:center; gap:6px; margin-top:6px; color:#334155; }
 @media (forced-colors:active) { .rating-symbol, .map-pin-symbol { border-color:CanvasText; background:Canvas; color:CanvasText; } }
+.directory-filters { padding-bottom:0; }
+.directory-theme { display:flex; align-items:center; gap:12px; margin-top:12px; font-size:14px; font-weight:700; }
+.directory-theme select { flex:1; min-width:0; min-height:44px; padding:8px 12px; border:1px solid #cad5cb; border-radius:12px; background:white; color:#263e2d; font:inherit; }
+.directory-status { color:#526553; font-size:12px; line-height:1.6; margin:12px 0; }
+.directory-error { color:#a62722; font-size:14px; line-height:1.6; }
+.map-directory-section .my-map-list button { min-height:76px; overflow-wrap:anywhere; }
+.map-directory-section .my-map-list button>span:nth-child(2) { min-width:0; }
