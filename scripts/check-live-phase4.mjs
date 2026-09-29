@@ -70,6 +70,25 @@ try {
   const image=await api(`${path}/${first.data.id}/photo`);expect(image,200,"photo read");
   if(image.raw.subarray(0,4).toString()!=="RIFF") throw new Error("Photo was not converted to WebP");
   const otherMapPhoto=await api(`/api/v1/maps/${mapIds[1]}/observations/${first.data.id}/photo`);expect(otherMapPhoto,404,"cross-map photo isolation");
+  const emojiPath=`/api/v1/maps/${mapIds[0]}/emoji-options`,category=configs[0].theme.categories[0];
+  let setting=(await api(`/api/v1/maps/${mapIds[0]}`)).data;
+  const availability={categoryKey:category.key,emojiKey:category.emojiOptions[0].key,active:false};
+  expect(await api(emojiPath,{method:"PATCH",body:availability,anonymous:true,extraHeaders:{"If-Match":`"${setting.version}"`}}),401,"anonymous emoji change denied");
+  const disabledEmoji=await api(emojiPath,{method:"PATCH",body:availability,extraHeaders:{"If-Match":`"${setting.version}"`}});expect(disabledEmoji,200,"disable used emoji");
+  expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"If-Match":`"${setting.version}"`}}),412,"stale emoji change denied");
+  setting=disabledEmoji.data;
+  const configured=(await api(`/api/v1/maps/${mapIds[0]}/configuration`)).data.theme.categories[0];
+  if(configured.emojiOptions[0].active!==false||configured.defaultEmojiKey===availability.emojiKey||configured.emojiOptions[0].glyph!==category.emojiOptions[0].glyph)throw new Error("Inactive emoji lost its meaning or remained default");
+  expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput}),422,"inactive emoji rejected for new record");
+  const existingRecord=(await api(path)).data.items[0];
+  if(existingRecord.emojiKey!==availability.emojiKey)throw new Error("Existing emoji changed");
+  expect(await api(`${path}/${existingRecord.id}`,{method:"PATCH",body:ecologyInput,extraHeaders:{"If-Match":`"${existingRecord.version}"`}}),200,"edit existing inactive emoji preserved");
+  for(const option of category.emojiOptions.slice(1,-1)){
+    const result=await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:option.key},extraHeaders:{"If-Match":`"${setting.version}"`}});expect(result,200,"disable additional emoji");setting=result.data;
+  }
+  expect(await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:category.emojiOptions.at(-1).key},extraHeaders:{"If-Match":`"${setting.version}"`}}),409,"last active emoji protected");
+  expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"If-Match":`"${setting.version}"`}}),200,"restore emoji");
+  expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput}),201,"restored emoji accepted");
   console.log("Live Phase 4 API smoke passed: emoji/rating rules, idempotency, map isolation, edit version, photo processing");
 } finally {
   if(accountId) {
@@ -77,6 +96,7 @@ try {
     try {
       await admin.query("SET CONSTRAINTS ALL DEFERRED");
       const ids=mapIds;
+      await admin.query("DELETE FROM app.audit_events WHERE map_id=ANY($1::uuid[])",[ids]);
       await admin.query("DELETE FROM app.observation_photos WHERE map_id=ANY($1::uuid[])",[ids]);
       await admin.query("DELETE FROM app.observations WHERE map_id=ANY($1::uuid[])",[ids]);
       await admin.query("DELETE FROM app.map_config_revisions WHERE map_id=ANY($1::uuid[])",[ids]);

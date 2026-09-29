@@ -56,6 +56,28 @@ try{
   expect(await api(`${pp}/actions`,guest,{method:"POST",version:proposal.version,body:{action:"approve"}}),403,"participant approval denied");
   proposal=expect(await api(`${pp}/actions`,owner,{method:"POST",version:proposal.version,body:{action:"approve"}}),200,"approve");
   const published=expect(await api(`${pp}?view=published`,null),200,"share public");if(published.content.title!==draft.title)throw new Error("Published content missing");
+  const extraDraft=expect(await api(`${basePath}/proposals`,guest,{method:"POST",key:randomUUID(),body:{...draft,title:"보관할 초안"}}),201,"archive fixture draft");
+  const featureMap=expect(await api(basePath,owner),200,"feature map version");
+  expect(await api(`${pp}?view=archive`,guest),403,"participant enabled archive detail denied");
+  expect(await api(`${basePath}/emoji-options`,guest,{method:"PATCH",version:featureMap.version,body:{categoryKey:theme.categories[0].key,emojiKey:theme.categories[0].emojiOptions[0].key,active:false}}),403,"participant emoji toggle denied");
+  expect(await api(basePath,guest,{method:"PATCH",version:featureMap.version,body:{proposalsEnabled:false}}),403,"participant feature toggle denied");
+  const featureOff=expect(await api(basePath,owner,{method:"PATCH",version:featureMap.version,body:{proposalsEnabled:false}}),200,"disable proposal feature");
+  if(expect(await api(`${basePath}/configuration`,owner),200,"disabled configuration").theme.features.proposalsEnabled!==false)throw new Error("Feature configuration was stale");
+  for(const actor of [null,guest,owner])expect(await api(`${pp}?view=published`,actor),404,"disabled shared proposal denied");
+  expect(await api(`${basePath}/proposals?scope=archive`,guest),404,"participant disabled archive denied");
+  expect(await api(`${pp}?view=archive`,outsider),404,"outsider disabled archive denied");
+  const kept=expect(await api(`${basePath}/proposals?scope=archive`,owner),200,"manager disabled archive");
+  if(kept.items.length!==2||!kept.items.some(item=>item.id===extraDraft.id))throw new Error("Archive must preserve published and draft proposals");
+  const keptDetail=expect(await api(`${pp}?view=archive`,owner),200,"read-only archive detail");
+  if(keptDetail.canEdit||keptDetail.canReview||keptDetail.canDelete||keptDetail.canUnpublish||keptDetail.canSubmit)throw new Error("Disabled proposal retained write capability");
+  expect(await api(pp,guest,{method:"PATCH",version:proposal.version,body:draft}),404,"disabled proposal edit denied");
+  expect(await api(pp,owner,{method:"DELETE",version:proposal.version}),404,"disabled proposal delete denied");
+  expect(await api(`${pp}/actions`,owner,{method:"POST",version:proposal.version,body:{action:"unpublish",reason:"검증"}}),404,"disabled proposal action denied");
+  expect(await api(`${basePath}/proposals`,guest,{method:"POST",key:randomUUID(),body:draft}),404,"disabled proposal create denied");
+  expect(await api(basePath,owner,{method:"PATCH",version:featureOff.version,body:{proposalsEnabled:true}}),200,"restore proposal feature");
+  const restoredFeature=expect(await api(`${pp}?view=published`,null),200,"restored public proposal");
+  if(restoredFeature.version!==proposal.version||restoredFeature.revision!==published.revision||restoredFeature.content.title!==published.content.title)throw new Error("Feature toggle mutated proposal history");
+  expect(await api(`${basePath}/proposals/${extraDraft.id}`,guest,{method:"DELETE",version:extraDraft.version}),204,"remove archive fixture draft");
   if(process.env.PHASE6_UI_CHECK==="1"){
     const marker=".phase6-ui-check.json";
     writeFileSync(marker,JSON.stringify({mapUrl:`${base}/?map=${mapId}`,proposalUrl:`${base}/maps/${mapId}/proposals/${proposal.id}`}));

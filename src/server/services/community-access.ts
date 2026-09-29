@@ -8,13 +8,13 @@ export type CommunityMap = QueryResultRow & {
   id: string; owner_principal_id: string; visibility: "public" | "invite_only";
   status: "draft" | "active" | "archived" | "deleted";
   moderation: "immediate" | "approval"; participation: "invited" | "admin_only" | "closed";
-  comments_enabled: boolean; version: string;
+  comments_enabled: boolean; proposals_enabled:boolean; version: string;
   member_id: string | null; member_role: "admin" | "participant" | null;
   member_status: "active" | "blocked" | "left" | null;
 };
 
 export async function communityMap(client: PoolClient, mapId: string, session: AppSession | null): Promise<CommunityMap> {
-  const result = await client.query<CommunityMap>(`SELECT m.id,m.owner_principal_id,m.visibility,m.status,m.moderation,m.participation,m.comments_enabled,m.version,
+  const result = await client.query<CommunityMap>(`SELECT m.id,m.owner_principal_id,m.visibility,m.status,m.moderation,m.participation,m.comments_enabled,m.proposals_enabled,m.version,
     mm.id AS member_id,mm.role AS member_role,mm.status AS member_status
     FROM app.maps m LEFT JOIN app.map_members mm ON mm.map_id=m.id AND mm.principal_id=$2 WHERE m.id=$1`, [mapId,session?.principalId ?? null]);
   const map = result.rows[0];

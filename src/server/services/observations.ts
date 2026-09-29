@@ -81,6 +81,7 @@ export async function listObservations(mapId:string,session:AppSession|null,scop
 export async function createObservation(mapId:string,session:AppSession,key:string,input:ObservationInput) {
   const requestHash=createHash("sha256").update(JSON.stringify(input)).digest();
   return withTransaction(async(client)=>{
+    await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);
     const map=await mapAccess(client,mapId,session);
     if (!mayWrite(map,session)) throw new ApiError(403,"WRITE_FORBIDDEN","이 지도에 기록을 남길 수 없습니다.");
     await client.query("DELETE FROM app_private.idempotency_keys WHERE principal_id=$1 AND route_scope=$2 AND key=$3 AND expires_at<now()",[session.principalId,`observation:${mapId}`,key]);
@@ -109,6 +110,7 @@ export async function createObservation(mapId:string,session:AppSession,key:stri
 
 export async function updateObservation(mapId:string,id:string,session:AppSession,version:string,input:ObservationInput) {
   return withTransaction(async(client)=>{
+    await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);
     const map=await mapAccess(client,mapId,session);
     if (!mayEdit(map)) throw new ApiError(403,"WRITE_FORBIDDEN","이 지도에 기록을 수정할 수 없습니다.");
     const existing=await client.query<ObservationRow>(`${rowSql} WHERE o.id=$1 AND o.map_id=$2 FOR UPDATE OF o`,[id,mapId]);
@@ -119,7 +121,7 @@ export async function updateObservation(mapId:string,id:string,session:AppSessio
     const config=await client.query<{definition:Theme}>("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=$2",[mapId,map.config_revision]);
     validateInput(input,config.rows[0].definition);
     const category=await client.query<{id:string}>("SELECT id FROM app.categories WHERE map_id=$1 AND key=$2 AND active=true",[mapId,input.categoryKey]);
-    const emoji=await client.query<{id:string}>("SELECT id FROM app.emoji_options WHERE map_id=$1 AND category_id=$2 AND key=$3 AND active=true",[mapId,category.rows[0]?.id,input.emojiKey]);
+    const emoji=await client.query<{id:string}>("SELECT id FROM app.emoji_options WHERE map_id=$1 AND category_id=$2 AND key=$3 AND (active=true OR $4)",[mapId,category.rows[0]?.id,input.emojiKey,row.category_key===input.categoryKey&&row.emoji_key===input.emojiKey]);
     const rating=input.ratingKey ? await client.query<{id:string}>("SELECT id FROM app.rating_options WHERE map_id=$1 AND key=$2",[mapId,input.ratingKey]) : null;
     if(!category.rows[0] || !emoji.rows[0] || (input.ratingKey && !rating?.rows[0])) throw new ApiError(422,"CONFIG_CHANGED","분류나 이모지 설정이 바뀌었습니다.");
     await client.query(`UPDATE app.observations SET title=$3,body=$4,location_label=$5,location_source=$6,lat=$7,lng=$8,category_id=$9,emoji_option_id=$10,rating_option_id=$11,answers=$12,improvement_idea=$13,link_url=$14,status=$15,version=version+1,updated_at=now() WHERE id=$1 AND map_id=$2`,[id,mapId,input.title,input.body,input.locationLabel,input.locationSource,input.location.lat,input.location.lng,category.rows[0].id,emoji.rows[0].id,rating?.rows[0]?.id ?? null,JSON.stringify(input.answers),input.improvementIdea || null,input.link || null,map.moderation==="approval" ? "pending" : "published"]);

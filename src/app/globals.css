@@ -47,3 +47,5 @@ input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px soli
 @media(max-width:600px){.app-frame input,.app-frame textarea,.app-frame select,.point-dialog input,.point-dialog textarea,.point-dialog select{font-size:16px}}
 
 .map-canvas>.kakao-map-shell{isolation:isolate;z-index:0}.map-canvas>.map-legend{z-index:1;bottom:32px}.map-canvas>.map-floating-action{z-index:1;bottom:116px}
+
+.feature-settings{margin:20px 0}.feature-settings h2{font-size:18px}.feature-settings p{font-size:13px;line-height:1.6}.feature-settings summary{min-height:44px;padding:12px 0;font-weight:700;cursor:pointer}.emoji-setting{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;font-size:13px}.emoji-setting>span{flex:1;min-width:0}.emoji-setting button{min-height:44px;flex:none}

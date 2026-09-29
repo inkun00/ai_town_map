@@ -6,7 +6,7 @@ import { withTransaction } from "@/server/db";
 import { ApiError } from "@/server/http";
 import { audit,communityMap,requireAdmin } from "./community-access";
 
-export const mapSettingsInput=z.strictObject({visibility:z.enum(["public","invite_only"]).optional(),participation:z.enum(["invited","admin_only","closed"]).optional(),moderation:z.enum(["immediate","approval"]).optional(),commentsEnabled:z.boolean().optional(),status:z.enum(["active","archived"]).optional()}).refine(value=>Object.keys(value).length>0);
+export const mapSettingsInput=z.strictObject({visibility:z.enum(["public","invite_only"]).optional(),participation:z.enum(["invited","admin_only","closed"]).optional(),moderation:z.enum(["immediate","approval"]).optional(),commentsEnabled:z.boolean().optional(),proposalsEnabled:z.boolean().optional(),status:z.enum(["active","archived"]).optional()}).refine(value=>Object.keys(value).length>0);
 export const memberInput=z.strictObject({role:z.enum(["admin","participant"]).optional(),status:z.enum(["active","blocked"]).optional()}).refine(value=>Object.keys(value).length===1);
 type MemberRow=QueryResultRow&{id:string;principal_id:string;nickname:string;role:"admin"|"participant";status:"active"|"blocked"|"left";version:string;joined_at:Date;kind:"account"|"guest"};
 function memberDto(row:MemberRow,ownerId:string){return{id:row.id,nickname:row.nickname,role:row.role,status:row.status,version:row.version,joinedAt:row.joined_at,isOwner:row.principal_id===ownerId,accountType:row.kind};}
@@ -19,7 +19,7 @@ export async function changeMapSettings(mapId:string,session:AppSession,version:
     const owner=map.owner_principal_id===session.principalId;
     if(!owner&&(input.visibility!==undefined||input.participation!==undefined||input.status!==undefined))throw new ApiError(403,"OWNER_REQUIRED","지도 개설자만 변경할 수 있습니다.");
     if(input.status&&input.status===map.status&&Object.keys(input).length===1)return{version:map.version};
-    await client.query(`UPDATE app.maps SET visibility=coalesce($2,visibility),participation=coalesce($3,participation),moderation=coalesce($4,moderation),comments_enabled=coalesce($5,comments_enabled),status=coalesce($6,status),version=version+1,updated_at=now() WHERE id=$1`,[mapId,input.visibility??null,input.participation??null,input.moderation??null,input.commentsEnabled??null,input.status??null]);
+    await client.query(`UPDATE app.maps SET visibility=coalesce($2,visibility),participation=coalesce($3,participation),moderation=coalesce($4,moderation),comments_enabled=coalesce($5,comments_enabled),status=coalesce($6,status),proposals_enabled=coalesce($7,proposals_enabled),version=version+1,updated_at=now() WHERE id=$1`,[mapId,input.visibility??null,input.participation??null,input.moderation??null,input.commentsEnabled??null,input.status??null,input.proposalsEnabled??null]);
     await audit(client,mapId,session,"map.settings","map",mapId,JSON.stringify(input));
     const result=await client.query<{version:string}>("SELECT version FROM app.maps WHERE id=$1",[mapId]);return{version:result.rows[0].version};
   });
@@ -51,5 +51,22 @@ export async function changeMember(mapId:string,id:string,session:AppSession,ver
     await client.query("UPDATE app.map_members SET role=coalesce($2,role),status=coalesce($3,status),version=version+1 WHERE id=$1",[id,input.role??null,input.status??null]);
     await audit(client,mapId,session,input.role?"member.role":"member.status","member",id,JSON.stringify(input));
     const latest=await client.query<MemberRow>(`SELECT mm.*,p.kind FROM app.map_members mm JOIN app.principals p ON p.id=mm.principal_id WHERE mm.id=$1`,[id]);return memberDto(latest.rows[0],map.owner_principal_id);
+  });
+}
+
+export const emojiAvailabilityInput=z.strictObject({categoryKey:z.string().min(1).max(60),emojiKey:z.string().min(1).max(60),active:z.boolean()});
+export async function changeEmojiAvailability(mapId:string,session:AppSession,version:string,input:z.infer<typeof emojiAvailabilityInput>){
+  return withTransaction(async client=>{
+    await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);
+    const map=await communityMap(client,mapId,session);requireAdmin(map,session);
+    if(map.version!==version)throw new ApiError(412,"VERSION_CHANGED","지도 설정이 바뀌었습니다. 다시 확인해 주세요.");
+    const result=await client.query<{id:string;category_id:string;active:boolean}>("SELECT e.id,e.category_id,e.active FROM app.emoji_options e JOIN app.categories c ON c.id=e.category_id WHERE e.map_id=$1 AND c.key=$2 AND e.key=$3",[mapId,input.categoryKey,input.emojiKey]);
+    const emoji=result.rows[0];if(!emoji)throw new ApiError(404,"NOT_FOUND","이모지를 찾을 수 없습니다.");
+    if(emoji.active===input.active)return{version:map.version};
+    if(!input.active){const remaining=await client.query("SELECT id FROM app.emoji_options WHERE map_id=$1 AND category_id=$2 AND active=true AND id<>$3",[mapId,emoji.category_id,emoji.id]);if(!remaining.rowCount)throw new ApiError(409,"LAST_ACTIVE_EMOJI","유형마다 사용할 이모지가 하나 이상 필요합니다.");}
+    await client.query("UPDATE app.emoji_options SET active=$2 WHERE id=$1",[emoji.id,input.active]);
+    const updated=await client.query<{version:string}>("UPDATE app.maps SET version=version+1,updated_at=now() WHERE id=$1 RETURNING version",[mapId]);
+    await audit(client,mapId,session,"emoji.availability","emoji_option",emoji.id,JSON.stringify(input));
+    return{version:updated.rows[0].version};
   });
 }

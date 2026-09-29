@@ -95,7 +95,15 @@ export async function getMapConfiguration(mapId: string, session: AppSession | n
     const row = await readMap(client, mapId, session?.principalId ?? null);
     if (!row || !canReadMap(session?.principalId ?? null, { visibility: row.visibility, status: row.status, ownerPrincipalId: row.owner_principal_id }, row.member_status ? { status: row.member_status, role: row.member_role! } : null)) throw new ApiError(404, "NOT_FOUND", "지도를 찾을 수 없습니다.");
     const revision = await client.query<{ definition: Theme }>("SELECT definition FROM app.map_config_revisions WHERE map_id = $1 AND revision = $2", [mapId, row.config_revision]);
-    return { mapId, configRevision: row.config_revision, theme: revision.rows[0]?.definition ?? null };
+    const theme=revision.rows[0]?.definition;
+    if(!theme)return {mapId,configRevision:row.config_revision,theme:null};
+    const options=(await client.query<{category_key:string;key:string;active:boolean}>("SELECT c.key AS category_key,e.key,e.active FROM app.emoji_options e JOIN app.categories c ON c.id=e.category_id WHERE e.map_id=$1",[mapId])).rows;
+    const categories=theme.categories.map(category=>{
+      const emojiOptions=category.emojiOptions.map(emoji=>({...emoji,active:options.find(option=>option.category_key===category.key&&option.key===emoji.key)?.active??false}));
+      const defaultEmojiKey=emojiOptions.find(emoji=>emoji.key===category.defaultEmojiKey&&emoji.active)?.key??emojiOptions.find(emoji=>emoji.active)?.key??category.defaultEmojiKey;
+      return {...category,emojiOptions,defaultEmojiKey};
+    });
+    return {mapId,configRevision:row.config_revision,theme:{...theme,categories,features:{...theme.features,proposalsEnabled:row.proposals_enabled,commentsEnabled:row.comments_enabled}}};
   });
 }
 

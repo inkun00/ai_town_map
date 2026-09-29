@@ -16,10 +16,10 @@ type Evidence={id:string;version:string};
 type ProposalRow={id:string;map_id:string;author_member_id:string;latest_revision:number;published_revision:number|null;version:string;deleted_at:Date|null;request_hash:Buffer};
 type VersionRow={revision:number;status:"draft"|"in_review"|"published"|"archived";content:Omit<Input,"evidenceIds"|"filter">;evidence:Evidence[];snapshot:Snapshot;review_reason:string|null};
 
-async function access(client:PoolClient,mapId:string,session:AppSession|null,write=false){
+async function access(client:PoolClient,mapId:string,session:AppSession|null,write=false,allowDisabledArchive=false){
+  if(write)await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE",[mapId]);
   const map=await communityMap(client,mapId,session);
-  const setting=(await client.query<{proposals_enabled:boolean}>("SELECT proposals_enabled FROM app.maps WHERE id=$1",[mapId])).rows[0];
-  if(!setting.proposals_enabled)throw new ApiError(404,"FEATURE_DISABLED","이 지도에서는 제안서를 사용하지 않습니다.");
+  if(!map.proposals_enabled&&!(allowDisabledArchive&&!write&&isAdmin(map,session)))throw new ApiError(404,"FEATURE_DISABLED","이 지도에서는 제안서를 사용하지 않습니다.");
   if(write){requireMember(map);if(map.status!=="active")throw new ApiError(403,"MAP_ARCHIVED","보관된 지도에서는 제안서를 바꿀 수 없습니다.");}
   return map;
 }
@@ -38,7 +38,7 @@ async function detail(client:PoolClient,row:ProposalRow,map:CommunityMap,session
   const v=await versionOf(client,row,revision);
   const evidence=await evidenceState(client,row.map_id,v.evidence);
   const current=(await client.query<{data_revision:string}>("SELECT data_revision FROM app.maps WHERE id=$1",[row.map_id])).rows[0];
-  return {id:row.id,mapId:row.map_id,version:row.version,revision,status:v.status,publishedRevision:row.published_revision,content:v.content,evidence,snapshot:v.snapshot,reviewReason:v.review_reason,statsChanged:current.data_revision!==v.snapshot.dataRevision,canEdit:author&&map.status==="active"&&v.status!=="in_review",canSubmit:author&&map.status==="active"&&v.status==="draft",canReview:manager&&map.status==="active"&&v.status==="in_review",canUnpublish:manager&&map.status==="active"&&row.published_revision!==null,canDelete:map.status==="active"&&(author||manager)};
+  return {id:row.id,mapId:row.map_id,version:row.version,revision,status:v.status,publishedRevision:row.published_revision,content:v.content,evidence,snapshot:v.snapshot,reviewReason:v.review_reason,statsChanged:current.data_revision!==v.snapshot.dataRevision,canEdit:author&&map.proposals_enabled&&map.status==="active"&&v.status!=="in_review",canSubmit:author&&map.proposals_enabled&&map.status==="active"&&v.status==="draft",canReview:manager&&map.proposals_enabled&&map.status==="active"&&v.status==="in_review",canUnpublish:manager&&map.proposals_enabled&&map.status==="active"&&row.published_revision!==null,canDelete:map.proposals_enabled&&map.status==="active"&&(author||manager)};
 }
 async function prepare(client:PoolClient,mapId:string,session:AppSession,input:Input){
   const dataset=await readDataset(client,mapId,session,input.filter);
@@ -54,18 +54,18 @@ async function validateReady(client:PoolClient,row:ProposalRow,v:VersionRow){
   if(evidence.some(e=>e.state!=="current")||current.data_revision!==v.snapshot.dataRevision)throw new ApiError(409,"EVIDENCE_CHANGED","기록이나 집계가 바뀌었습니다. 초안을 다시 저장해 근거를 확인해 주세요.");
 }
 export async function listProposals(mapId:string,session:AppSession|null,scope:"published"|"mine"|"review"|"archive",cursor?:string){
-  return withTransaction(async client=>{const map=await access(client,mapId,session);if(scope==="mine")requireMember(map);if(scope==="review"||scope==="archive"){if(!session)throw new ApiError(401,"LOGIN_REQUIRED","로그인이 필요합니다.");requireAdmin(map,session);}
+  return withTransaction(async client=>{const map=await access(client,mapId,session,false,scope==="archive");if(scope==="mine")requireMember(map);if(scope==="review"||scope==="archive"){if(!session)throw new ApiError(401,"LOGIN_REQUIRED","로그인이 필요합니다.");requireAdmin(map,session);}
     let after:{at:string;id:string}|null=null;
     if(cursor){try{if(cursor.length>512)throw new Error();after=z.strictObject({at:z.iso.datetime(),id:z.uuid()}).parse(JSON.parse(Buffer.from(cursor,"base64url").toString("utf8")));}catch{throw new ApiError(422,"INVALID_CURSOR","제안서 목록을 다시 열어 주세요.");}}
     const rows=(await client.query(`SELECT p.id,p.version,p.latest_revision,p.published_revision,v.content->>'title' AS title,v.status,v.revision,p.updated_at,to_char(p.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
       FROM app.proposals p JOIN app.proposal_versions v ON v.proposal_id=p.id AND v.revision=CASE WHEN $2='published' THEN p.published_revision ELSE p.latest_revision END
-      WHERE p.map_id=$1 AND p.deleted_at IS NULL AND (($2='published' AND p.published_revision IS NOT NULL) OR ($2='mine' AND p.author_member_id=$3) OR ($2='review' AND v.status='in_review') OR ($2='archive' AND p.published_revision IS NULL AND v.status='archived')) AND ($4::timestamptz IS NULL OR (p.updated_at,p.id)<($4,$5::uuid)) ORDER BY p.updated_at DESC,p.id DESC LIMIT 51`,[mapId,scope,map.member_id,after?.at??null,after?.id??null])).rows;
+      WHERE p.map_id=$1 AND p.deleted_at IS NULL AND (($2='published' AND p.published_revision IS NOT NULL) OR ($2='mine' AND p.author_member_id=$3) OR ($2='review' AND v.status='in_review') OR ($2='archive' AND ($6 OR (p.published_revision IS NULL AND v.status='archived')))) AND ($4::timestamptz IS NULL OR (p.updated_at,p.id)<($4,$5::uuid)) ORDER BY p.updated_at DESC,p.id DESC LIMIT 51`,[mapId,scope,map.member_id,after?.at??null,after?.id??null,!map.proposals_enabled])).rows;
     return {items:rows.slice(0,50).map(r=>({id:r.id,title:r.title,status:r.status,version:r.version,revision:r.revision,publishedRevision:r.published_revision})),nextCursor:rows.length>50?Buffer.from(JSON.stringify({at:rows[49].cursor_at,id:rows[49].id})).toString("base64url"):null};
   });
 }
-export async function getProposal(mapId:string,id:string,session:AppSession|null,publishedOnly=false){return withTransaction(async client=>{await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");const map=await access(client,mapId,session);return detail(client,await rowOf(client,mapId,id),map,session,publishedOnly);});}
+export async function getProposal(mapId:string,id:string,session:AppSession|null,publishedOnly=false,archiveView=false){return withTransaction(async client=>{await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");const map=await access(client,mapId,session,false,archiveView&&!publishedOnly);if(archiveView){if(!session)throw new ApiError(401,"LOGIN_REQUIRED","로그인이 필요합니다.");requireAdmin(map,session);}return detail(client,await rowOf(client,mapId,id),map,session,publishedOnly);});}
 export async function createProposal(mapId:string,session:AppSession,key:string,input:Input){
-  return withTransaction(async client=>{await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");const map=await access(client,mapId,session,true);const hash=createHash("sha256").update(JSON.stringify(input)).digest();
+  return withTransaction(async client=>{const map=await access(client,mapId,session,true);const hash=createHash("sha256").update(JSON.stringify(input)).digest();
     const inserted=(await client.query<ProposalRow>("INSERT INTO app.proposals(map_id,author_member_id,request_key,request_hash) VALUES($1,$2,$3,$4) ON CONFLICT(map_id,author_member_id,request_key) DO NOTHING RETURNING *",[mapId,map.member_id,key,hash])).rows[0];
     if(!inserted){const previous=(await client.query<ProposalRow>("SELECT * FROM app.proposals WHERE map_id=$1 AND author_member_id=$2 AND request_key=$3",[mapId,map.member_id,key])).rows[0];if(!previous||previous.deleted_at||!previous.request_hash.equals(hash))throw new ApiError(409,"IDEMPOTENCY_CONFLICT","같은 요청 키의 제안서가 이미 있습니다.");return {proposal:await detail(client,previous,map,session),repeated:true};}
     const data=await prepare(client,mapId,session,input);
@@ -74,7 +74,7 @@ export async function createProposal(mapId:string,session:AppSession,key:string,
   });
 }
 export async function updateProposal(mapId:string,id:string,session:AppSession,version:string,input:Input){
-  return withTransaction(async client=>{await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");const map=await access(client,mapId,session,true);const row=await rowOf(client,mapId,id,true);matchVersion(row,version);if(!isAuthor(row,map))throw new ApiError(403,"AUTHOR_REQUIRED","작성자만 초안을 수정할 수 있습니다.");
+  return withTransaction(async client=>{const map=await access(client,mapId,session,true);const row=await rowOf(client,mapId,id,true);matchVersion(row,version);if(!isAuthor(row,map))throw new ApiError(403,"AUTHOR_REQUIRED","작성자만 초안을 수정할 수 있습니다.");
     const previous=await versionOf(client,row,row.latest_revision);if(previous.status==="in_review")throw new ApiError(409,"IN_REVIEW","검토 중인 초안입니다. 관리자의 검토를 기다려 주세요.");
     const data=await prepare(client,mapId,session,input);
     if(previous.status!=="draft"){

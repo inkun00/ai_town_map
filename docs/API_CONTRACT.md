@@ -224,3 +224,14 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 웹 공유·인쇄 경로는 `/maps/{mapId}/proposals/{id}`다. 현재 확정본만 조회하며 익명 공개 토큰은 없다. 캐시 정책은 API 모두 private/no-store다. CSV와 인쇄물은 내려받은 뒤 서버의 접근 철회가 적용되지 않으므로, 공유 범위 변경은 웹 조회에 즉시 적용되는 것으로 정의한다.
 
 모바일 메모리와 응답 크기를 제한하기 위해 JSON/CSV 응답이 UTF-8 기준 3,500,000바이트를 넘는 경우에도 `NARROW_FILTER`를 반환한다. 일부 기록만 잘라서 집계하지 않는다.
+
+
+## 7단계 설정 관리 실제 구현 (2026-09-29)
+
+- `PATCH /maps/{mapId}`에 `proposalsEnabled`를 추가했다. 개설자 또는 관리자, CSRF와 현재 지도 version의 `If-Match`가 필요하다.
+- `PATCH /maps/{mapId}/emoji-options`는 `{categoryKey,emojiKey,active}`를 받는다. 같은 권한·CSRF·지도 version 검사를 적용하고 새 version을 반환한다. 마지막 활성 이모지 중지는 `409 LAST_ACTIVE_EMOJI`, 오래된 version은 `412 VERSION_CHANGED`다.
+- configuration은 이모지의 원래 glyph·label·key를 유지하면서 `active`를 반환한다. 대표 이모지가 비활성화되면 첫 활성 이모지를 새 기록의 기본값으로 사용한다. 질문/평가 정의와 configRevision은 변경하지 않는다.
+- 새 기록에는 활성 이모지만 사용할 수 있다. 수정 시에는 해당 기록의 기존 categoryKey·emojiKey와 같은 값에 한해 비활성 이모지를 유지할 수 있다.
+- 제안 기능을 끄면 일반 목록·상세·공유와 모든 쓰기가 `404 FEATURE_DISABLED`로 차단된다. 관리자만 `scope=archive` 목록과 `view=archive` 상세를 읽을 수 있다. 보관함에는 삭제하지 않은 모든 작업본이 포함되고, 상세의 편집·검토·삭제 가능 값은 모두 false다.
+- 제안서와 확정본 포인터를 변경하지 않으므로 기능을 다시 켜면 기존 공개·검토 상태가 복원된다. `view=archive`는 활성화 여부와 무관하게 관리자 전용이다. 실제 열람에는 현재 지도 접근 권한이 계속 적용된다.
+- 설정 변경과 기록/제안서 쓰기는 지도 행 잠금으로 직렬화한다. 설정 변경은 감사 로그를 남긴다. 기존 컬럼과 권한을 사용하므로 추가 migration은 없다.

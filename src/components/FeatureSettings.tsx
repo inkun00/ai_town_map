@@ -1,0 +1,20 @@
+"use client";
+import {useState} from "react";
+import type {Theme} from "@/lib/demo-data";
+import {ProposalDocument,type ProposalDetail} from "./ProposalWorkspace";
+
+type Summary={id:string;title:string};
+export function FeatureSettings({mapId,version,theme,csrfToken,loading,onChanged,onNotice}:{mapId:string;version:string;theme:Theme;csrfToken:string;loading:boolean;onChanged:()=>Promise<void>;onNotice:(text:string)=>void}){
+  const [busy,setBusy]=useState(false),[showArchive,setShowArchive]=useState(false),[items,setItems]=useState<Summary[]>([]),[cursor,setCursor]=useState<string|null>(null),[selected,setSelected]=useState<ProposalDetail|null>(null),[error,setError]=useState("");
+  const base=`/api/v1/maps/${mapId}`;
+  async function request<T>(path:string,options?:RequestInit):Promise<T>{const response=await fetch(path,{cache:"no-store",...options});const payload=await response.json();if(!response.ok)throw new Error(payload.error?.message??"요청을 처리하지 못했습니다.");return payload.data as T;}
+  async function change(path:string,body:unknown){if(busy||loading)return;setBusy(true);setError("");try{await request(path,{method:"PATCH",headers:{"Content-Type":"application/json","X-CSRF-Token":csrfToken,"If-Match":`"${version}"`},body:JSON.stringify(body)});setSelected(null);setShowArchive(false);await onChanged();onNotice("설정을 저장했어요. 기존 기록은 그대로 보존됩니다.");}catch(e){setError(e instanceof Error?e.message:"설정을 저장하지 못했습니다.");await onChanged();}finally{setBusy(false);}}
+  async function archive(more=false){setBusy(true);setError("");try{const result=await request<{items:Summary[];nextCursor:string|null}>(`${base}/proposals?scope=archive${more&&cursor?`&cursor=${encodeURIComponent(cursor)}`:""}`);setItems(old=>more?[...old,...result.items]:result.items);setCursor(result.nextCursor);setSelected(null);setShowArchive(true);}catch(e){setError(e instanceof Error?e.message:"보관함을 열지 못했습니다.");}finally{setBusy(false);}}
+  async function open(id:string){setBusy(true);setError("");try{setSelected(await request<ProposalDetail>(`${base}/proposals/${id}?view=archive`));}catch(e){setError(e instanceof Error?e.message:"자료를 열지 못했습니다.");}finally{setBusy(false);}}
+  return <section className="feature-settings community-list"><h2>기능과 이모지 관리</h2>{error&&<p className="analysis-error" role="alert">{error}</p>}
+    <article><strong>개선 제안서 · {theme.features.proposalsEnabled?"사용 중":"사용 중지"}</strong><p>끄면 제안 메뉴와 공유가 중지됩니다. 기존 자료는 관리자 보관함에 남고, 다시 켜면 이전 공개·검토 상태로 복원됩니다.</p><button type="button" disabled={busy||loading} onClick={()=>void change(base,{proposalsEnabled:!theme.features.proposalsEnabled})}>{theme.features.proposalsEnabled?"제안 기능 끄기":"제안 기능 다시 켜기"}</button>
+    {!theme.features.proposalsEnabled&&<><button type="button" disabled={busy||loading} onClick={()=>void archive()}>보관된 제안서 보기</button>{showArchive&&<div>{items.length===0&&<p>보관된 제안서가 없습니다.</p>}{items.map(item=><button className="proposal-list-item" type="button" key={item.id} disabled={busy} onClick={()=>void open(item.id)}>{item.title}</button>)}{cursor&&<button type="button" disabled={busy} onClick={()=>void archive(true)}>더 보기</button>}{selected&&<><p className="info-card">관리자 보관용 자료입니다. 제안 기능을 켜기 전에는 수정하거나 공유할 수 없습니다.</p><ProposalDocument proposal={selected} theme={theme} showShareLink={false}/></>}</div>}</>}
+    </article>
+    <details><summary>이모지 사용 설정</summary><p>사용 중지한 이모지는 새 기록에서 숨겨집니다. 기존 기록의 이모지와 의미는 유지됩니다. 유형마다 하나 이상은 사용할 수 있어야 합니다.</p>{theme.categories.map(category=><article key={category.key}><strong>{category.label}</strong>{category.emojiOptions.map(emoji=><div className="emoji-setting" key={emoji.key}><span><span aria-hidden="true">{emoji.glyph}</span> {emoji.label} · {emoji.active===false?"사용 중지":"사용 중"}</span><button type="button" disabled={busy||loading} aria-label={`${category.label} ${emoji.label} ${emoji.active===false?"다시 사용":"사용 중지"}`} onClick={()=>void change(`${base}/emoji-options`,{categoryKey:category.key,emojiKey:emoji.key,active:emoji.active===false})}>{emoji.active===false?"다시 사용":"사용 중지"}</button></div>)}</article>)}</details>
+  </section>;
+}

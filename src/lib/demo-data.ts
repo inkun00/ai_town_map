@@ -5,7 +5,7 @@ export type PinMode = "rating" | "category" | "single";
 export type TabKey = "map" | "record" | "analysis" | "proposal" | "more";
 export type ScreenKey = "home" | "create" | "workspace";
 
-export type EmojiOption = { key: string; glyph: string; label: string };
+export type EmojiOption = { key: string; glyph: string; label: string; active?:boolean };
 export type Category = { key: string; label: string; color: string; defaultEmojiKey: string; emojiOptions: EmojiOption[] };
 export type RatingOption = { key: string; label: string; color: string; symbol: string };
 export type Question = {
