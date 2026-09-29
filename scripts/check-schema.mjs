@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 const db = new PGlite();
 try {
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql", "004_analysis_proposals.sql"]){
+  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql"]){
     await db.exec(await readFile(`db/migrations/${name}`,"utf8"));
   }
   const result = await db.query("SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema IN ('app','app_private')");

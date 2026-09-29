@@ -7,3 +7,4 @@ out
 !.env.migrate.example
 
 .vercel
+.volume-fixture.json

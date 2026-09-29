@@ -8,7 +8,7 @@
 - `?`는 nullable, `jsonb`는 버전 있는 정의나 타입 검증된 데이터에 한해 사용한다. 무제한 사용자 JSON 저장소로 쓰지 않는다.
 - 모든 지도 하위 테이블에 `map_id`를 두며 참조는 `(map_id, id)` 복합 외래키로 지도 간 연결을 차단한다. UUID가 유일해도 이 검사를 생략하지 않는다.
 - 편집 가능한 루트에는 `version bigint default 1`을 두고 조건부 갱신한다. 자식 편집은 부모 version 증가와 하나의 트랜잭션으로 처리한다.
-- soft delete는 `deleted_at`, `deleted_by`로 기록한다. 실제 삭제는 보관 기간이 지난 뒤 worker가 종속 첨부·개인정보를 정리한다.
+- soft delete는 `deleted_at`, `deleted_by`로 기록한다. 삭제 후 30일이 지나면 DB 예약 작업이 지도·기록·사진과 종속 자료를 영구 정리한다. [운영 보관 검토](STAGE8_RETENTION_REVIEW.md) 참조.
 
 ## 2. 계정·세션·지도
 

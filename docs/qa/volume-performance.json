@@ -1,0 +1,85 @@
+{
+  "measuredAt": "2026-09-29T21:45:04.012Z",
+  "origin": "https://ai-town-map.vercel.app",
+  "mode": "synthetic private map; signed-in sequential full-response requests from developer Windows host; no network throttling or concurrency",
+  "stages": [
+    {
+      "records": 100,
+      "photos": 5,
+      "analysis": {
+        "requests": 30,
+        "failures": 0,
+        "p50Ms": 66,
+        "p95Ms": 91,
+        "maxMs": 370,
+        "maxBytes": 80211,
+        "regions": [
+          "icn1::icn1"
+        ]
+      },
+      "configuration": {
+        "requests": 10,
+        "failures": 0,
+        "p50Ms": 49,
+        "p95Ms": 58,
+        "maxMs": 58,
+        "maxBytes": 4817,
+        "regions": [
+          "icn1::icn1"
+        ]
+      }
+    },
+    {
+      "records": 500,
+      "photos": 9,
+      "analysis": {
+        "requests": 30,
+        "failures": 0,
+        "p50Ms": 88,
+        "p95Ms": 116,
+        "maxMs": 125,
+        "maxBytes": 376661,
+        "regions": [
+          "icn1::icn1"
+        ]
+      },
+      "configuration": {
+        "requests": 10,
+        "failures": 0,
+        "p50Ms": 57,
+        "p95Ms": 102,
+        "maxMs": 102,
+        "maxBytes": 4817,
+        "regions": [
+          "icn1::icn1"
+        ]
+      }
+    },
+    {
+      "records": 1000,
+      "photos": 14,
+      "analysis": {
+        "requests": 30,
+        "failures": 0,
+        "p50Ms": 110,
+        "p95Ms": 167,
+        "maxMs": 245,
+        "maxBytes": 747334,
+        "regions": [
+          "icn1::icn1"
+        ]
+      },
+      "configuration": {
+        "requests": 10,
+        "failures": 0,
+        "p50Ms": 47,
+        "p95Ms": 57,
+        "maxMs": 57,
+        "maxBytes": 4817,
+        "regions": [
+          "icn1::icn1"
+        ]
+      }
+    }
+  ]
+}
