@@ -1,3 +1,4 @@
+import { liveTestTarget } from "./live-test-target.mjs";
 // Opt-in API smoke test against the configured local app. Synthetic data is removed afterward.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { loadEnvFile } from "node:process";
@@ -9,7 +10,7 @@ import {setTimeout as pause} from "node:timers/promises";
 
 if(process.env.RUN_LIVE_PHASE4!=="1") throw new Error("Set RUN_LIVE_PHASE4=1 to run this test");
 nextEnv.loadEnvConfig(process.cwd());loadEnvFile(".env.migrate.local");
-const base=process.env.APP_ORIGIN;
+const { base, sessionName, csrfName } = liveTestTarget();
 const admin=new pg.Client({connectionString:process.env.DATABASE_ADMIN_URL});
 const hash=(value)=>createHash("sha256").update(value).digest();
 const token=()=>randomBytes(32).toString("base64url");
@@ -21,11 +22,11 @@ async function api(path,{method="GET",body,key,extraHeaders={},anonymous=false}=
   const data=contentType.includes("application/json")?await response.json():Buffer.from(await response.arrayBuffer());
   return {status:response.status,data:data?.data,code:data?.error?.code,raw:data};
 }
-function expect(result,status,label) {if(result.status!==status) throw new Error(`${label}: expected ${status}, got ${result.status} (${result.code??"unknown"})`);}
+function expect(result,status,label) {if(result.status!==status) throw new Error(`${label}: expected ${status}, got ${result.status} (${result.code??(Buffer.isBuffer(result.raw)?result.raw.toString().slice(0,160):"unknown")})`);}
 try {
   await admin.connect();
   accountId=(await admin.query("INSERT INTO app.principals(kind,auth_user_id) VALUES('account',$1) RETURNING id",[randomUUID()])).rows[0].id;
-  const sessionToken=token();csrf=token();cookie=`moa_dev_session=${sessionToken}; moa_dev_csrf=${csrf}`;
+  const sessionToken=token();csrf=token();cookie=`${sessionName}=${sessionToken}; ${csrfName}=${csrf}`;
   await admin.query("INSERT INTO app_private.sessions(principal_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')",[accountId,hash(sessionToken),hash(csrf)]);
   for(const themeKey of ["ecology","universal_design","safety","weather_life"]) {
     const result=await api("/api/v1/maps",{method:"POST",key:randomUUID(),body:{themeKey,themeVersion:1,title:`4단계 검사 ${themeKey}`,locationLabel:"검사 위치",activityContext:"community",visibility:themeKey==="universal_design"?"public":"invite_only",moderation:themeKey==="universal_design"?"approval":"immediate",center:{lat:37.5665,lng:126.978}}});
@@ -58,8 +59,8 @@ try {
   expect(await api(`/api/v1/maps/${mapIds[1]}/observations`,{method:"POST",key:randomUUID(),body:universalInput,anonymous:true}),401,"anonymous write denied");
   const read=await api(path);expect(read,200,"list observations");
   if(read.data.items.length!==1 || read.data.items[0].id!==first.data.id) throw new Error("Map observation isolation failed");
-  const edited=await api(`${path}/${first.data.id}`,{method:"PATCH",body:{...ecologyInput,title:"수정된 지점"},extraHeaders:{"If-Match":`"${first.data.version}"`}});expect(edited,200,"edit observation");
-  expect(await api(`${path}/${first.data.id}`,{method:"PATCH",body:ecologyInput,extraHeaders:{"If-Match":`"${first.data.version}"`}}),412,"stale edit");
+  const edited=await api(`${path}/${first.data.id}`,{method:"PATCH",body:{...ecologyInput,title:"수정된 지점"},extraHeaders:{"X-Resource-Version":`"${first.data.version}"`}});expect(edited,200,"edit observation");
+  expect(await api(`${path}/${first.data.id}`,{method:"PATCH",body:ecologyInput,extraHeaders:{"X-Resource-Version":`"${first.data.version}"`}}),412,"stale edit");
   const png=await sharp({create:{width:10,height:10,channels:3,background:"red"}}).png().toBuffer();
   expect(await api(`${path}/${first.data.id}/photo`,{method:"POST",body:Buffer.from("invalid image"),extraHeaders:{"Content-Type":"image/png"}}),415,"invalid photo rejected");
   expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput,extraHeaders:{"X-CSRF-Token":"wrong"}}),403,"invalid CSRF rejected");
@@ -77,21 +78,21 @@ try {
   const emojiPath=`/api/v1/maps/${mapIds[0]}/emoji-options`,category=configs[0].theme.categories[0];
   let setting=(await api(`/api/v1/maps/${mapIds[0]}`)).data;
   const availability={categoryKey:category.key,emojiKey:category.emojiOptions[0].key,active:false};
-  expect(await api(emojiPath,{method:"PATCH",body:availability,anonymous:true,extraHeaders:{"If-Match":`"${setting.version}"`}}),401,"anonymous emoji change denied");
-  const disabledEmoji=await api(emojiPath,{method:"PATCH",body:availability,extraHeaders:{"If-Match":`"${setting.version}"`}});expect(disabledEmoji,200,"disable used emoji");
-  expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"If-Match":`"${setting.version}"`}}),412,"stale emoji change denied");
+  expect(await api(emojiPath,{method:"PATCH",body:availability,anonymous:true,extraHeaders:{"X-Resource-Version":`"${setting.version}"`}}),401,"anonymous emoji change denied");
+  const disabledEmoji=await api(emojiPath,{method:"PATCH",body:availability,extraHeaders:{"X-Resource-Version":`"${setting.version}"`}});expect(disabledEmoji,200,"disable used emoji");
+  expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"X-Resource-Version":`"${setting.version}"`}}),412,"stale emoji change denied");
   setting=disabledEmoji.data;
   const configured=(await api(`/api/v1/maps/${mapIds[0]}/configuration`)).data.theme.categories[0];
   if(configured.emojiOptions[0].active!==false||configured.defaultEmojiKey===availability.emojiKey||configured.emojiOptions[0].glyph!==category.emojiOptions[0].glyph)throw new Error("Inactive emoji lost its meaning or remained default");
   expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput}),422,"inactive emoji rejected for new record");
   const existingRecord=(await api(path)).data.items[0];
   if(existingRecord.emojiKey!==availability.emojiKey)throw new Error("Existing emoji changed");
-  expect(await api(`${path}/${existingRecord.id}`,{method:"PATCH",body:ecologyInput,extraHeaders:{"If-Match":`"${existingRecord.version}"`}}),200,"edit existing inactive emoji preserved");
+  expect(await api(`${path}/${existingRecord.id}`,{method:"PATCH",body:ecologyInput,extraHeaders:{"X-Resource-Version":`"${existingRecord.version}"`}}),200,"edit existing inactive emoji preserved");
   for(const option of category.emojiOptions.slice(1,-1)){
-    const result=await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:option.key},extraHeaders:{"If-Match":`"${setting.version}"`}});expect(result,200,"disable additional emoji");setting=result.data;
+    const result=await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:option.key},extraHeaders:{"X-Resource-Version":`"${setting.version}"`}});expect(result,200,"disable additional emoji");setting=result.data;
   }
-  expect(await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:category.emojiOptions.at(-1).key},extraHeaders:{"If-Match":`"${setting.version}"`}}),409,"last active emoji protected");
-  expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"If-Match":`"${setting.version}"`}}),200,"restore emoji");
+  expect(await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:category.emojiOptions.at(-1).key},extraHeaders:{"X-Resource-Version":`"${setting.version}"`}}),409,"last active emoji protected");
+  expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"X-Resource-Version":`"${setting.version}"`}}),200,"restore emoji");
   expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput}),201,"restored emoji accepted");
   if(process.env.PHASE4_UI_CHECK==="1"){
     // Only this run's synthetic maps become visible for manual browser QA.

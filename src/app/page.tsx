@@ -413,7 +413,7 @@ export default function HomePage() {
           const serialized=JSON.stringify(payload);
           if(requestRef.current&&requestRef.current.payload!==serialized)throw new Error("이전 저장 결과가 확인되지 않았습니다. 입력을 원래 내용으로 되돌려 재시도하거나, 내 기록에서 저장 여부를 확인해 주세요.");
           requestRef.current??={key:crypto.randomUUID(),payload:serialized};persistDraft();
-          const response=await fetch(`/api/v1/maps/${encodeURIComponent(activeMap.id)}/observations${editingPointId?`/${encodeURIComponent(editingPointId)}`:""}`,{method:editingPointId?"PATCH":"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":liveSession.csrfToken,...(editingPointId?{"If-Match":`"${editingVersion}"`}:{"Idempotency-Key":requestRef.current.key})},body:serialized,signal:AbortSignal.timeout(30000)});
+          const response=await fetch(`/api/v1/maps/${encodeURIComponent(activeMap.id)}/observations${editingPointId?`/${encodeURIComponent(editingPointId)}`:""}`,{method:editingPointId?"PATCH":"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":liveSession.csrfToken,...(editingPointId?{"X-Resource-Version":`"${editingVersion}"`}:{"Idempotency-Key":requestRef.current.key})},body:serialized,signal:AbortSignal.timeout(30000)});
           const result=await response.json();
           if(!response.ok){if(response.status<500){requestRef.current=null;persistDraft();}throw new UploadError(result.error?.message??"기록을 저장하지 못했습니다.",response.status);}
           observation=result.data as LiveObservation;

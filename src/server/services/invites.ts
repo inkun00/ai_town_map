@@ -8,6 +8,7 @@ import { ApiError } from "../http";
 import { issueSession, type AppSession } from "../auth/session";
 import { createInviteCode, normalizedCode } from "@/domain/invite-code";
 import { getManageableMap } from "./maps";
+import { inviteAttemptActor } from "../policies/invite-attempts";
 
 function codeHash(code: string): Buffer { return createHmac("sha256", getServerConfig().invitePepper).update(`invite:${code}`).digest(); }
 function actorHash(value: string): Buffer { return createHmac("sha256", getServerConfig().invitePepper).update(`attempt:${value}`).digest(); }
@@ -19,10 +20,8 @@ export const createInviteSchema = z.strictObject({
 export const redeemSchema = z.strictObject({ code: z.string().min(12).max(20), nickname: z.string().trim().min(2).max(20) });
 
 export async function recordInviteAttempt(request: NextRequest) {
-  const headerName = process.env.TRUSTED_CLIENT_IP_HEADER?.toLowerCase();
-  if (process.env.NODE_ENV === "production" && !headerName) throw new ApiError(503, "INVITE_LIMIT_NOT_CONFIGURED", "초대 기능을 준비 중입니다.");
-  const candidate = headerName ? request.headers.get(headerName) : null;
-  const actor = candidate && /^[0-9a-fA-F:.]{3,45}$/.test(candidate) ? candidate : "global";
+  const actor = inviteAttemptActor(request.headers, process.env);
+  if (actor === undefined) throw new ApiError(503, "INVITE_LIMIT_NOT_CONFIGURED", "초대 기능을 준비 중입니다.");
   const rows = await query<{ attempts: number }>(`INSERT INTO app_private.invite_attempts(actor_hash,window_start,attempts)
     VALUES($1,now(),1) ON CONFLICT(actor_hash) DO UPDATE SET
       attempts = CASE WHEN app_private.invite_attempts.window_start < now() - interval '10 minutes' THEN 1 ELSE app_private.invite_attempts.attempts + 1 END,

@@ -1,3 +1,4 @@
+import { liveTestTarget } from "./live-test-target.mjs";
 // Opt-in API smoke test. Creates only synthetic records and removes them afterward.
 import {createHash,randomBytes,randomUUID} from "node:crypto";
 import {loadEnvFile} from "node:process";
@@ -10,12 +11,13 @@ import sharp from "sharp";
 
 if(process.env.RUN_LIVE_PHASE6!=="1")throw new Error("Set RUN_LIVE_PHASE6=1 to run this test");
 nextEnv.loadEnvConfig(process.cwd());loadEnvFile(".env.migrate.local");
-const base=process.env.APP_ORIGIN,admin=new pg.Client({connectionString:process.env.DATABASE_ADMIN_URL});
+const { base, sessionName, csrfName } = liveTestTarget();
+const admin=new pg.Client({connectionString:process.env.DATABASE_ADMIN_URL});
 const hash=value=>createHash("sha256").update(value).digest();
 const token=()=>randomBytes(32).toString("base64url");
 const actors=[];let mapId=null;const extraMapIds=[];
-async function actor(kind){const principal=(await admin.query("INSERT INTO app.principals(kind,auth_user_id) VALUES($1,$2) RETURNING id",[kind,kind==="account"?randomUUID():null])).rows[0].id;const session=token(),csrf=token();await admin.query("INSERT INTO app_private.sessions(principal_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')",[principal,hash(session),hash(csrf)]);const value={principal,csrf,cookie:`moa_dev_session=${session}; moa_dev_csrf=${csrf}`};actors.push(value);return value;}
-async function api(path,actor,{method="GET",body,key,version,mime}={}){const response=await fetch(new URL(path,base),{method,headers:{...(actor?{Cookie:actor.cookie}:{}),...(method!=="GET"?{Origin:base}:{}),...(body?{"Content-Type":mime??"application/json"}:{}),...(actor&&method!=="GET"?{"X-CSRF-Token":actor.csrf}:{}),...(key?{"Idempotency-Key":key}:{}),...(version?{"If-Match":`"${version}"`}:{})},body:body instanceof Buffer?body:body?JSON.stringify(body):undefined});const payload=response.status===204?null:response.headers.get("content-type")?.includes("application/json")?await response.json():Buffer.from(await response.arrayBuffer());return{status:response.status,data:payload?.data,code:payload?.error?.code,raw:payload};}
+async function actor(kind){const principal=(await admin.query("INSERT INTO app.principals(kind,auth_user_id) VALUES($1,$2) RETURNING id",[kind,kind==="account"?randomUUID():null])).rows[0].id;const session=token(),csrf=token();await admin.query("INSERT INTO app_private.sessions(principal_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')",[principal,hash(session),hash(csrf)]);const value={principal,csrf,cookie:`${sessionName}=${session}; ${csrfName}=${csrf}`};actors.push(value);return value;}
+async function api(path,actor,{method="GET",body,key,version,mime}={}){const response=await fetch(new URL(path,base),{method,headers:{...(actor?{Cookie:actor.cookie}:{}),...(method!=="GET"?{Origin:base}:{}),...(body?{"Content-Type":mime??"application/json"}:{}),...(actor&&method!=="GET"?{"X-CSRF-Token":actor.csrf}:{}),...(key?{"Idempotency-Key":key}:{}),...(version?{"X-Resource-Version":`"${version}"`}:{})},body:body instanceof Buffer?body:body?JSON.stringify(body):undefined});const payload=response.status===204?null:response.headers.get("content-type")?.includes("application/json")?await response.json():Buffer.from(await response.arrayBuffer());return{status:response.status,data:payload?.data,code:payload?.error?.code,raw:payload};}
 function expect(result,status,label){if(result.status!==status)throw new Error(`${label}: expected ${status}, got ${result.status} (${result.code??"unknown"})`);return result.data;}
 
 try{

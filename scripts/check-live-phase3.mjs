@@ -1,3 +1,4 @@
+import { liveTestTarget } from "./live-test-target.mjs";
 // Opt-in smoke test against a configured local app and its database.
 // Creates synthetic account/guest sessions, then removes all test records.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -10,7 +11,7 @@ import { setTimeout as pause } from "node:timers/promises";
 if (process.env.RUN_LIVE_PHASE3 !== "1") throw new Error("Set RUN_LIVE_PHASE3=1 to run the live smoke test");
 nextEnv.loadEnvConfig(process.cwd());
 loadEnvFile(".env.migrate.local");
-const base = process.env.APP_ORIGIN;
+const { base, sessionName, csrfName, cookiePrefix } = liveTestTarget();
 const admin = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
 const digest = (value) => createHash("sha256").update(value).digest();
 const token = () => randomBytes(32).toString("base64url");
@@ -40,7 +41,7 @@ try {
   const accountToken = token();
   const accountCsrf = token();
   await admin.query("INSERT INTO app_private.sessions(principal_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')", [accountId, digest(accountToken), digest(accountCsrf)]);
-  const accountCookie = `moa_dev_session=${accountToken}; moa_dev_csrf=${accountCsrf}`;
+  const accountCookie = `${sessionName}=${accountToken}; ${csrfName}=${accountCsrf}`;
 
   const session = await api("/api/v1/session", { cookie: accountCookie });
   expect(session, 200, "account session");
@@ -95,12 +96,12 @@ try {
   expect(invitation, 201, "invite creation");
   const joined = await api("/api/v1/invites/redeem", { method: "POST", body: { code: invitation.data.code, nickname: "검사참여자" } });
   expect(joined, 200, "guest redemption");
-  const guestCookie = joined.cookies.filter((value) => value.startsWith("moa_dev_")).map((value) => value.split(";")[0]).join("; ");
-  if (!guestCookie.includes("moa_dev_session=") || !guestCookie.includes("moa_dev_csrf=")) throw new Error("Guest session cookies missing");
+  const guestCookie = joined.cookies.filter((value) => value.startsWith(cookiePrefix)).map((value) => value.split(";")[0]).join("; ");
+  if (!guestCookie.includes(`${sessionName}=`) || !guestCookie.includes(`${csrfName}=`)) throw new Error("Guest session cookies missing");
   const guestSession = await api("/api/v1/session", { cookie: guestCookie });
   expect(guestSession, 200, "guest session");
   if (guestSession.data?.kind !== "guest") throw new Error("Guest session did not resolve");
-  const guestToken = guestCookie.match(/moa_dev_session=([^;]+)/)?.[1];
+  const guestToken = guestCookie.split("; ").find(value => value.startsWith(`${sessionName}=`))?.split("=")[1];
   const guestRow = await admin.query("SELECT principal_id FROM app_private.sessions WHERE token_hash=$1", [digest(guestToken)]);
   const guestId = guestRow.rows[0]?.principal_id ?? null;
   if (!guestId) throw new Error("Guest principal missing");
@@ -116,7 +117,7 @@ try {
   if (uses.rows[0]?.uses !== 1) throw new Error("Guest retry incremented invite use count");
   const sameNickname = await api("/api/v1/invites/redeem", { method: "POST", body: { code: invitation.data.code, nickname: "검사참여자" } });
   expect(sameNickname, 200, "same nickname from another client");
-  const secondToken = sameNickname.cookies.find((value) => value.startsWith("moa_dev_session="))?.split(";")[0].split("=")[1];
+  const secondToken = sameNickname.cookies.find((value) => value.startsWith(`${sessionName}=`))?.split(";")[0].split("=")[1];
   const secondRow = await admin.query("SELECT principal_id FROM app_private.sessions WHERE token_hash=$1", [digest(secondToken)]);
   const secondGuestId = secondRow.rows[0]?.principal_id;
   if (!secondGuestId || secondGuestId === guestId) throw new Error("Nickname reused the first guest identity");

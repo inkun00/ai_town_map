@@ -9,7 +9,8 @@
 - 실패: `{ "error": { "code": "...", "message": "...", "fields": [{"path":"title","code":"too_short"}] }, "meta": {"requestId":"..."} }`.
 - 알 수 없는 쓰기 필드는 422. 최대 JSON 본문 256KB. 첨부는 별도 업로드. 문자열·URL·좌표 제한은 DATA_MODEL 및 PRD를 따른다.
 - 로그인/입장 이후 변경 API는 `X-CSRF-Token`과 Origin 검사. 로그인 시작/초대 입장은 same-origin JSON, OAuth callback은 PKCE·상관관계 검사로 별도 처리한다.
-- 기존 루트 변경은 `If-Match: "<version>"` 필수(미전달 428, 불일치 412). 지도 설정 revision 불일치는 `409 CONFIG_CHANGED`.
+- 앱의 row version은 CDN이 해석하는 HTTP ETag와 구분해 `X-Resource-Version` 헤더로 전달한다. 서버는 이전 `If-Match` 입력도 읽지만 두 헤더가 충돌하면 거절한다. 운영 클라이언트는 전용 헤더만 전송한다.
+- 기존 루트 변경은 `X-Resource-Version: "<version>"` 필수(미전달 428, 불일치 412). 지도 설정 revision 불일치는 `409 CONFIG_CHANGED`.
 - 세션이 있는 POST 개설·draft 생성·제출·댓글·제안 생성·검수 명령·export 요청에는 `Idempotency-Key` UUID를 요구한다. 24시간 내 같은 body 재시도는 동일 결과, 다른 body면 `409 IDEMPOTENCY_CONFLICT`. 로그인과 최초 게스트 입장은 예외이며 아래 입장 재시도 규칙을 따른다.
 - 201은 신규 생성, 200은 조회·수정·상태 전이 및 이미 완료된 제출 재시도, 202는 작업 접수, 204는 logout/폐기 성공. pending은 실패가 아니라 성공 응답의 상태다.
 - 권한에 따른 401/403/404는 PERMISSIONS의 규칙을 따른다. 413 본문·파일 초과, 415 지원하지 않는 파일, 422 입력/기능 미사용, 429 요청 제한, 503 외부 서비스 장애. 429는 Retry-After 포함.
@@ -29,17 +30,17 @@
 | POST `/maps` | 아래 CreateMap | active account만, 201 Map + configuration |
 | GET `/maps/{mapId}` | 없음 | 읽기 권한, MapSummary + capabilities |
 | GET `/maps/{mapId}/configuration` | 없음 | 읽기 권한, configRevision·features·pin·categories·emojis·rating·questions |
-| PATCH `/maps/{mapId}` | title?, description?, visibility?, participation?, moderation?, status? | If-Match. 공개·참여·status는 owner, 일반 소개·검수 설정은 admin도 가능 |
-| PUT `/maps/{mapId}/configuration` | 전체 설정 + configRevision | admin/owner, If-Match. 주제 잠금·불변 항목 검증 |
+| PATCH `/maps/{mapId}` | title?, description?, visibility?, participation?, moderation?, status? | X-Resource-Version. 공개·참여·status는 owner, 일반 소개·검수 설정은 admin도 가능 |
+| PUT `/maps/{mapId}/configuration` | 전체 설정 + configRevision | admin/owner, X-Resource-Version. 주제 잠금·불변 항목 검증 |
 | GET `/maps/{mapId}/publication-preview` | 없음 | owner. 공개 시 노출할 게시 기록·사진·제안 수, 민감 항목 점검 안내 |
-| DELETE `/maps/{mapId}` | 없음 | owner, If-Match, soft delete |
-| POST `/maps/{mapId}/restore` | 없음 | owner, If-Match, 복구 기간 내 이전 상태로 복구 |
+| DELETE `/maps/{mapId}` | 없음 | owner, X-Resource-Version, soft delete |
+| POST `/maps/{mapId}/restore` | 없음 | owner, X-Resource-Version, 복구 기간 내 이전 상태로 복구 |
 | POST `/maps/{mapId}/invites` | expiresAt?, maxUses | admin/owner, 원문 code·join URL·만료를 한 번 반환 |
 | GET `/maps/{mapId}/invites` | 없음 | admin/owner, ID·만료·uses만, 원문 없음 |
 | DELETE `/maps/{mapId}/invites/{inviteId}` | 없음 | admin/owner, 신규 입장만 중단 |
 | POST `/invites/redeem` | code, nickname | 회원이 없으면 guest 생성, session·membership·mapId 반환. raw session은 cookie에만 |
 | GET `/maps/{mapId}/members` | cursor?, limit? | admin/owner만. 일반 화면은 기록에 붙은 닉네임만 제공 |
-| PATCH `/maps/{mapId}/members/{memberId}` | nickname? 또는 status? 또는 role? | 본인 nickname, admin은 participant 차단, owner만 admin 지정. If-Match용 membership version 사용 |
+| PATCH `/maps/{mapId}/members/{memberId}` | nickname? 또는 status? 또는 role? | 본인 nickname, admin은 participant 차단, owner만 admin 지정. X-Resource-Version용 membership version 사용 |
 
 ```json
 {
@@ -70,11 +71,11 @@ CreateMap은 저장된 템플릿 version을 복사한다. 직접 만들기에는
 | 메서드·경로 | 입력 | 결과·권한 |
 |---|---|---|
 | POST `/maps/{mapId}/observations` | configRevision, 선택적 초안 필드 | 작성 가능 멤버, draft 생성. ID·version 반환 |
-| PATCH `/maps/{mapId}/observations/{id}` | configRevision + 변경할 관찰 필드 | 본인 draft/pending/published, If-Match. published 수정은 검수 정책 적용 |
-| POST `/maps/{mapId}/observations/{id}/submit` | configRevision | 본인 draft, If-Match, 완전성 검사 후 pending/published |
+| PATCH `/maps/{mapId}/observations/{id}` | configRevision + 변경할 관찰 필드 | 본인 draft/pending/published, X-Resource-Version. published 수정은 검수 정책 적용 |
+| POST `/maps/{mapId}/observations/{id}/submit` | configRevision | 본인 draft, X-Resource-Version, 완전성 검사 후 pending/published |
 | GET `/maps/{mapId}/observations/{id}` | 없음 | 읽기 권한에 맞는 기록 DTO·첨부 ID·이모지·평가·질문 응답 |
-| DELETE `/maps/{mapId}/observations/{id}` | 없음 | 본인 또는 admin, If-Match, soft delete |
-| POST `/maps/{mapId}/observations/{id}/moderation` | action=approve/hide/restore/request_changes, reason? | admin, If-Match. hide/request_changes는 reason 필수 |
+| DELETE `/maps/{mapId}/observations/{id}` | 없음 | 본인 또는 admin, X-Resource-Version, soft delete |
+| POST `/maps/{mapId}/observations/{id}/moderation` | action=approve/hide/restore/request_changes, reason? | admin, X-Resource-Version. hide/request_changes는 reason 필수 |
 
 초안 작성과 포인트 제출은 구분한다. 첫 제출 전에는 theme lock이 걸리지 않는다. 관리자 검수 상태는 참여자가 PATCH로 직접 바꿀 수 없다. 제출 재시도는 이미 결정된 상태와 같은 ID를 반환한다.
 
@@ -153,8 +154,8 @@ GET에는 `filter=<URL-encoded JSON>` 하나로 전달한다. 최대 8KB. 필터
 | POST `/maps/{mapId}/observations/{id}/attachments` | filename, mimeType, byteSize, description | 본인 기록, 업로드 예약. attachmentId, uploadUrl, expiresAt |
 | POST `/attachments/{id}/complete` | 없음 | 실제 객체 확인 후 처리 작업 접수, 202 |
 | GET `/attachments/{id}` | 없음 | 부모 기록 권한 내 status·description·크기. 저장소 key 미노출 |
-| PATCH `/attachments/{id}` | description?, sortOrder? | 작성자, 부모 If-Match. 게시 기록은 관찰 수정과 같은 재검수 적용 |
-| DELETE `/attachments/{id}` | 없음 | 작성자 또는 관리자, 부모 If-Match. 즉시 읽기 차단·정리 작업 |
+| PATCH `/attachments/{id}` | description?, sortOrder? | 작성자, 부모 X-Resource-Version. 게시 기록은 관찰 수정과 같은 재검수 적용 |
+| DELETE `/attachments/{id}` | 없음 | 작성자 또는 관리자, 부모 X-Resource-Version. 즉시 읽기 차단·정리 작업 |
 | GET `/attachments/{id}/content` | variant=thumb/display | 현재 권한 검사 후 파일 스트림, private/no-store |
 
 초기 업로드 URL 유효시간은 10분, 첨부 수는 reserved도 포함해 5개를 넘지 않게 잠금 안에서 계산한다. 사진 ready 이전에는 content가 409 ATTACHMENT_NOT_READY. 이미지 유형 위장·디코딩 실패는 failed와 안전한 오류 코드로 처리한다. private content에 외부 CDN URL을 반환하지 않는다.
@@ -167,20 +168,20 @@ GET에는 `filter=<URL-encoded JSON>` 하나로 전달한다. 최대 8KB. 필터
 |---|---|---|
 | GET `/maps/{mapId}/observations/{id}/comments` | cursor?, limit? | 읽기 가능한 visible 댓글 |
 | POST 같은 경로 | body | active 멤버, commentsEnabled, published 부모 |
-| PATCH `/maps/{mapId}/comments/{id}` | body | 본인, If-Match |
-| DELETE 같은 경로 | 없음 | 본인 또는 admin, If-Match |
-| POST `/maps/{mapId}/comments/{id}/moderation` | action=hide/restore, reason | admin, If-Match |
+| PATCH `/maps/{mapId}/comments/{id}` | body | 본인, X-Resource-Version |
+| DELETE 같은 경로 | 없음 | 본인 또는 admin, X-Resource-Version |
+| POST `/maps/{mapId}/comments/{id}/moderation` | action=hide/restore, reason | admin, X-Resource-Version |
 | POST `/maps/{mapId}/reports` | targetType, targetId, reasonCode, detail? | 읽기 가능한 대상, active 멤버 |
 | GET `/maps/{mapId}/reports` | status?, cursor? | admin |
-| PATCH `/maps/{mapId}/reports/{id}` | status=resolved/dismissed, reason | admin, If-Match |
+| PATCH `/maps/{mapId}/reports/{id}` | status=resolved/dismissed, reason | admin, X-Resource-Version |
 | GET `/maps/{mapId}/proposals` | scope=published/mine/review/archive | 역할에 맞는 목록. archive는 admin만 |
 | POST `/maps/{mapId}/proposals` | title?, problem?, solution?, expectedEffect?, responsibleParty?, followUp? | active 멤버, proposalsEnabled. draft 생성 |
 | GET `/maps/{mapId}/proposals/{id}` | version? | 권한에 맞는 버전, 근거별 accessible/changed/deleted 상태 |
-| PATCH 같은 경로 | 본문 필드, evidenceIds?, evidenceFilter? | 본인 draft, If-Match. 확정본 수정은 새 draft version 생성 |
-| POST `/maps/{mapId}/proposals/{id}/submit` | 없음 | 본인, If-Match, 필수 본문·근거 검증 후 in_review |
-| POST `/maps/{mapId}/proposals/{id}/review` | action=approve/request_changes, reason? | admin, If-Match, 근거 버전·접근성 재확인 |
-| POST `/maps/{mapId}/proposals/{id}/unpublish` | reason | admin, If-Match. published pointer 해제 |
-| DELETE `/maps/{mapId}/proposals/{id}` | 없음 | 본인 또는 admin, If-Match, soft delete |
+| PATCH 같은 경로 | 본문 필드, evidenceIds?, evidenceFilter? | 본인 draft, X-Resource-Version. 확정본 수정은 새 draft version 생성 |
+| POST `/maps/{mapId}/proposals/{id}/submit` | 없음 | 본인, X-Resource-Version, 필수 본문·근거 검증 후 in_review |
+| POST `/maps/{mapId}/proposals/{id}/review` | action=approve/request_changes, reason? | admin, X-Resource-Version, 근거 버전·접근성 재확인 |
+| POST `/maps/{mapId}/proposals/{id}/unpublish` | reason | admin, X-Resource-Version. published pointer 해제 |
+| DELETE `/maps/{mapId}/proposals/{id}` | 없음 | 본인 또는 admin, X-Resource-Version, soft delete |
 | POST `/maps/{mapId}/exports` | filter, includeAuthor=false, includeCoordinates=false | admin, 202. CSV 작업 ID·상태 |
 | GET `/maps/{mapId}/exports/{id}` | 없음 | admin, 작업 상태·만료 |
 | GET `/maps/{mapId}/exports/{id}/content` | 없음 | admin 재검사, CSV 스트림, private/no-store |
@@ -197,7 +198,7 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 - A 지도 식물에 B 지도 나무 이모지 사용: `422 INVALID_EMOJI`, 다른 지도 내용은 오류 메시지로 누출하지 않음.
 - 사진 complete 응답 유실: 같은 attachment ID로 재호출해 기존 job 상태 반환, 중복 파생 파일 생성 방지.
 - 저장 응답 유실 후 submit 재시도: 동일 Idempotency-Key로 같은 기록 반환. 이미 삭제·접근 회수됐다면 현재 권한에 따라 404/403.
-- 게시 기록 수정 경합: If-Match 불일치 412, 서버가 임의로 마지막 쓰기를 덮어쓰지 않음.
+- 게시 기록 수정 경합: X-Resource-Version 불일치 412, 서버가 임의로 마지막 쓰기를 덮어쓰지 않음.
 - 지도 SDK 실패: 목록·기록 조회 API는 사용 가능. 위치가 없는 draft는 submit 불가지만 저장 가능.
 
 구현 전 OpenAPI를 생성할 때 이 계약의 조건부 기능 검사와 권한 표를 설명으로 유지하고, JSON Schema만으로 표현되지 않는 지도 간 참조·상태·동시성 검사를 서버 테스트로 추가한다.
@@ -211,9 +212,9 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 | GET `/maps/{mapId}/proposals` | `scope=published/mine/review/archive`, `cursor?`. mine은 활성 멤버 본인, review/archive는 관리자. 50건씩 `{items,nextCursor}` |
 | POST `/maps/{mapId}/proposals` | 활성 멤버·활성 지도·proposalsEnabled. CSRF·Idempotency-Key. `{title,problem,solution,expectedEffect,responsibleParty,followUp,evidenceIds,filter}`. 제목 필수, 나머지 본문은 초안 저장 시 빈 문자열 허용. 근거 최대 30개 |
 | GET `/maps/{mapId}/proposals/{id}` | 작성자/관리자는 최신 작업본, 그 외는 확정본. `view=published`는 항상 현재 확정본만. 지도 읽기 권한 재검사. `evidence.state=current/changed/unavailable`, `statsChanged` 포함 |
-| PATCH 같은 경로 | 본인·CSRF·If-Match. 전체 입력 교체와 근거 스냅샷 갱신. 확정/보관본 수정은 새 초안 버전 생성, 검토 중 수정 거부 |
-| POST `/maps/{mapId}/proposals/{id}/actions` | CSRF·If-Match, `{action:submit/approve/request_changes/unpublish,reason?}`. submit은 본인, 나머지는 관리자. 수정 요청·공유 중단은 사유 필수 |
-| DELETE `/maps/{mapId}/proposals/{id}` | 본인 또는 관리자·CSRF·If-Match. soft delete, 즉시 공유 차단 |
+| PATCH 같은 경로 | 본인·CSRF·X-Resource-Version. 전체 입력 교체와 근거 스냅샷 갱신. 확정/보관본 수정은 새 초안 버전 생성, 검토 중 수정 거부 |
+| POST `/maps/{mapId}/proposals/{id}/actions` | CSRF·X-Resource-Version, `{action:submit/approve/request_changes/unpublish,reason?}`. submit은 본인, 나머지는 관리자. 수정 요청·공유 중단은 사유 필수 |
+| DELETE `/maps/{mapId}/proposals/{id}` | 본인 또는 관리자·CSRF·X-Resource-Version. soft delete, 즉시 공유 차단 |
 
 필터의 from/to는 한국 시간 기준 **등록일**이며 종료일을 포함한다. 기본 지역 범위는 지도 전체이고, bbox는 사용자가 선택한 화면 영역을 고정한 값이다. 지도 이동 자체로 집계 영역이 자동 바뀌지 않는다. 지도·목록·차트는 analysis의 같은 items를 사용한다. 10,000건을 넘으면 `422 NARROW_FILTER`로 조건 축소를 요구하며 부분 집계를 반환하지 않는다.
 
@@ -228,7 +229,7 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 
 ## 7단계 설정 관리 실제 구현 (2026-09-29)
 
-- `PATCH /maps/{mapId}`에 `proposalsEnabled`를 추가했다. 개설자 또는 관리자, CSRF와 현재 지도 version의 `If-Match`가 필요하다.
+- `PATCH /maps/{mapId}`에 `proposalsEnabled`를 추가했다. 개설자 또는 관리자, CSRF와 현재 지도 version의 `X-Resource-Version`가 필요하다.
 - `PATCH /maps/{mapId}/emoji-options`는 `{categoryKey,emojiKey,active}`를 받는다. 같은 권한·CSRF·지도 version 검사를 적용하고 새 version을 반환한다. 마지막 활성 이모지 중지는 `409 LAST_ACTIVE_EMOJI`, 오래된 version은 `412 VERSION_CHANGED`다.
 - configuration은 이모지의 원래 glyph·label·key를 유지하면서 `active`를 반환한다. 대표 이모지가 비활성화되면 첫 활성 이모지를 새 기록의 기본값으로 사용한다. 질문/평가 정의와 configRevision은 변경하지 않는다.
 - 새 기록에는 활성 이모지만 사용할 수 있다. 수정 시에는 해당 기록의 기존 categoryKey·emojiKey와 같은 값에 한해 비활성 이모지를 유지할 수 있다.
@@ -245,7 +246,7 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 
 웹 UI는 원본 20MiB 이하를 브라우저에서 JPEG, 긴 변 1,600px 이하, 1,500KiB 이하로 변환해 기존 사진 API로 전송한다. 서버의 10MiB 입력/2MiB 결과 제한은 별도 방어로 유지한다. HEIC/HEIF는 브라우저가 디코딩할 때만 변환하고 불가능하면 JPG/PNG 재선택을 안내한다. 진행률 100%는 전송 완료이며 최종 성공은 서버 응답을 받은 뒤 표시한다.
 
-초안은 서버 API가 아닌 같은 탭의 sessionStorage에 보관한다. 24시간 복구 기간, 사용자·지도·새 기록/수정 기록별 키 분리, 성공/사용자 삭제/로그아웃 시 정리를 적용한다. 본문 응답 유실 시 동일 요청 키와 본문을 유지하고, 본문 저장 확인 후에는 사진만 다시 올린다. 수정 요청 응답 유실은 기존 If-Match 충돌로 안전하게 멈추며 자동 덮어쓰지 않는다. 사진 Blob은 보관하지 않아 새로고침 후 재선택이 필요하다.
+초안은 서버 API가 아닌 같은 탭의 sessionStorage에 보관한다. 24시간 복구 기간, 사용자·지도·새 기록/수정 기록별 키 분리, 성공/사용자 삭제/로그아웃 시 정리를 적용한다. 본문 응답 유실 시 동일 요청 키와 본문을 유지하고, 본문 저장 확인 후에는 사진만 다시 올린다. 수정 요청 응답 유실은 기존 X-Resource-Version 충돌로 안전하게 멈추며 자동 덮어쓰지 않는다. 사진 Blob은 보관하지 않아 새로고침 후 재선택이 필요하다.
 
 ## 7단계 지도 목록·초대 안내 보완
 

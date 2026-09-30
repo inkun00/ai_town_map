@@ -83,11 +83,11 @@
 | 지도 개설 | account 검증 → 템플릿 복사 → 분류·이모지·질문·scheme → owner membership → config revision → active |
 | 초대 입장 | invite row lock → 유효성·잔여 사용량 → membership 유일성 → 신규 입장일 때만 uses 증가 → 세션 생성 |
 | 기록 제출 | map row lock → 권한·active·config version → 필수·참조·첨부 ready 검증 → 상태 결정 → theme lock → map data revision 증가 |
-| 기록 수정 | map → observation 순서 잠금 → If-Match 검사 → 새 값 검증 → approval 지도면 pending → version/data revision 증가 |
+| 기록 수정 | map → observation 순서 잠금 → X-Resource-Version 검사 → 새 값 검증 → approval 지도면 pending → version/data revision 증가 |
 | 검수 | 같은 잠금 순서로 상태 전이·audit·data revision 증가. 숨김 이유 필수 |
-| 공개 변경 | owner 확인 → If-Match → visibility 변경 → data revision 증가·audit. 공개 전환 전 UI에서 노출 요약 조회 |
+| 공개 변경 | owner 확인 → X-Resource-Version → visibility 변경 → data revision 증가·audit. 공개 전환 전 UI에서 노출 요약 조회 |
 | 제안 확정 | map → proposal 잠금 → 요청 version과 근거의 현재 접근·버전 검사 → 불변 버전 확정·published pointer 갱신 |
-| 기능 변경 | map 잠금 → If-Match·theme lock 규칙 → config revision 스냅샷 → 기존 데이터 보존·audit |
+| 기능 변경 | map 잠금 → X-Resource-Version·theme lock 규칙 → config revision 스냅샷 → 기존 데이터 보존·audit |
 
 잠금 순서는 map → 대상 루트 → 자식으로 통일한다. 공개→비공개 변경과 첨부 열람은 파일 스트리밍 시작 시 현재 권한으로 결정하며 이미 전송 중인 바이트 회수는 보장하지 않는다.
 

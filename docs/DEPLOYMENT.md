@@ -11,3 +11,5 @@
 운영 환경에는 `APP_ORIGIN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `INVITE_CODE_PEPPER`, transaction pooler 기반 `DATABASE_URL`, Kakao JavaScript 키를 설정했다. ‘생태지도’ Kakao 앱의 기존 SDK 도메인 3개를 유지하고 로컬·운영 도메인을 추가했다. 두 환경에서 실제 지도 타일을 확인했다. Vercel Git 설정에서 GitHub `inkun00/ai_town_map` 연결도 확인했다. 운영·로컬 OAuth Redirect URLs와 운영 Site URL을 저장했다. 운영 앱에서 Google 로그인 후 세션이 발급되고 새로고침 후에도 유지되는 것을 확인했다.
 
 참고: [Vercel 환경 변수](https://vercel.com/docs/environment-variables), [Supabase 서버리스 DB 연결](https://supabase.com/docs/guides/database/connecting-to-postgres), [Supabase Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
+
+2026-10-01 기능 점검: Vercel 런타임(`VERCEL=1`)에서는 초대 입장 제한에 플랫폼의 `x-vercel-forwarded-for` 헤더를 사용한다. 다른 운영 호스트는 기존대로 신뢰 프록시의 `TRUSTED_CLIENT_IP_HEADER` 설정이 필요하다. [Vercel 요청 헤더](https://vercel.com/docs/headers/request-headers). 수정·삭제·검수 요청은 CDN의 HTTP 조건부 처리와 충돌하지 않도록 `X-Resource-Version`을 보낸다.
