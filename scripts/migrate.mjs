@@ -38,7 +38,8 @@ try {
   await client.query("REVOKE ALL ON app_private.schema_migrations FROM app_backend");
   await client.query(`ALTER ROLE app_backend WITH LOGIN PASSWORD ${client.escapeLiteral(backendPassword)}`);
   const source = JSON.parse(await readFile(resolve("docs", "contracts", "theme-presets.json"), "utf8"));
-  for (const theme of source.templates) {
+  const legacy = JSON.parse(await readFile(resolve("docs", "contracts", "theme-presets-v1.json"), "utf8"));
+  for (const theme of [...legacy.templates,...source.templates]) {
     const existing = await client.query(
       "SELECT definition = $3::jsonb AS matches FROM app.theme_templates WHERE theme_key=$1 AND version=$2",
       [theme.key, theme.version, JSON.stringify(theme)]);

@@ -29,18 +29,23 @@ try {
   const sessionToken=token();csrf=token();cookie=`${sessionName}=${sessionToken}; ${csrfName}=${csrf}`;
   await admin.query("INSERT INTO app_private.sessions(principal_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')",[accountId,hash(sessionToken),hash(csrf)]);
   for(const themeKey of ["ecology","universal_design","safety","weather_life"]) {
-    const result=await api("/api/v1/maps",{method:"POST",key:randomUUID(),body:{themeKey,themeVersion:1,title:`4단계 검사 ${themeKey}`,locationLabel:"검사 위치",activityContext:"community",visibility:themeKey==="universal_design"?"public":"invite_only",moderation:themeKey==="universal_design"?"approval":"immediate",center:{lat:37.5665,lng:126.978}}});
+    const result=await api("/api/v1/maps",{method:"POST",key:randomUUID(),body:{themeKey,themeVersion:2,title:`4단계 검사 ${themeKey}`,locationLabel:"검사 위치",activityContext:"community",visibility:themeKey==="universal_design"?"public":"invite_only",moderation:themeKey==="universal_design"?"approval":"immediate",center:{lat:37.5665,lng:126.978}}});
     expect(result,201,`${themeKey} create map`);mapIds.push(result.data.id);
   }
   const configs=[];
   for(const id of mapIds) {const result=await api(`/api/v1/maps/${id}/configuration`);expect(result,200,"config");configs.push(result.data);}
+  for(const config of configs){
+    if(config.theme.version!==2||config.theme.categories.reduce((sum,c)=>sum+c.emojiOptions.length,0)<100)throw new Error("Expanded catalogue unavailable");
+  }
+  const legacy=await api("/api/v1/themes/ecology/versions/1");expect(legacy,200,"published v1 remains available");
+  if(legacy.data.version!==1||legacy.data.categories[0].emojiOptions.length!==3)throw new Error("Published v1 was overwritten");
   const input=(theme,ratingKey=null)=>({configRevision:1,title:"테스트 지점",body:"현장에서 직접 확인한 관찰 기록입니다.",locationLabel:"검사 지점",locationSource:"manual",location:{lat:37.5665,lng:126.978},categoryKey:theme.categories[0].key,emojiKey:theme.categories[0].emojiOptions[0].key,ratingKey,answers:Object.fromEntries(theme.questions.filter((q)=>q.required).map((q)=>[q.key,[q.type==="text"?"현장 관찰":q.type==="boolean"?"yes":q.options?.[0]?.key??"unknown"]]))});
   for(let index=2;index<mapIds.length;index++){
     const theme=configs[index].theme;
-    const record=await api(`/api/v1/maps/${mapIds[index]}/observations`,{method:"POST",key:randomUUID(),body:input(theme,theme.rating.options[0].key)});
+    const record=await api(`/api/v1/maps/${mapIds[index]}/observations`,{method:"POST",key:randomUUID(),body:{...input(theme,theme.rating.options[0].key),emojiKey:theme.categories[0].emojiOptions.at(-1).key}});
     expect(record,201,"additional theme record");
     const analysis=await api(`/api/v1/maps/${mapIds[index]}/analysis`);expect(analysis,200,"additional theme analysis");
-    if(analysis.data.stats.total!==1||analysis.data.stats.ratedCount!==1||record.data.emojiKey!==theme.categories[0].emojiOptions[0].key)throw new Error("Theme record/analysis mismatch");
+    if(analysis.data.stats.total!==1||analysis.data.stats.ratedCount!==1||record.data.emojiKey!==theme.categories[0].emojiOptions.at(-1).key)throw new Error("Theme record/analysis mismatch");
     if(theme.key==="weather_life"&&theme.pin.mode!=="category")throw new Error("Weather must use type colors rather than impact colors");
   }
   const ecologyInput=input(configs[0].theme);
@@ -94,11 +99,25 @@ try {
   expect(await api(emojiPath,{method:"PATCH",body:{...availability,emojiKey:category.emojiOptions.at(-1).key},extraHeaders:{"X-Resource-Version":`"${setting.version}"`}}),409,"last active emoji protected");
   expect(await api(emojiPath,{method:"PATCH",body:{...availability,active:true},extraHeaders:{"X-Resource-Version":`"${setting.version}"`}}),200,"restore emoji");
   expect(await api(path,{method:"POST",key:randomUUID(),body:ecologyInput}),201,"restored emoji accepted");
+  for(const index of [0,1]){
+    const theme=configs[index].theme;
+    const expandedInput={...input(theme,index===1?theme.rating.options[0].key:null),emojiKey:theme.categories[0].emojiOptions.at(-1).key};
+    const saved=await api(`/api/v1/maps/${mapIds[index]}/observations`,{method:"POST",key:randomUUID(),body:expandedInput});expect(saved,201,"expanded emoji observation");
+    if(saved.data.emojiKey!==expandedInput.emojiKey)throw new Error("Expanded emoji changed on save");
+  }
+  const customOptions=configs[0].theme.categories[0].emojiOptions.slice(0,12).map((emoji,index)=>({key:`custom-${index+1}`,glyph:emoji.glyph,label:emoji.label}));
+  const custom=await api("/api/v1/maps",{method:"POST",key:randomUUID(),body:{themeKey:"custom",themeVersion:2,title:"다중 이모지 검사",locationLabel:"검사 위치",activityContext:"community",visibility:"invite_only",custom:{pinMode:"single",categories:[{key:"custom",label:"내 분류",color:"#3b8372",defaultEmojiKey:customOptions[0].key,emojiOptions:customOptions}]}}});
+  expect(custom,201,"custom map with 12 emojis");mapIds.push(custom.data.id);
+  const customConfig=await api(`/api/v1/maps/${custom.data.id}/configuration`);expect(customConfig,200,"custom emoji configuration");
+  if(customConfig.data.theme.categories[0].emojiOptions.length!==12)throw new Error("Custom emoji options lost");
+  const customSaved=await api(`/api/v1/maps/${custom.data.id}/observations`,{method:"POST",key:randomUUID(),body:{...input(customConfig.data.theme),emojiKey:customOptions.at(-1).key}});
+  expect(customSaved,201,"custom added emoji observation");
+  if(customSaved.data.emojiKey!==customOptions.at(-1).key)throw new Error("Custom emoji changed on save");
   if(process.env.PHASE4_UI_CHECK==="1"){
     // Only this run's synthetic maps become visible for manual browser QA.
     await admin.query("UPDATE app.maps SET visibility='public' WHERE id=ANY($1::uuid[])",[mapIds]);
     const marker=".phase4-ui-check.json";
-    writeFileSync(marker,JSON.stringify(mapIds.map((id,index)=>({theme:["ecology","universal_design","safety","weather_life"][index],url:`${base}/?map=${id}`}))));
+    writeFileSync(marker,JSON.stringify(mapIds.slice(0,4).map((id,index)=>({theme:["ecology","universal_design","safety","weather_life"][index],url:`${base}/?map=${id}`}))));
     console.log("Synthetic UI fixtures ready; remove .phase4-ui-check.json to resume cleanup (10-minute maximum).");
     for(let i=0;i<600&&existsSync(marker);i++)await pause(1000);
     if(existsSync(marker))unlinkSync(marker);

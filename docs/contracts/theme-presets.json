@@ -3,7 +3,7 @@
   "description": "지도 생성용 권장 기본값. key는 템플릿 내부 식별자이며 저장 시 지도별 UUID로 변환한다. custom은 생성 전 분류와 이모지를 반드시 지정한다.",
   "templates": [
     {
-      "version": 1,
+      "version": 2,
       "key": "universal_design",
       "label": "유니버설 디자인",
       "features": {
@@ -55,6 +55,96 @@
               "key": "walkway-2",
               "glyph": "🚶",
               "label": "보행로"
+            },
+            {
+              "key": "walkway-3",
+              "glyph": "🦯",
+              "label": "시각장애인 보행"
+            },
+            {
+              "key": "walkway-4",
+              "glyph": "🦽",
+              "label": "수동 휠체어"
+            },
+            {
+              "key": "walkway-5",
+              "glyph": "🦼",
+              "label": "전동 휠체어"
+            },
+            {
+              "key": "walkway-6",
+              "glyph": "👩‍🦯",
+              "label": "보행 안내"
+            },
+            {
+              "key": "walkway-7",
+              "glyph": "👨‍🦽",
+              "label": "휠체어 통행"
+            },
+            {
+              "key": "walkway-8",
+              "glyph": "👣",
+              "label": "보행 동선"
+            },
+            {
+              "key": "walkway-9",
+              "glyph": "👟",
+              "label": "산책로"
+            },
+            {
+              "key": "walkway-10",
+              "glyph": "🚸",
+              "label": "어린이 통행"
+            },
+            {
+              "key": "walkway-11",
+              "glyph": "🧑‍🦯",
+              "label": "점자블록"
+            },
+            {
+              "key": "walkway-12",
+              "glyph": "🚲",
+              "label": "자전거 겸용길"
+            },
+            {
+              "key": "walkway-13",
+              "glyph": "🛴",
+              "label": "개인 이동수단"
+            },
+            {
+              "key": "walkway-14",
+              "glyph": "🛣️",
+              "label": "도로 연결"
+            },
+            {
+              "key": "walkway-15",
+              "glyph": "🌉",
+              "label": "보행교"
+            },
+            {
+              "key": "walkway-16",
+              "glyph": "🪜",
+              "label": "계단"
+            },
+            {
+              "key": "walkway-17",
+              "glyph": "🚧",
+              "label": "보도 장애물"
+            },
+            {
+              "key": "walkway-18",
+              "glyph": "⬆️",
+              "label": "이동 방향"
+            },
+            {
+              "key": "walkway-19",
+              "glyph": "↔️",
+              "label": "통행 폭"
+            },
+            {
+              "key": "walkway-20",
+              "glyph": "🍼",
+              "label": "유아차 이동"
             }
           ]
         },
@@ -73,6 +163,91 @@
               "key": "entrance-2",
               "glyph": "🛗",
               "label": "엘리베이터"
+            },
+            {
+              "key": "entrance-3",
+              "glyph": "↗️",
+              "label": "경사로"
+            },
+            {
+              "key": "entrance-4",
+              "glyph": "🏠",
+              "label": "건물 입구"
+            },
+            {
+              "key": "entrance-5",
+              "glyph": "🏬",
+              "label": "상점 출입구"
+            },
+            {
+              "key": "entrance-6",
+              "glyph": "🏥",
+              "label": "병원 출입구"
+            },
+            {
+              "key": "entrance-7",
+              "glyph": "🏫",
+              "label": "학교 출입구"
+            },
+            {
+              "key": "entrance-8",
+              "glyph": "🔑",
+              "label": "출입 접근"
+            },
+            {
+              "key": "entrance-9",
+              "glyph": "🔘",
+              "label": "자동문 버튼"
+            },
+            {
+              "key": "entrance-10",
+              "glyph": "🔔",
+              "label": "도움 요청 벨"
+            },
+            {
+              "key": "entrance-11",
+              "glyph": "↕️",
+              "label": "높이 차이"
+            },
+            {
+              "key": "entrance-12",
+              "glyph": "🪜",
+              "label": "입구 계단"
+            },
+            {
+              "key": "entrance-13",
+              "glyph": "🧱",
+              "label": "문턱"
+            },
+            {
+              "key": "entrance-14",
+              "glyph": "🔓",
+              "label": "개방된 출입"
+            },
+            {
+              "key": "entrance-15",
+              "glyph": "🔒",
+              "label": "출입 제한"
+            },
+            {
+              "key": "entrance-16",
+              "glyph": "🅿️",
+              "label": "접근 가능한 주차"
+            },
+            {
+              "key": "entrance-17",
+              "glyph": "🚗",
+              "label": "승하차 공간"
+            },
+            {
+              "key": "entrance-18",
+              "glyph": "🧳",
+              "label": "짐 이동"
+            },
+            {
+              "key": "entrance-19",
+              "glyph": "↔️",
+              "label": "문 통과 폭"
             }
           ]
         },
@@ -91,6 +266,96 @@
               "key": "transport-2",
               "glyph": "🚇",
               "label": "지하철"
+            },
+            {
+              "key": "transport-3",
+              "glyph": "🚉",
+              "label": "철도역"
+            },
+            {
+              "key": "transport-4",
+              "glyph": "🚆",
+              "label": "기차"
+            },
+            {
+              "key": "transport-5",
+              "glyph": "🚈",
+              "label": "도시철도"
+            },
+            {
+              "key": "transport-6",
+              "glyph": "🚊",
+              "label": "노면전차"
+            },
+            {
+              "key": "transport-7",
+              "glyph": "🚏",
+              "label": "버스 정류장"
+            },
+            {
+              "key": "transport-8",
+              "glyph": "🚕",
+              "label": "택시 승강장"
+            },
+            {
+              "key": "transport-9",
+              "glyph": "🚐",
+              "label": "이동 지원 차량"
+            },
+            {
+              "key": "transport-10",
+              "glyph": "♿",
+              "label": "교통 접근성"
+            },
+            {
+              "key": "transport-11",
+              "glyph": "🛗",
+              "label": "역 엘리베이터"
+            },
+            {
+              "key": "transport-12",
+              "glyph": "🚶",
+              "label": "환승 보행 동선"
+            },
+            {
+              "key": "transport-13",
+              "glyph": "🎫",
+              "label": "승차권 시설"
+            },
+            {
+              "key": "transport-14",
+              "glyph": "🪑",
+              "label": "대기 좌석"
+            },
+            {
+              "key": "transport-15",
+              "glyph": "🔊",
+              "label": "승하차 음성 안내"
+            },
+            {
+              "key": "transport-16",
+              "glyph": "📺",
+              "label": "운행 정보 화면"
+            },
+            {
+              "key": "transport-17",
+              "glyph": "🅿️",
+              "label": "교통 주차장"
+            },
+            {
+              "key": "transport-18",
+              "glyph": "🚲",
+              "label": "공공 자전거"
+            },
+            {
+              "key": "transport-19",
+              "glyph": "⛴️",
+              "label": "여객선"
+            },
+            {
+              "key": "transport-20",
+              "glyph": "🛫",
+              "label": "공항 교통"
             }
           ]
         },
@@ -109,6 +374,121 @@
               "key": "public_facility-2",
               "glyph": "🔊",
               "label": "소리 안내"
+            },
+            {
+              "key": "public_facility-3",
+              "glyph": "ℹ️",
+              "label": "정보 안내"
+            },
+            {
+              "key": "public_facility-4",
+              "glyph": "🗺️",
+              "label": "지도 안내판"
+            },
+            {
+              "key": "public_facility-5",
+              "glyph": "🪧",
+              "label": "방향 표지판"
+            },
+            {
+              "key": "public_facility-6",
+              "glyph": "📖",
+              "label": "읽기 쉬운 안내"
+            },
+            {
+              "key": "public_facility-7",
+              "glyph": "🔠",
+              "label": "글자 크기"
+            },
+            {
+              "key": "public_facility-8",
+              "glyph": "🔎",
+              "label": "확대 안내"
+            },
+            {
+              "key": "public_facility-9",
+              "glyph": "👂",
+              "label": "청각 접근성"
+            },
+            {
+              "key": "public_facility-10",
+              "glyph": "🦻",
+              "label": "청각 보조"
+            },
+            {
+              "key": "public_facility-11",
+              "glyph": "🤟",
+              "label": "수어 안내"
+            },
+            {
+              "key": "public_facility-12",
+              "glyph": "📱",
+              "label": "모바일 안내"
+            },
+            {
+              "key": "public_facility-13",
+              "glyph": "📞",
+              "label": "전화 문의"
+            },
+            {
+              "key": "public_facility-14",
+              "glyph": "🏛️",
+              "label": "행정·문화 시설"
+            },
+            {
+              "key": "public_facility-15",
+              "glyph": "📚",
+              "label": "도서관"
+            },
+            {
+              "key": "public_facility-16",
+              "glyph": "🏫",
+              "label": "학교"
+            },
+            {
+              "key": "public_facility-17",
+              "glyph": "🏥",
+              "label": "의료시설"
+            },
+            {
+              "key": "public_facility-18",
+              "glyph": "💊",
+              "label": "약국"
+            },
+            {
+              "key": "public_facility-19",
+              "glyph": "🏦",
+              "label": "금융 시설"
+            },
+            {
+              "key": "public_facility-20",
+              "glyph": "🏤",
+              "label": "우체국"
+            },
+            {
+              "key": "public_facility-21",
+              "glyph": "🛒",
+              "label": "생활 편의점"
+            },
+            {
+              "key": "public_facility-22",
+              "glyph": "🔌",
+              "label": "충전 시설"
+            },
+            {
+              "key": "public_facility-23",
+              "glyph": "💧",
+              "label": "음수대"
+            },
+            {
+              "key": "public_facility-24",
+              "glyph": "🧑‍💼",
+              "label": "도움 안내 직원"
+            },
+            {
+              "key": "public_facility-25",
+              "glyph": "🏧",
+              "label": "현금 인출기"
             }
           ]
         },
@@ -127,6 +507,96 @@
               "key": "restroom-2",
               "glyph": "🚼",
               "label": "영유아 편의시설"
+            },
+            {
+              "key": "restroom-3",
+              "glyph": "♿",
+              "label": "접근 가능한 화장실"
+            },
+            {
+              "key": "restroom-4",
+              "glyph": "🚹",
+              "label": "남자 화장실"
+            },
+            {
+              "key": "restroom-5",
+              "glyph": "🚺",
+              "label": "여자 화장실"
+            },
+            {
+              "key": "restroom-6",
+              "glyph": "🚽",
+              "label": "변기"
+            },
+            {
+              "key": "restroom-7",
+              "glyph": "🚰",
+              "label": "세면대"
+            },
+            {
+              "key": "restroom-8",
+              "glyph": "🧼",
+              "label": "손 씻기"
+            },
+            {
+              "key": "restroom-9",
+              "glyph": "🧻",
+              "label": "위생 용품"
+            },
+            {
+              "key": "restroom-10",
+              "glyph": "🛁",
+              "label": "목욕·세정 공간"
+            },
+            {
+              "key": "restroom-11",
+              "glyph": "🚿",
+              "label": "샤워 시설"
+            },
+            {
+              "key": "restroom-12",
+              "glyph": "🍼",
+              "label": "수유 시설"
+            },
+            {
+              "key": "restroom-13",
+              "glyph": "👶",
+              "label": "기저귀 교환대"
+            },
+            {
+              "key": "restroom-14",
+              "glyph": "👨‍👩‍👧",
+              "label": "가족 화장실"
+            },
+            {
+              "key": "restroom-15",
+              "glyph": "🚪",
+              "label": "화장실 문"
+            },
+            {
+              "key": "restroom-16",
+              "glyph": "🔔",
+              "label": "비상 호출"
+            },
+            {
+              "key": "restroom-17",
+              "glyph": "🧹",
+              "label": "청결 상태"
+            },
+            {
+              "key": "restroom-18",
+              "glyph": "🗑️",
+              "label": "위생 폐기물"
+            },
+            {
+              "key": "restroom-19",
+              "glyph": "🪞",
+              "label": "거울"
+            },
+            {
+              "key": "restroom-20",
+              "glyph": "🧴",
+              "label": "비누·세정제"
             }
           ]
         },
@@ -145,6 +615,91 @@
               "key": "rest-2",
               "glyph": "🌳",
               "label": "그늘"
+            },
+            {
+              "key": "rest-3",
+              "glyph": "🏞️",
+              "label": "공원"
+            },
+            {
+              "key": "rest-4",
+              "glyph": "⛲",
+              "label": "분수 쉼터"
+            },
+            {
+              "key": "rest-5",
+              "glyph": "🌲",
+              "label": "나무 그늘"
+            },
+            {
+              "key": "rest-6",
+              "glyph": "⛱️",
+              "label": "그늘막"
+            },
+            {
+              "key": "rest-7",
+              "glyph": "🏕️",
+              "label": "야외 휴식"
+            },
+            {
+              "key": "rest-8",
+              "glyph": "🛝",
+              "label": "놀이공간"
+            },
+            {
+              "key": "rest-9",
+              "glyph": "🛋️",
+              "label": "실내 휴식"
+            },
+            {
+              "key": "rest-10",
+              "glyph": "🛖",
+              "label": "정자·쉼터"
+            },
+            {
+              "key": "rest-11",
+              "glyph": "☂️",
+              "label": "비 피할 공간"
+            },
+            {
+              "key": "rest-12",
+              "glyph": "💧",
+              "label": "마실 물"
+            },
+            {
+              "key": "rest-13",
+              "glyph": "🚰",
+              "label": "음수대"
+            },
+            {
+              "key": "rest-14",
+              "glyph": "🔌",
+              "label": "휴식 중 충전"
+            },
+            {
+              "key": "rest-15",
+              "glyph": "🧑‍🦽",
+              "label": "휠체어 휴식 자리"
+            },
+            {
+              "key": "rest-16",
+              "glyph": "🧸",
+              "label": "어린이 휴식"
+            },
+            {
+              "key": "rest-17",
+              "glyph": "🌻",
+              "label": "정원"
+            },
+            {
+              "key": "rest-18",
+              "glyph": "🏖️",
+              "label": "수변 휴식"
+            },
+            {
+              "key": "rest-19",
+              "glyph": "🧘",
+              "label": "조용한 휴식"
             }
           ]
         }
@@ -235,7 +790,7 @@
       ]
     },
     {
-      "version": 1,
+      "version": 2,
       "key": "safety",
       "label": "안전",
       "features": {
@@ -287,6 +842,96 @@
               "key": "traffic-2",
               "glyph": "🚸",
               "label": "어린이 보행"
+            },
+            {
+              "key": "traffic-3",
+              "glyph": "🛑",
+              "label": "정지 표지"
+            },
+            {
+              "key": "traffic-4",
+              "glyph": "🚥",
+              "label": "차량 신호"
+            },
+            {
+              "key": "traffic-5",
+              "glyph": "🚗",
+              "label": "차량 통행"
+            },
+            {
+              "key": "traffic-6",
+              "glyph": "🚌",
+              "label": "버스 통행"
+            },
+            {
+              "key": "traffic-7",
+              "glyph": "🚲",
+              "label": "자전거 통행"
+            },
+            {
+              "key": "traffic-8",
+              "glyph": "🛴",
+              "label": "킥보드 통행"
+            },
+            {
+              "key": "traffic-9",
+              "glyph": "🏍️",
+              "label": "이륜차 통행"
+            },
+            {
+              "key": "traffic-10",
+              "glyph": "🚚",
+              "label": "화물차 통행"
+            },
+            {
+              "key": "traffic-11",
+              "glyph": "🅿️",
+              "label": "주정차 공간"
+            },
+            {
+              "key": "traffic-12",
+              "glyph": "🚕",
+              "label": "승하차 구역"
+            },
+            {
+              "key": "traffic-13",
+              "glyph": "⛔",
+              "label": "진입 금지"
+            },
+            {
+              "key": "traffic-14",
+              "glyph": "🚫",
+              "label": "통행 제한"
+            },
+            {
+              "key": "traffic-15",
+              "glyph": "↩️",
+              "label": "차량 회전"
+            },
+            {
+              "key": "traffic-16",
+              "glyph": "🛣️",
+              "label": "도로"
+            },
+            {
+              "key": "traffic-17",
+              "glyph": "🌉",
+              "label": "교량"
+            },
+            {
+              "key": "traffic-18",
+              "glyph": "🚨",
+              "label": "교통 경고"
+            },
+            {
+              "key": "traffic-19",
+              "glyph": "🏫",
+              "label": "어린이 보호구역"
+            },
+            {
+              "key": "traffic-20",
+              "glyph": "👀",
+              "label": "시야 확보"
             }
           ]
         },
@@ -305,6 +950,96 @@
               "key": "pedestrian-2",
               "glyph": "🚧",
               "label": "통행 장애"
+            },
+            {
+              "key": "pedestrian-3",
+              "glyph": "🚸",
+              "label": "횡단보도"
+            },
+            {
+              "key": "pedestrian-4",
+              "glyph": "♿",
+              "label": "보행 접근성"
+            },
+            {
+              "key": "pedestrian-5",
+              "glyph": "🦯",
+              "label": "점자블록"
+            },
+            {
+              "key": "pedestrian-6",
+              "glyph": "👣",
+              "label": "보행 동선"
+            },
+            {
+              "key": "pedestrian-7",
+              "glyph": "🪜",
+              "label": "계단"
+            },
+            {
+              "key": "pedestrian-8",
+              "glyph": "🧱",
+              "label": "보도 턱"
+            },
+            {
+              "key": "pedestrian-9",
+              "glyph": "🕳️",
+              "label": "바닥 구멍"
+            },
+            {
+              "key": "pedestrian-10",
+              "glyph": "🪨",
+              "label": "낙석·돌"
+            },
+            {
+              "key": "pedestrian-11",
+              "glyph": "🧊",
+              "label": "미끄러운 바닥"
+            },
+            {
+              "key": "pedestrian-12",
+              "glyph": "💧",
+              "label": "보도 물고임"
+            },
+            {
+              "key": "pedestrian-13",
+              "glyph": "🌉",
+              "label": "보행교"
+            },
+            {
+              "key": "pedestrian-14",
+              "glyph": "🚦",
+              "label": "보행 신호"
+            },
+            {
+              "key": "pedestrian-15",
+              "glyph": "🛣️",
+              "label": "보차도 경계"
+            },
+            {
+              "key": "pedestrian-16",
+              "glyph": "🌳",
+              "label": "보행로 가지"
+            },
+            {
+              "key": "pedestrian-17",
+              "glyph": "🚲",
+              "label": "보행·자전거 충돌"
+            },
+            {
+              "key": "pedestrian-18",
+              "glyph": "📦",
+              "label": "통행 적치물"
+            },
+            {
+              "key": "pedestrian-19",
+              "glyph": "🔆",
+              "label": "밝은 보행로"
+            },
+            {
+              "key": "pedestrian-20",
+              "glyph": "🌙",
+              "label": "야간 보행"
             }
           ]
         },
@@ -323,6 +1058,101 @@
               "key": "safety_facility-2",
               "glyph": "🛟",
               "label": "수변 안전"
+            },
+            {
+              "key": "safety_facility-3",
+              "glyph": "🚒",
+              "label": "소방 접근"
+            },
+            {
+              "key": "safety_facility-4",
+              "glyph": "🚑",
+              "label": "응급 이송"
+            },
+            {
+              "key": "safety_facility-5",
+              "glyph": "🏥",
+              "label": "응급 의료"
+            },
+            {
+              "key": "safety_facility-6",
+              "glyph": "🩹",
+              "label": "구급함"
+            },
+            {
+              "key": "safety_facility-7",
+              "glyph": "💓",
+              "label": "자동심장충격기"
+            },
+            {
+              "key": "safety_facility-8",
+              "glyph": "📞",
+              "label": "비상 연락"
+            },
+            {
+              "key": "safety_facility-9",
+              "glyph": "🔔",
+              "label": "비상벨"
+            },
+            {
+              "key": "safety_facility-10",
+              "glyph": "📹",
+              "label": "안전 카메라"
+            },
+            {
+              "key": "safety_facility-11",
+              "glyph": "🚨",
+              "label": "경보 장치"
+            },
+            {
+              "key": "safety_facility-12",
+              "glyph": "🔦",
+              "label": "비상 조명"
+            },
+            {
+              "key": "safety_facility-13",
+              "glyph": "🚪",
+              "label": "비상구"
+            },
+            {
+              "key": "safety_facility-14",
+              "glyph": "🪧",
+              "label": "대피 안내"
+            },
+            {
+              "key": "safety_facility-15",
+              "glyph": "🦺",
+              "label": "안전 장비"
+            },
+            {
+              "key": "safety_facility-16",
+              "glyph": "⛑️",
+              "label": "구조 지원"
+            },
+            {
+              "key": "safety_facility-17",
+              "glyph": "🚓",
+              "label": "순찰·치안"
+            },
+            {
+              "key": "safety_facility-18",
+              "glyph": "🧑‍🚒",
+              "label": "소방 안전"
+            },
+            {
+              "key": "safety_facility-19",
+              "glyph": "🛡️",
+              "label": "안전 보호"
+            },
+            {
+              "key": "safety_facility-20",
+              "glyph": "🧵",
+              "label": "구조 로프"
+            },
+            {
+              "key": "safety_facility-21",
+              "glyph": "🧰",
+              "label": "안전 도구"
             }
           ]
         },
@@ -341,6 +1171,96 @@
               "key": "daily-2",
               "glyph": "🏠",
               "label": "생활환경"
+            },
+            {
+              "key": "daily-3",
+              "glyph": "🌙",
+              "label": "어두운 환경"
+            },
+            {
+              "key": "daily-4",
+              "glyph": "🔦",
+              "label": "조명 보완"
+            },
+            {
+              "key": "daily-5",
+              "glyph": "🐕",
+              "label": "반려견 안전"
+            },
+            {
+              "key": "daily-6",
+              "glyph": "🦮",
+              "label": "보조견 통행"
+            },
+            {
+              "key": "daily-7",
+              "glyph": "🗑️",
+              "label": "쓰레기 적치"
+            },
+            {
+              "key": "daily-8",
+              "glyph": "🔌",
+              "label": "전기 안전"
+            },
+            {
+              "key": "daily-9",
+              "glyph": "🔥",
+              "label": "화재 위험"
+            },
+            {
+              "key": "daily-10",
+              "glyph": "⚡",
+              "label": "전기 위험"
+            },
+            {
+              "key": "daily-11",
+              "glyph": "🧪",
+              "label": "유해 물질"
+            },
+            {
+              "key": "daily-12",
+              "glyph": "🧴",
+              "label": "생활 화학물질"
+            },
+            {
+              "key": "daily-13",
+              "glyph": "💨",
+              "label": "환기 상태"
+            },
+            {
+              "key": "daily-14",
+              "glyph": "🚰",
+              "label": "생활용수"
+            },
+            {
+              "key": "daily-15",
+              "glyph": "🧊",
+              "label": "생활 미끄럼"
+            },
+            {
+              "key": "daily-16",
+              "glyph": "🪟",
+              "label": "창문 안전"
+            },
+            {
+              "key": "daily-17",
+              "glyph": "🧱",
+              "label": "담장 안전"
+            },
+            {
+              "key": "daily-18",
+              "glyph": "🌳",
+              "label": "수목 안전"
+            },
+            {
+              "key": "daily-19",
+              "glyph": "🛟",
+              "label": "물놀이 안전"
+            },
+            {
+              "key": "daily-20",
+              "glyph": "🏪",
+              "label": "안심 시설"
             }
           ]
         },
@@ -359,6 +1279,101 @@
               "key": "facility-2",
               "glyph": "🛝",
               "label": "놀이시설"
+            },
+            {
+              "key": "facility-3",
+              "glyph": "🪜",
+              "label": "시설 계단"
+            },
+            {
+              "key": "facility-4",
+              "glyph": "🏢",
+              "label": "건물 상태"
+            },
+            {
+              "key": "facility-5",
+              "glyph": "🛗",
+              "label": "승강기 안전"
+            },
+            {
+              "key": "facility-6",
+              "glyph": "🚪",
+              "label": "출입문 안전"
+            },
+            {
+              "key": "facility-7",
+              "glyph": "🪟",
+              "label": "유리·창문"
+            },
+            {
+              "key": "facility-8",
+              "glyph": "🧱",
+              "label": "벽·울타리"
+            },
+            {
+              "key": "facility-9",
+              "glyph": "⛲",
+              "label": "분수 시설"
+            },
+            {
+              "key": "facility-10",
+              "glyph": "🏊",
+              "label": "수영 시설"
+            },
+            {
+              "key": "facility-11",
+              "glyph": "⚽",
+              "label": "운동 시설"
+            },
+            {
+              "key": "facility-12",
+              "glyph": "🏀",
+              "label": "체육장"
+            },
+            {
+              "key": "facility-13",
+              "glyph": "🎡",
+              "label": "놀이기구"
+            },
+            {
+              "key": "facility-14",
+              "glyph": "🪑",
+              "label": "벤치 상태"
+            },
+            {
+              "key": "facility-15",
+              "glyph": "🔩",
+              "label": "고정 장치"
+            },
+            {
+              "key": "facility-16",
+              "glyph": "🧰",
+              "label": "시설 보수"
+            },
+            {
+              "key": "facility-17",
+              "glyph": "🪧",
+              "label": "시설 안내"
+            },
+            {
+              "key": "facility-18",
+              "glyph": "🌉",
+              "label": "다리 상태"
+            },
+            {
+              "key": "facility-19",
+              "glyph": "🔌",
+              "label": "노출 배선"
+            },
+            {
+              "key": "facility-20",
+              "glyph": "🚧",
+              "label": "공사 통제"
+            },
+            {
+              "key": "facility-21",
+              "glyph": "🕳️",
+              "label": "배수구·맨홀"
             }
           ]
         },
@@ -377,6 +1392,86 @@
               "key": "other-2",
               "glyph": "📍",
               "label": "위치 표시"
+            },
+            {
+              "key": "other-3",
+              "glyph": "⚠️",
+              "label": "위험 안내"
+            },
+            {
+              "key": "other-4",
+              "glyph": "✅",
+              "label": "안전한 곳"
+            },
+            {
+              "key": "other-5",
+              "glyph": "❌",
+              "label": "개선할 곳"
+            },
+            {
+              "key": "other-6",
+              "glyph": "📸",
+              "label": "안전 관찰 사진"
+            },
+            {
+              "key": "other-7",
+              "glyph": "📝",
+              "label": "현장 메모"
+            },
+            {
+              "key": "other-8",
+              "glyph": "📣",
+              "label": "안전 알림"
+            },
+            {
+              "key": "other-9",
+              "glyph": "🌊",
+              "label": "수변 위험"
+            },
+            {
+              "key": "other-10",
+              "glyph": "⛰️",
+              "label": "경사지 위험"
+            },
+            {
+              "key": "other-11",
+              "glyph": "🌡️",
+              "label": "기온 관련 위험"
+            },
+            {
+              "key": "other-12",
+              "glyph": "☔",
+              "label": "우천 위험"
+            },
+            {
+              "key": "other-13",
+              "glyph": "❄️",
+              "label": "결빙 위험"
+            },
+            {
+              "key": "other-14",
+              "glyph": "🐾",
+              "label": "동물 관련 위험"
+            },
+            {
+              "key": "other-15",
+              "glyph": "🎒",
+              "label": "통학 생활"
+            },
+            {
+              "key": "other-16",
+              "glyph": "🧒",
+              "label": "어린이 안전"
+            },
+            {
+              "key": "other-17",
+              "glyph": "👵",
+              "label": "고령자 안전"
+            },
+            {
+              "key": "other-18",
+              "glyph": "🧑‍🦽",
+              "label": "이동 약자 안전"
             }
           ]
         }
@@ -459,7 +1554,7 @@
       ]
     },
     {
-      "version": 1,
+      "version": 2,
       "key": "ecology",
       "label": "생태",
       "features": {
@@ -493,6 +1588,131 @@
               "key": "plants-3",
               "glyph": "🌿",
               "label": "풀"
+            },
+            {
+              "key": "plants-4",
+              "glyph": "🌲",
+              "label": "침엽수"
+            },
+            {
+              "key": "plants-5",
+              "glyph": "🌴",
+              "label": "야자형 식물"
+            },
+            {
+              "key": "plants-6",
+              "glyph": "🎋",
+              "label": "대나무"
+            },
+            {
+              "key": "plants-7",
+              "glyph": "🍀",
+              "label": "클로버"
+            },
+            {
+              "key": "plants-8",
+              "glyph": "☘️",
+              "label": "작은 풀"
+            },
+            {
+              "key": "plants-9",
+              "glyph": "🌾",
+              "label": "풀·벼과 식물"
+            },
+            {
+              "key": "plants-10",
+              "glyph": "🌵",
+              "label": "선인장·다육"
+            },
+            {
+              "key": "plants-11",
+              "glyph": "🌷",
+              "label": "튤립형 꽃"
+            },
+            {
+              "key": "plants-12",
+              "glyph": "🌹",
+              "label": "장미형 꽃"
+            },
+            {
+              "key": "plants-13",
+              "glyph": "🌻",
+              "label": "해바라기형 꽃"
+            },
+            {
+              "key": "plants-14",
+              "glyph": "🌺",
+              "label": "큰 꽃"
+            },
+            {
+              "key": "plants-15",
+              "glyph": "🪷",
+              "label": "수생 꽃"
+            },
+            {
+              "key": "plants-16",
+              "glyph": "🪻",
+              "label": "보라색 꽃"
+            },
+            {
+              "key": "plants-17",
+              "glyph": "💮",
+              "label": "꽃 관찰"
+            },
+            {
+              "key": "plants-18",
+              "glyph": "🌸",
+              "label": "나무 꽃"
+            },
+            {
+              "key": "plants-19",
+              "glyph": "🪴",
+              "label": "화분 식물"
+            },
+            {
+              "key": "plants-20",
+              "glyph": "🍃",
+              "label": "잎"
+            },
+            {
+              "key": "plants-21",
+              "glyph": "🍁",
+              "label": "단풍잎"
+            },
+            {
+              "key": "plants-22",
+              "glyph": "🍄",
+              "label": "버섯"
+            },
+            {
+              "key": "plants-23",
+              "glyph": "🌱",
+              "label": "새싹"
+            },
+            {
+              "key": "plants-24",
+              "glyph": "🍇",
+              "label": "덩굴 열매"
+            },
+            {
+              "key": "plants-25",
+              "glyph": "🍎",
+              "label": "나무 열매"
+            },
+            {
+              "key": "plants-26",
+              "glyph": "🥜",
+              "label": "씨앗·견과"
+            },
+            {
+              "key": "plants-27",
+              "glyph": "🫚",
+              "label": "뿌리"
+            },
+            {
+              "key": "plants-28",
+              "glyph": "🪵",
+              "label": "목재·고사목"
             }
           ]
         },
@@ -511,6 +1731,91 @@
               "key": "birds-2",
               "glyph": "🦆",
               "label": "물새"
+            },
+            {
+              "key": "birds-3",
+              "glyph": "🕊️",
+              "label": "비둘기형 새"
+            },
+            {
+              "key": "birds-4",
+              "glyph": "🐧",
+              "label": "펭귄형 새"
+            },
+            {
+              "key": "birds-5",
+              "glyph": "🦅",
+              "label": "맹금류"
+            },
+            {
+              "key": "birds-6",
+              "glyph": "🦉",
+              "label": "올빼미형 새"
+            },
+            {
+              "key": "birds-7",
+              "glyph": "🦜",
+              "label": "앵무새형 새"
+            },
+            {
+              "key": "birds-8",
+              "glyph": "🦚",
+              "label": "공작형 새"
+            },
+            {
+              "key": "birds-9",
+              "glyph": "🦢",
+              "label": "백조형 물새"
+            },
+            {
+              "key": "birds-10",
+              "glyph": "🪿",
+              "label": "거위형 물새"
+            },
+            {
+              "key": "birds-11",
+              "glyph": "🐓",
+              "label": "닭"
+            },
+            {
+              "key": "birds-12",
+              "glyph": "🦃",
+              "label": "칠면조형 새"
+            },
+            {
+              "key": "birds-13",
+              "glyph": "🐥",
+              "label": "어린 새"
+            },
+            {
+              "key": "birds-14",
+              "glyph": "🐣",
+              "label": "부화 흔적"
+            },
+            {
+              "key": "birds-15",
+              "glyph": "🪺",
+              "label": "새 둥지"
+            },
+            {
+              "key": "birds-16",
+              "glyph": "🪶",
+              "label": "깃털"
+            },
+            {
+              "key": "birds-17",
+              "glyph": "🥚",
+              "label": "알"
+            },
+            {
+              "key": "birds-18",
+              "glyph": "🐦‍⬛",
+              "label": "검은 새"
+            },
+            {
+              "key": "birds-19",
+              "glyph": "🪽",
+              "label": "날개·비행"
             }
           ]
         },
@@ -534,6 +1839,101 @@
               "key": "insects-3",
               "glyph": "🐝",
               "label": "벌"
+            },
+            {
+              "key": "insects-4",
+              "glyph": "🐜",
+              "label": "개미"
+            },
+            {
+              "key": "insects-5",
+              "glyph": "🦗",
+              "label": "메뚜기형 곤충"
+            },
+            {
+              "key": "insects-6",
+              "glyph": "🪲",
+              "label": "딱정벌레"
+            },
+            {
+              "key": "insects-7",
+              "glyph": "🪳",
+              "label": "바퀴형 곤충"
+            },
+            {
+              "key": "insects-8",
+              "glyph": "🪰",
+              "label": "파리형 곤충"
+            },
+            {
+              "key": "insects-9",
+              "glyph": "🦟",
+              "label": "모기형 곤충"
+            },
+            {
+              "key": "insects-10",
+              "glyph": "🐛",
+              "label": "애벌레"
+            },
+            {
+              "key": "insects-11",
+              "glyph": "🪱",
+              "label": "지렁이"
+            },
+            {
+              "key": "insects-12",
+              "glyph": "🐌",
+              "label": "달팽이"
+            },
+            {
+              "key": "insects-13",
+              "glyph": "🕷️",
+              "label": "거미"
+            },
+            {
+              "key": "insects-14",
+              "glyph": "🕸️",
+              "label": "거미줄"
+            },
+            {
+              "key": "insects-15",
+              "glyph": "🦂",
+              "label": "전갈형 작은 생물"
+            },
+            {
+              "key": "insects-16",
+              "glyph": "🔎",
+              "label": "작은 생물 관찰"
+            },
+            {
+              "key": "insects-17",
+              "glyph": "🌼",
+              "label": "꽃을 찾는 곤충"
+            },
+            {
+              "key": "insects-18",
+              "glyph": "🪵",
+              "label": "고사목의 생물"
+            },
+            {
+              "key": "insects-19",
+              "glyph": "🍃",
+              "label": "잎 위의 생물"
+            },
+            {
+              "key": "insects-20",
+              "glyph": "🌾",
+              "label": "풀밭의 생물"
+            },
+            {
+              "key": "insects-21",
+              "glyph": "🥚",
+              "label": "곤충 알"
+            },
+            {
+              "key": "insects-22",
+              "glyph": "🕳️",
+              "label": "곤충 굴"
             }
           ]
         },
@@ -552,6 +1952,126 @@
               "key": "water-2",
               "glyph": "🐸",
               "label": "양서류"
+            },
+            {
+              "key": "water-3",
+              "glyph": "🐟",
+              "label": "물고기"
+            },
+            {
+              "key": "water-4",
+              "glyph": "🐠",
+              "label": "작은 물고기"
+            },
+            {
+              "key": "water-5",
+              "glyph": "🦀",
+              "label": "게"
+            },
+            {
+              "key": "water-6",
+              "glyph": "🦐",
+              "label": "새우"
+            },
+            {
+              "key": "water-7",
+              "glyph": "🦞",
+              "label": "가재"
+            },
+            {
+              "key": "water-8",
+              "glyph": "🐚",
+              "label": "조개·패각"
+            },
+            {
+              "key": "water-9",
+              "glyph": "🦪",
+              "label": "조개류"
+            },
+            {
+              "key": "water-10",
+              "glyph": "🐢",
+              "label": "거북"
+            },
+            {
+              "key": "water-11",
+              "glyph": "🦎",
+              "label": "파충류"
+            },
+            {
+              "key": "water-12",
+              "glyph": "🐍",
+              "label": "뱀"
+            },
+            {
+              "key": "water-13",
+              "glyph": "🌊",
+              "label": "하천 흐름"
+            },
+            {
+              "key": "water-14",
+              "glyph": "🏞️",
+              "label": "하천·호수"
+            },
+            {
+              "key": "water-15",
+              "glyph": "🪷",
+              "label": "습지 식물"
+            },
+            {
+              "key": "water-16",
+              "glyph": "🌿",
+              "label": "수변 식생"
+            },
+            {
+              "key": "water-17",
+              "glyph": "🫧",
+              "label": "수면·기포"
+            },
+            {
+              "key": "water-18",
+              "glyph": "🪨",
+              "label": "하천 돌"
+            },
+            {
+              "key": "water-19",
+              "glyph": "🏖️",
+              "label": "모래 서식지"
+            },
+            {
+              "key": "water-20",
+              "glyph": "🦦",
+              "label": "수변 포유류"
+            },
+            {
+              "key": "water-21",
+              "glyph": "🦆",
+              "label": "물새 서식지"
+            },
+            {
+              "key": "water-22",
+              "glyph": "🪣",
+              "label": "물 관찰"
+            },
+            {
+              "key": "water-23",
+              "glyph": "🦑",
+              "label": "두족류"
+            },
+            {
+              "key": "water-24",
+              "glyph": "🐙",
+              "label": "문어형 생물"
+            },
+            {
+              "key": "water-25",
+              "glyph": "🪼",
+              "label": "해파리형 생물"
+            },
+            {
+              "key": "water-26",
+              "glyph": "🪸",
+              "label": "산호형 서식지"
             }
           ]
         },
@@ -570,6 +2090,121 @@
               "key": "habitat-2",
               "glyph": "🍂",
               "label": "낙엽 환경"
+            },
+            {
+              "key": "habitat-3",
+              "glyph": "🪵",
+              "label": "고사목"
+            },
+            {
+              "key": "habitat-4",
+              "glyph": "🪨",
+              "label": "바위"
+            },
+            {
+              "key": "habitat-5",
+              "glyph": "🕳️",
+              "label": "굴·구멍"
+            },
+            {
+              "key": "habitat-6",
+              "glyph": "🍄",
+              "label": "균류 서식환경"
+            },
+            {
+              "key": "habitat-7",
+              "glyph": "🌲",
+              "label": "숲"
+            },
+            {
+              "key": "habitat-8",
+              "glyph": "🌳",
+              "label": "가로수"
+            },
+            {
+              "key": "habitat-9",
+              "glyph": "🌾",
+              "label": "풀밭"
+            },
+            {
+              "key": "habitat-10",
+              "glyph": "🏞️",
+              "label": "공원·자연 공간"
+            },
+            {
+              "key": "habitat-11",
+              "glyph": "🌿",
+              "label": "수풀"
+            },
+            {
+              "key": "habitat-12",
+              "glyph": "🏔️",
+              "label": "산지"
+            },
+            {
+              "key": "habitat-13",
+              "glyph": "🏖️",
+              "label": "모래·갯벌"
+            },
+            {
+              "key": "habitat-14",
+              "glyph": "💧",
+              "label": "습한 환경"
+            },
+            {
+              "key": "habitat-15",
+              "glyph": "☀️",
+              "label": "햇빛 환경"
+            },
+            {
+              "key": "habitat-16",
+              "glyph": "☂️",
+              "label": "그늘 환경"
+            },
+            {
+              "key": "habitat-17",
+              "glyph": "🪴",
+              "label": "도시 녹화"
+            },
+            {
+              "key": "habitat-18",
+              "glyph": "🧱",
+              "label": "건물 틈"
+            },
+            {
+              "key": "habitat-19",
+              "glyph": "🪺",
+              "label": "둥지 환경"
+            },
+            {
+              "key": "habitat-20",
+              "glyph": "🌸",
+              "label": "꽃 자원"
+            },
+            {
+              "key": "habitat-21",
+              "glyph": "🗑️",
+              "label": "서식지 쓰레기"
+            },
+            {
+              "key": "habitat-22",
+              "glyph": "🚧",
+              "label": "서식지 단절"
+            },
+            {
+              "key": "habitat-23",
+              "glyph": "🔥",
+              "label": "서식지 훼손"
+            },
+            {
+              "key": "habitat-24",
+              "glyph": "♻️",
+              "label": "생태 회복"
+            },
+            {
+              "key": "habitat-25",
+              "glyph": "🐾",
+              "label": "생물 이동길"
             }
           ]
         },
@@ -588,6 +2223,116 @@
               "key": "other-2",
               "glyph": "🐾",
               "label": "동물 흔적"
+            },
+            {
+              "key": "other-3",
+              "glyph": "🐕",
+              "label": "개"
+            },
+            {
+              "key": "other-4",
+              "glyph": "🐈",
+              "label": "고양이"
+            },
+            {
+              "key": "other-5",
+              "glyph": "🐿️",
+              "label": "다람쥐형 동물"
+            },
+            {
+              "key": "other-6",
+              "glyph": "🦔",
+              "label": "고슴도치형 동물"
+            },
+            {
+              "key": "other-7",
+              "glyph": "🐇",
+              "label": "토끼형 동물"
+            },
+            {
+              "key": "other-8",
+              "glyph": "🐁",
+              "label": "작은 설치류"
+            },
+            {
+              "key": "other-9",
+              "glyph": "🦇",
+              "label": "박쥐"
+            },
+            {
+              "key": "other-10",
+              "glyph": "🦊",
+              "label": "여우형 동물"
+            },
+            {
+              "key": "other-11",
+              "glyph": "🦝",
+              "label": "너구리형 동물"
+            },
+            {
+              "key": "other-12",
+              "glyph": "🦌",
+              "label": "사슴형 동물"
+            },
+            {
+              "key": "other-13",
+              "glyph": "🐗",
+              "label": "멧돼지형 동물"
+            },
+            {
+              "key": "other-14",
+              "glyph": "🦡",
+              "label": "오소리형 동물"
+            },
+            {
+              "key": "other-15",
+              "glyph": "🦴",
+              "label": "뼈·먹이 흔적"
+            },
+            {
+              "key": "other-16",
+              "glyph": "🪶",
+              "label": "깃털 흔적"
+            },
+            {
+              "key": "other-17",
+              "glyph": "🪵",
+              "label": "갉은 흔적"
+            },
+            {
+              "key": "other-18",
+              "glyph": "🕳️",
+              "label": "동물 굴"
+            },
+            {
+              "key": "other-19",
+              "glyph": "📸",
+              "label": "생태 관찰 사진"
+            },
+            {
+              "key": "other-20",
+              "glyph": "🎧",
+              "label": "생물 소리"
+            },
+            {
+              "key": "other-21",
+              "glyph": "📝",
+              "label": "종 이름 미확인"
+            },
+            {
+              "key": "other-22",
+              "glyph": "🐢",
+              "label": "육상 파충류"
+            },
+            {
+              "key": "other-23",
+              "glyph": "🍄",
+              "label": "균류 관찰"
+            },
+            {
+              "key": "other-24",
+              "glyph": "🦠",
+              "label": "미세 생물 환경"
             }
           ]
         }
@@ -640,7 +2385,7 @@
       ]
     },
     {
-      "version": 1,
+      "version": 2,
       "key": "weather_life",
       "label": "날씨생활",
       "features": {
@@ -692,6 +2437,96 @@
               "key": "heat-2",
               "glyph": "🌳",
               "label": "그늘"
+            },
+            {
+              "key": "heat-3",
+              "glyph": "🌡️",
+              "label": "기온"
+            },
+            {
+              "key": "heat-4",
+              "glyph": "🥵",
+              "label": "체감 더위"
+            },
+            {
+              "key": "heat-5",
+              "glyph": "🔆",
+              "label": "강한 일사"
+            },
+            {
+              "key": "heat-6",
+              "glyph": "⛱️",
+              "label": "그늘막"
+            },
+            {
+              "key": "heat-7",
+              "glyph": "🪑",
+              "label": "그늘 쉼터"
+            },
+            {
+              "key": "heat-8",
+              "glyph": "🚰",
+              "label": "음수대"
+            },
+            {
+              "key": "heat-9",
+              "glyph": "💧",
+              "label": "수분 보충"
+            },
+            {
+              "key": "heat-10",
+              "glyph": "🧴",
+              "label": "자외선 대비"
+            },
+            {
+              "key": "heat-11",
+              "glyph": "🕶️",
+              "label": "눈부심"
+            },
+            {
+              "key": "heat-12",
+              "glyph": "🧢",
+              "label": "햇빛 가림"
+            },
+            {
+              "key": "heat-13",
+              "glyph": "🛣️",
+              "label": "뜨거운 포장면"
+            },
+            {
+              "key": "heat-14",
+              "glyph": "🏢",
+              "label": "건물 그늘"
+            },
+            {
+              "key": "heat-15",
+              "glyph": "🌿",
+              "label": "녹지 냉각"
+            },
+            {
+              "key": "heat-16",
+              "glyph": "⛲",
+              "label": "물 있는 쉼터"
+            },
+            {
+              "key": "heat-17",
+              "glyph": "🪟",
+              "label": "실내 열기"
+            },
+            {
+              "key": "heat-18",
+              "glyph": "🔌",
+              "label": "냉방 이용"
+            },
+            {
+              "key": "heat-19",
+              "glyph": "🏠",
+              "label": "무더위 쉼터"
+            },
+            {
+              "key": "heat-20",
+              "glyph": "🧊",
+              "label": "냉방·냉각"
             }
           ]
         },
@@ -710,6 +2545,96 @@
               "key": "rain-2",
               "glyph": "💧",
               "label": "물고임"
+            },
+            {
+              "key": "rain-3",
+              "glyph": "☔",
+              "label": "우산 이용"
+            },
+            {
+              "key": "rain-4",
+              "glyph": "☂️",
+              "label": "비 피할 공간"
+            },
+            {
+              "key": "rain-5",
+              "glyph": "🌊",
+              "label": "침수·넘침"
+            },
+            {
+              "key": "rain-6",
+              "glyph": "🕳️",
+              "label": "배수구"
+            },
+            {
+              "key": "rain-7",
+              "glyph": "🚰",
+              "label": "배수 흐름"
+            },
+            {
+              "key": "rain-8",
+              "glyph": "🛣️",
+              "label": "도로 물고임"
+            },
+            {
+              "key": "rain-9",
+              "glyph": "👟",
+              "label": "젖은 보행로"
+            },
+            {
+              "key": "rain-10",
+              "glyph": "🏠",
+              "label": "누수"
+            },
+            {
+              "key": "rain-11",
+              "glyph": "🪣",
+              "label": "빗물 수집"
+            },
+            {
+              "key": "rain-12",
+              "glyph": "🧱",
+              "label": "젖은 벽·시설"
+            },
+            {
+              "key": "rain-13",
+              "glyph": "⛈️",
+              "label": "집중호우"
+            },
+            {
+              "key": "rain-14",
+              "glyph": "🌦️",
+              "label": "소나기"
+            },
+            {
+              "key": "rain-15",
+              "glyph": "🌂",
+              "label": "우천 대비"
+            },
+            {
+              "key": "rain-16",
+              "glyph": "🚧",
+              "label": "우천 통행 제한"
+            },
+            {
+              "key": "rain-17",
+              "glyph": "🌿",
+              "label": "빗물 정원"
+            },
+            {
+              "key": "rain-18",
+              "glyph": "🪟",
+              "label": "창문 누수"
+            },
+            {
+              "key": "rain-19",
+              "glyph": "🛟",
+              "label": "침수 대피"
+            },
+            {
+              "key": "rain-20",
+              "glyph": "📏",
+              "label": "물 높이 관찰"
             }
           ]
         },
@@ -728,6 +2653,81 @@
               "key": "wind-2",
               "glyph": "🌬️",
               "label": "바람"
+            },
+            {
+              "key": "wind-3",
+              "glyph": "🍃",
+              "label": "흔들리는 잎"
+            },
+            {
+              "key": "wind-4",
+              "glyph": "🌳",
+              "label": "나뭇가지 흔들림"
+            },
+            {
+              "key": "wind-5",
+              "glyph": "🪁",
+              "label": "바람 방향"
+            },
+            {
+              "key": "wind-6",
+              "glyph": "🚩",
+              "label": "바람에 흔들리는 깃발"
+            },
+            {
+              "key": "wind-7",
+              "glyph": "🏢",
+              "label": "건물 사이 바람"
+            },
+            {
+              "key": "wind-8",
+              "glyph": "🌪️",
+              "label": "회오리 바람"
+            },
+            {
+              "key": "wind-9",
+              "glyph": "☂️",
+              "label": "우산 사용 어려움"
+            },
+            {
+              "key": "wind-10",
+              "glyph": "🪧",
+              "label": "간판 흔들림"
+            },
+            {
+              "key": "wind-11",
+              "glyph": "🏗️",
+              "label": "공사장 바람 위험"
+            },
+            {
+              "key": "wind-12",
+              "glyph": "🧢",
+              "label": "날아가는 물건"
+            },
+            {
+              "key": "wind-13",
+              "glyph": "🪟",
+              "label": "창문 진동"
+            },
+            {
+              "key": "wind-14",
+              "glyph": "🍂",
+              "label": "날리는 낙엽"
+            },
+            {
+              "key": "wind-15",
+              "glyph": "⛱️",
+              "label": "그늘막 고정"
+            },
+            {
+              "key": "wind-16",
+              "glyph": "🚲",
+              "label": "자전거 횡풍"
+            },
+            {
+              "key": "wind-17",
+              "glyph": "🏠",
+              "label": "바람 피할 곳"
             }
           ]
         },
@@ -746,6 +2746,96 @@
               "key": "ice-2",
               "glyph": "❄️",
               "label": "눈·결빙"
+            },
+            {
+              "key": "ice-3",
+              "glyph": "⛄",
+              "label": "쌓인 눈"
+            },
+            {
+              "key": "ice-4",
+              "glyph": "🌨️",
+              "label": "눈 내림"
+            },
+            {
+              "key": "ice-5",
+              "glyph": "🥶",
+              "label": "체감 추위"
+            },
+            {
+              "key": "ice-6",
+              "glyph": "🧤",
+              "label": "방한"
+            },
+            {
+              "key": "ice-7",
+              "glyph": "🧣",
+              "label": "보온"
+            },
+            {
+              "key": "ice-8",
+              "glyph": "👢",
+              "label": "눈길 보행"
+            },
+            {
+              "key": "ice-9",
+              "glyph": "🛣️",
+              "label": "도로 결빙"
+            },
+            {
+              "key": "ice-10",
+              "glyph": "🪜",
+              "label": "계단 결빙"
+            },
+            {
+              "key": "ice-11",
+              "glyph": "💧",
+              "label": "녹은 눈·재결빙"
+            },
+            {
+              "key": "ice-12",
+              "glyph": "🧹",
+              "label": "제설"
+            },
+            {
+              "key": "ice-13",
+              "glyph": "🧂",
+              "label": "제설제"
+            },
+            {
+              "key": "ice-14",
+              "glyph": "🚧",
+              "label": "빙판 통행 제한"
+            },
+            {
+              "key": "ice-15",
+              "glyph": "🏠",
+              "label": "한파 쉼터"
+            },
+            {
+              "key": "ice-16",
+              "glyph": "🚰",
+              "label": "수도 동결"
+            },
+            {
+              "key": "ice-17",
+              "glyph": "🌲",
+              "label": "나무 위 눈"
+            },
+            {
+              "key": "ice-18",
+              "glyph": "⚠️",
+              "label": "낙빙 위험"
+            },
+            {
+              "key": "ice-19",
+              "glyph": "🚗",
+              "label": "눈길 차량"
+            },
+            {
+              "key": "ice-20",
+              "glyph": "☀️",
+              "label": "눈 녹는 곳"
             }
           ]
         },
@@ -764,6 +2854,86 @@
               "key": "air-2",
               "glyph": "🌫️",
               "label": "흐린 대기"
+            },
+            {
+              "key": "air-3",
+              "glyph": "🌁",
+              "label": "연무"
+            },
+            {
+              "key": "air-4",
+              "glyph": "🏭",
+              "label": "배출원"
+            },
+            {
+              "key": "air-5",
+              "glyph": "🚗",
+              "label": "도로 주변 대기"
+            },
+            {
+              "key": "air-6",
+              "glyph": "🚧",
+              "label": "공사 먼지"
+            },
+            {
+              "key": "air-7",
+              "glyph": "🏗️",
+              "label": "비산 먼지"
+            },
+            {
+              "key": "air-8",
+              "glyph": "💨",
+              "label": "대기 순환"
+            },
+            {
+              "key": "air-9",
+              "glyph": "🪟",
+              "label": "환기"
+            },
+            {
+              "key": "air-10",
+              "glyph": "🏠",
+              "label": "실내 대피"
+            },
+            {
+              "key": "air-11",
+              "glyph": "🌳",
+              "label": "녹지 주변 대기"
+            },
+            {
+              "key": "air-12",
+              "glyph": "🔎",
+              "label": "대기 관찰"
+            },
+            {
+              "key": "air-13",
+              "glyph": "📱",
+              "label": "대기 정보 확인"
+            },
+            {
+              "key": "air-14",
+              "glyph": "🌡️",
+              "label": "대기 측정"
+            },
+            {
+              "key": "air-15",
+              "glyph": "🔥",
+              "label": "연기"
+            },
+            {
+              "key": "air-16",
+              "glyph": "🧹",
+              "label": "먼지 쌓임"
+            },
+            {
+              "key": "air-17",
+              "glyph": "🤧",
+              "label": "체감 불편"
+            },
+            {
+              "key": "air-18",
+              "glyph": "☁️",
+              "label": "하늘 상태"
             }
           ]
         },
@@ -782,6 +2952,96 @@
               "key": "other-2",
               "glyph": "🔎",
               "label": "관찰 위치"
+            },
+            {
+              "key": "other-3",
+              "glyph": "☁️",
+              "label": "구름"
+            },
+            {
+              "key": "other-4",
+              "glyph": "🌤️",
+              "label": "부분적으로 맑음"
+            },
+            {
+              "key": "other-5",
+              "glyph": "🌥️",
+              "label": "구름 많은 날"
+            },
+            {
+              "key": "other-6",
+              "glyph": "🌙",
+              "label": "야간 환경"
+            },
+            {
+              "key": "other-7",
+              "glyph": "🌅",
+              "label": "아침 환경"
+            },
+            {
+              "key": "other-8",
+              "glyph": "🌇",
+              "label": "저녁 환경"
+            },
+            {
+              "key": "other-9",
+              "glyph": "⚡",
+              "label": "번개"
+            },
+            {
+              "key": "other-10",
+              "glyph": "⛈️",
+              "label": "뇌우"
+            },
+            {
+              "key": "other-11",
+              "glyph": "🌪️",
+              "label": "급격한 날씨 변화"
+            },
+            {
+              "key": "other-12",
+              "glyph": "📣",
+              "label": "기상 알림"
+            },
+            {
+              "key": "other-13",
+              "glyph": "🪧",
+              "label": "기상 안내판"
+            },
+            {
+              "key": "other-14",
+              "glyph": "🛟",
+              "label": "기상 대피"
+            },
+            {
+              "key": "other-15",
+              "glyph": "🎒",
+              "label": "날씨와 통학"
+            },
+            {
+              "key": "other-16",
+              "glyph": "🧺",
+              "label": "생활 활동 영향"
+            },
+            {
+              "key": "other-17",
+              "glyph": "📸",
+              "label": "날씨 관찰 사진"
+            },
+            {
+              "key": "other-18",
+              "glyph": "📝",
+              "label": "날씨 메모"
+            },
+            {
+              "key": "other-19",
+              "glyph": "🌊",
+              "label": "수변 기상"
+            },
+            {
+              "key": "other-20",
+              "glyph": "🏞️",
+              "label": "지형별 날씨"
             }
           ]
         }
@@ -833,7 +3093,7 @@
       ]
     },
     {
-      "version": 1,
+      "version": 2,
       "key": "custom",
       "label": "직접 만들기",
       "requiresConfiguration": true,

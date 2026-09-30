@@ -10,10 +10,10 @@ import type { AppSession } from "../auth/session";
 import { canManageMap, canReadMap, type MapPolicyInput, type MemberPolicyInput } from "../policies/maps";
 
 const emojiSchema = z.strictObject({ key: z.string().min(1).max(60), glyph: z.string().min(1).max(16), label: z.string().min(1).max(60) });
-const categorySchema = z.strictObject({ key: z.string().min(1).max(60), label: z.string().min(1).max(40), color: z.string().regex(/^#[0-9a-fA-F]{6}$/), defaultEmojiKey: z.string(), emojiOptions: z.array(emojiSchema).min(1).max(8) });
+const categorySchema = z.strictObject({ key: z.string().min(1).max(60), label: z.string().min(1).max(40), color: z.string().regex(/^#[0-9a-fA-F]{6}$/), defaultEmojiKey: z.string(), emojiOptions: z.array(emojiSchema).min(1).max(32) });
 export const createMapSchema = z.strictObject({
   themeKey: z.enum(["universal_design", "safety", "ecology", "weather_life", "custom"]),
-  themeVersion: z.literal(1),
+  themeVersion: z.union([z.literal(1),z.literal(2)]),
   title: z.string().trim().min(2).max(60),
   description: z.string().trim().max(300).default(""),
   locationLabel: z.string().trim().min(1).max(120),

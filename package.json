@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:expand-emojis": "node --experimental-strip-types scripts/expand-map-emojis.mjs",
     "db:check-schema": "node scripts/check-schema.mjs",
     "db:check-retention": "node scripts/check-retention.mjs",
     "db:audit-retention": "node scripts/audit-retention.mjs",

@@ -45,7 +45,7 @@
 ```json
 {
   "themeKey": "ecology",
-  "themeVersion": 1,
+  "themeVersion": 2,
   "title": "우리 동네 생태 관찰",
   "description": "공원 주변 생물을 함께 기록합니다.",
   "activityContext": "school",
@@ -59,6 +59,8 @@
 ```
 
 CreateMap은 저장된 템플릿 version을 복사한다. 직접 만들기에는 완전한 categories/emojiOptions/questions/pin/features 설정을 함께 보낸다. 요청에 UUID를 임의 지정하지 않고 템플릿 key를 서버가 실제 지도별 ID로 바꾼다. owner는 세션에서 결정한다. 생성 마법사의 미완성 내용은 로컬 초안이며 POST 성공 때 active 지도가 된다.
+
+2026-10-01 이모지 확장: 최신 기본 템플릿은 version 2이며 version 1의 정의와 조회 경로도 유지한다. `themeVersion`은 1 또는 2를 받으며 클라이언트는 최신 버전을 선택한다. 직접 만들기의 분류별 `emojiOptions`는 1~32개를 허용한다. 화면의 이모지 모음에서는 최대 30개를 선택하고 위치 아이콘을 추가할 수 있다. 기본 주제의 기존 지도에는 설정 revision을 추가하는 방식으로 새 이모지만 보충한다. 원래 키·의미·사용 중지 여부와 과거 기록의 설정 snapshot은 보존한다.
 
 현재 구현 입력은 위 제품 계약의 일부다. `center`는 `null`을 허용하고, 제안서 활성화는 `proposalsEnabled`, 직접 만들기는 `custom: { categories, pinMode }`로 전달한다. `GET /maps`의 응답은 `data: { items, nextCursor }`이며 `scope=deleted`는 소유자의 복구 가능 지도만 반환한다. 지도 설정·참여자·관찰·댓글·신고·검수와 6단계 통계·CSV·제안서가 구현됐다. 아래 표의 초기 설계와 실제 경로 차이는 문서 끝의 6단계 구현 계약을 따른다. 관찰의 별도 초안/제출 분리는 후속이다.
 

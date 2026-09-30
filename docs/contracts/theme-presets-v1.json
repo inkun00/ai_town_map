@@ -1,0 +1,854 @@
+{
+  "schemaVersion": 1,
+  "description": "지도 생성용 권장 기본값. key는 템플릿 내부 식별자이며 저장 시 지도별 UUID로 변환한다. custom은 생성 전 분류와 이모지를 반드시 지정한다.",
+  "templates": [
+    {
+      "version": 1,
+      "key": "universal_design",
+      "label": "유니버설 디자인",
+      "features": {
+        "ratingEnabled": true,
+        "ideasEnabled": true,
+        "proposalsEnabled": true,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "rating"
+      },
+      "rating": {
+        "key": "accessibility",
+        "label": "이용 편의",
+        "options": [
+          {
+            "key": "positive",
+            "label": "모두에게 편리",
+            "color": "#16803D",
+            "symbol": "✓"
+          },
+          {
+            "key": "caution",
+            "label": "조금 불편",
+            "color": "#B85C00",
+            "symbol": "!"
+          },
+          {
+            "key": "improve",
+            "label": "개선 필요",
+            "color": "#C62828",
+            "symbol": "×"
+          }
+        ]
+      },
+      "categories": [
+        {
+          "key": "walkway",
+          "label": "보행로",
+          "color": "#2563EB",
+          "defaultEmojiKey": "walkway-1",
+          "emojiOptions": [
+            {
+              "key": "walkway-1",
+              "glyph": "♿",
+              "label": "이동·접근 시설"
+            },
+            {
+              "key": "walkway-2",
+              "glyph": "🚶",
+              "label": "보행로"
+            }
+          ]
+        },
+        {
+          "key": "entrance",
+          "label": "출입구",
+          "color": "#15803D",
+          "defaultEmojiKey": "entrance-1",
+          "emojiOptions": [
+            {
+              "key": "entrance-1",
+              "glyph": "🚪",
+              "label": "출입구"
+            },
+            {
+              "key": "entrance-2",
+              "glyph": "🛗",
+              "label": "엘리베이터"
+            }
+          ]
+        },
+        {
+          "key": "transport",
+          "label": "대중교통",
+          "color": "#7C3AED",
+          "defaultEmojiKey": "transport-1",
+          "emojiOptions": [
+            {
+              "key": "transport-1",
+              "glyph": "🚌",
+              "label": "버스"
+            },
+            {
+              "key": "transport-2",
+              "glyph": "🚇",
+              "label": "지하철"
+            }
+          ]
+        },
+        {
+          "key": "public_facility",
+          "label": "공공시설",
+          "color": "#B45309",
+          "defaultEmojiKey": "public_facility-1",
+          "emojiOptions": [
+            {
+              "key": "public_facility-1",
+              "glyph": "🏢",
+              "label": "공공시설"
+            },
+            {
+              "key": "public_facility-2",
+              "glyph": "🔊",
+              "label": "소리 안내"
+            }
+          ]
+        },
+        {
+          "key": "restroom",
+          "label": "화장실",
+          "color": "#BE185D",
+          "defaultEmojiKey": "restroom-1",
+          "emojiOptions": [
+            {
+              "key": "restroom-1",
+              "glyph": "🚻",
+              "label": "화장실"
+            },
+            {
+              "key": "restroom-2",
+              "glyph": "🚼",
+              "label": "영유아 편의시설"
+            }
+          ]
+        },
+        {
+          "key": "rest",
+          "label": "공원·쉼터",
+          "color": "#0E7490",
+          "defaultEmojiKey": "rest-1",
+          "emojiOptions": [
+            {
+              "key": "rest-1",
+              "glyph": "🪑",
+              "label": "휴식공간"
+            },
+            {
+              "key": "rest-2",
+              "glyph": "🌳",
+              "label": "그늘"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "key": "mobility",
+          "label": "이동편의성",
+          "type": "rating3",
+          "required": true,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "comfortable",
+              "label": "편리"
+            },
+            {
+              "key": "inconvenient",
+              "label": "조금 불편"
+            },
+            {
+              "key": "needs_improvement",
+              "label": "개선 필요"
+            }
+          ]
+        },
+        {
+          "key": "information",
+          "label": "정보 접근성",
+          "type": "rating3",
+          "required": true,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "comfortable",
+              "label": "편리"
+            },
+            {
+              "key": "inconvenient",
+              "label": "조금 불편"
+            },
+            {
+              "key": "needs_improvement",
+              "label": "개선 필요"
+            }
+          ]
+        },
+        {
+          "key": "audio_guidance",
+          "label": "소리 안내 여부",
+          "type": "boolean",
+          "required": true,
+          "allowUnknown": true,
+          "allowNotApplicable": true
+        },
+        {
+          "key": "rest_area",
+          "label": "휴식공간 여부",
+          "type": "boolean",
+          "required": true,
+          "allowUnknown": true,
+          "allowNotApplicable": true
+        },
+        {
+          "key": "safety",
+          "label": "안전성",
+          "type": "rating3",
+          "required": true,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "comfortable",
+              "label": "편리"
+            },
+            {
+              "key": "inconvenient",
+              "label": "조금 불편"
+            },
+            {
+              "key": "needs_improvement",
+              "label": "개선 필요"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "key": "safety",
+      "label": "안전",
+      "features": {
+        "ratingEnabled": true,
+        "ideasEnabled": true,
+        "proposalsEnabled": true,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "rating"
+      },
+      "rating": {
+        "key": "safety",
+        "label": "안전 평가",
+        "options": [
+          {
+            "key": "positive",
+            "label": "안전에 도움",
+            "color": "#16803D",
+            "symbol": "✓"
+          },
+          {
+            "key": "caution",
+            "label": "주의 필요",
+            "color": "#B85C00",
+            "symbol": "!"
+          },
+          {
+            "key": "improve",
+            "label": "개선 필요",
+            "color": "#C62828",
+            "symbol": "×"
+          }
+        ]
+      },
+      "categories": [
+        {
+          "key": "traffic",
+          "label": "교통안전",
+          "color": "#2563EB",
+          "defaultEmojiKey": "traffic-1",
+          "emojiOptions": [
+            {
+              "key": "traffic-1",
+              "glyph": "🚦",
+              "label": "교통신호"
+            },
+            {
+              "key": "traffic-2",
+              "glyph": "🚸",
+              "label": "어린이 보행"
+            }
+          ]
+        },
+        {
+          "key": "pedestrian",
+          "label": "보행안전",
+          "color": "#15803D",
+          "defaultEmojiKey": "pedestrian-1",
+          "emojiOptions": [
+            {
+              "key": "pedestrian-1",
+              "glyph": "🚶",
+              "label": "보행 공간"
+            },
+            {
+              "key": "pedestrian-2",
+              "glyph": "🚧",
+              "label": "통행 장애"
+            }
+          ]
+        },
+        {
+          "key": "safety_facility",
+          "label": "안전시설",
+          "color": "#7C3AED",
+          "defaultEmojiKey": "safety_facility-1",
+          "emojiOptions": [
+            {
+              "key": "safety_facility-1",
+              "glyph": "🧯",
+              "label": "소방시설"
+            },
+            {
+              "key": "safety_facility-2",
+              "glyph": "🛟",
+              "label": "수변 안전"
+            }
+          ]
+        },
+        {
+          "key": "daily",
+          "label": "생활안전",
+          "color": "#B45309",
+          "defaultEmojiKey": "daily-1",
+          "emojiOptions": [
+            {
+              "key": "daily-1",
+              "glyph": "💡",
+              "label": "조명"
+            },
+            {
+              "key": "daily-2",
+              "glyph": "🏠",
+              "label": "생활환경"
+            }
+          ]
+        },
+        {
+          "key": "facility",
+          "label": "시설안전",
+          "color": "#BE185D",
+          "defaultEmojiKey": "facility-1",
+          "emojiOptions": [
+            {
+              "key": "facility-1",
+              "glyph": "🏗️",
+              "label": "공사 현장"
+            },
+            {
+              "key": "facility-2",
+              "glyph": "🛝",
+              "label": "놀이시설"
+            }
+          ]
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "color": "#0E7490",
+          "defaultEmojiKey": "other-1",
+          "emojiOptions": [
+            {
+              "key": "other-1",
+              "glyph": "🔎",
+              "label": "기타 관찰"
+            },
+            {
+              "key": "other-2",
+              "glyph": "📍",
+              "label": "위치 표시"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "key": "risk_reasons",
+          "label": "판단 이유",
+          "type": "multi",
+          "required": true,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "poor_visibility",
+              "label": "잘 보이지 않아요"
+            },
+            {
+              "key": "many_cars",
+              "label": "차가 많아요"
+            },
+            {
+              "key": "hard_to_walk",
+              "label": "다니기 어려워요"
+            },
+            {
+              "key": "broken",
+              "label": "시설이 고장 났어요"
+            },
+            {
+              "key": "dark",
+              "label": "주변이 어두워요"
+            },
+            {
+              "key": "insufficient",
+              "label": "안전시설이 부족해요"
+            },
+            {
+              "key": "helpful",
+              "label": "안전에 도움이 돼요"
+            }
+          ]
+        },
+        {
+          "key": "lighting",
+          "label": "조명 상태",
+          "type": "single",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "sufficient",
+              "label": "충분함"
+            },
+            {
+              "key": "insufficient",
+              "label": "부족함"
+            }
+          ]
+        },
+        {
+          "key": "condition",
+          "label": "시설 상태",
+          "type": "single",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "normal",
+              "label": "정상"
+            },
+            {
+              "key": "damaged",
+              "label": "파손·고장"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "key": "ecology",
+      "label": "생태",
+      "features": {
+        "ratingEnabled": false,
+        "ideasEnabled": false,
+        "proposalsEnabled": false,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "category"
+      },
+      "rating": null,
+      "categories": [
+        {
+          "key": "plants",
+          "label": "나무·식물",
+          "color": "#2563EB",
+          "defaultEmojiKey": "plants-1",
+          "emojiOptions": [
+            {
+              "key": "plants-1",
+              "glyph": "🌳",
+              "label": "나무"
+            },
+            {
+              "key": "plants-2",
+              "glyph": "🌼",
+              "label": "꽃"
+            },
+            {
+              "key": "plants-3",
+              "glyph": "🌿",
+              "label": "풀"
+            }
+          ]
+        },
+        {
+          "key": "birds",
+          "label": "새",
+          "color": "#15803D",
+          "defaultEmojiKey": "birds-1",
+          "emojiOptions": [
+            {
+              "key": "birds-1",
+              "glyph": "🐦",
+              "label": "새"
+            },
+            {
+              "key": "birds-2",
+              "glyph": "🦆",
+              "label": "물새"
+            }
+          ]
+        },
+        {
+          "key": "insects",
+          "label": "곤충",
+          "color": "#7C3AED",
+          "defaultEmojiKey": "insects-1",
+          "emojiOptions": [
+            {
+              "key": "insects-1",
+              "glyph": "🦋",
+              "label": "나비"
+            },
+            {
+              "key": "insects-2",
+              "glyph": "🐞",
+              "label": "곤충"
+            },
+            {
+              "key": "insects-3",
+              "glyph": "🐝",
+              "label": "벌"
+            }
+          ]
+        },
+        {
+          "key": "water",
+          "label": "물·습지",
+          "color": "#B45309",
+          "defaultEmojiKey": "water-1",
+          "emojiOptions": [
+            {
+              "key": "water-1",
+              "glyph": "💧",
+              "label": "물·습지"
+            },
+            {
+              "key": "water-2",
+              "glyph": "🐸",
+              "label": "양서류"
+            }
+          ]
+        },
+        {
+          "key": "habitat",
+          "label": "서식환경",
+          "color": "#BE185D",
+          "defaultEmojiKey": "habitat-1",
+          "emojiOptions": [
+            {
+              "key": "habitat-1",
+              "glyph": "🌱",
+              "label": "식생"
+            },
+            {
+              "key": "habitat-2",
+              "glyph": "🍂",
+              "label": "낙엽 환경"
+            }
+          ]
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "color": "#0E7490",
+          "defaultEmojiKey": "other-1",
+          "emojiOptions": [
+            {
+              "key": "other-1",
+              "glyph": "🔎",
+              "label": "기타 생태 관찰"
+            },
+            {
+              "key": "other-2",
+              "glyph": "🐾",
+              "label": "동물 흔적"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "key": "organism_name",
+          "label": "생물명",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 100
+        },
+        {
+          "key": "habitat",
+          "label": "서식환경",
+          "type": "single",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "park",
+              "label": "공원·녹지"
+            },
+            {
+              "key": "water",
+              "label": "물·습지"
+            },
+            {
+              "key": "street",
+              "label": "길가"
+            },
+            {
+              "key": "other",
+              "label": "기타"
+            }
+          ]
+        },
+        {
+          "key": "characteristics",
+          "label": "관찰 특징",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 1000
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "key": "weather_life",
+      "label": "날씨생활",
+      "features": {
+        "ratingEnabled": true,
+        "ideasEnabled": true,
+        "proposalsEnabled": true,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "category"
+      },
+      "rating": {
+        "key": "weather_impact",
+        "label": "생활 영향",
+        "options": [
+          {
+            "key": "positive",
+            "label": "도움돼요",
+            "color": "#16803D",
+            "symbol": "✓"
+          },
+          {
+            "key": "caution",
+            "label": "조금 불편해요",
+            "color": "#B85C00",
+            "symbol": "!"
+          },
+          {
+            "key": "improve",
+            "label": "위험해 보여요",
+            "color": "#C62828",
+            "symbol": "×"
+          }
+        ]
+      },
+      "categories": [
+        {
+          "key": "heat",
+          "label": "햇빛·더위",
+          "color": "#2563EB",
+          "defaultEmojiKey": "heat-1",
+          "emojiOptions": [
+            {
+              "key": "heat-1",
+              "glyph": "☀️",
+              "label": "햇빛·더위"
+            },
+            {
+              "key": "heat-2",
+              "glyph": "🌳",
+              "label": "그늘"
+            }
+          ]
+        },
+        {
+          "key": "rain",
+          "label": "비·물고임",
+          "color": "#15803D",
+          "defaultEmojiKey": "rain-1",
+          "emojiOptions": [
+            {
+              "key": "rain-1",
+              "glyph": "🌧️",
+              "label": "비"
+            },
+            {
+              "key": "rain-2",
+              "glyph": "💧",
+              "label": "물고임"
+            }
+          ]
+        },
+        {
+          "key": "wind",
+          "label": "강풍",
+          "color": "#7C3AED",
+          "defaultEmojiKey": "wind-1",
+          "emojiOptions": [
+            {
+              "key": "wind-1",
+              "glyph": "💨",
+              "label": "강풍"
+            },
+            {
+              "key": "wind-2",
+              "glyph": "🌬️",
+              "label": "바람"
+            }
+          ]
+        },
+        {
+          "key": "ice",
+          "label": "빙판",
+          "color": "#B45309",
+          "defaultEmojiKey": "ice-1",
+          "emojiOptions": [
+            {
+              "key": "ice-1",
+              "glyph": "🧊",
+              "label": "빙판"
+            },
+            {
+              "key": "ice-2",
+              "glyph": "❄️",
+              "label": "눈·결빙"
+            }
+          ]
+        },
+        {
+          "key": "air",
+          "label": "미세먼지",
+          "color": "#BE185D",
+          "defaultEmojiKey": "air-1",
+          "emojiOptions": [
+            {
+              "key": "air-1",
+              "glyph": "😷",
+              "label": "미세먼지"
+            },
+            {
+              "key": "air-2",
+              "glyph": "🌫️",
+              "label": "흐린 대기"
+            }
+          ]
+        },
+        {
+          "key": "other",
+          "label": "기타",
+          "color": "#0E7490",
+          "defaultEmojiKey": "other-1",
+          "emojiOptions": [
+            {
+              "key": "other-1",
+              "glyph": "🌈",
+              "label": "기타 날씨 관찰"
+            },
+            {
+              "key": "other-2",
+              "glyph": "🔎",
+              "label": "관찰 위치"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "key": "reason",
+          "label": "관찰 이유",
+          "type": "text",
+          "required": true,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 1000
+        },
+        {
+          "key": "shade",
+          "label": "그늘 여부",
+          "type": "boolean",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true
+        },
+        {
+          "key": "drainage",
+          "label": "배수 상태",
+          "type": "single",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "clear",
+              "label": "물 빠짐 원활"
+            },
+            {
+              "key": "standing",
+              "label": "물고임"
+            }
+          ]
+        },
+        {
+          "key": "shelter",
+          "label": "대피·휴식공간",
+          "type": "boolean",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "key": "custom",
+      "label": "직접 만들기",
+      "requiresConfiguration": true,
+      "features": {
+        "ratingEnabled": false,
+        "ideasEnabled": false,
+        "proposalsEnabled": false,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "category"
+      },
+      "rating": null,
+      "categories": [],
+      "questions": []
+    }
+  ]
+}
