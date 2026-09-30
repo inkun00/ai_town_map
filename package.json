@@ -12,6 +12,7 @@
     "db:check-schema": "node scripts/check-schema.mjs",
     "db:check-retention": "node scripts/check-retention.mjs",
     "db:audit-retention": "node scripts/audit-retention.mjs",
+    "db:check-restore": "node scripts/check-restore-drill.mjs",
     "db:schedule-retention": "node scripts/schedule-retention.mjs"
   },
   "dependencies": {
