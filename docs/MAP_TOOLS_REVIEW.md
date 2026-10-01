@@ -41,5 +41,6 @@ SDK 근거: [Kakao Web API Circle·Polyline·CustomOverlay·setBounds](https://a
 - 지도 빈 공간에서 메모 생성, 내용 수정·삭제, 메모 레이어 숨김 확인. `<b>우리 모임</b>`를 입력해 태그가 실행되지 않고 문자로 표시되는 것을 확인.
 - 공유 JSON이 실제 Downloads에 저장됨을 확인. 파일 선택→미리보기→적용으로 삭제했던 연결선·메모 복원. 새로고침 후 원·연결선·메모 자동 복원.
 - 390×844와 320×740 화면 너비·버튼 배치 확인. 콘솔 오류 없음.
+- 운영 배포 화면에서 공유 파일 불러오기·반경·구간 거리·메모 표시를 확인했다. Kakao 오버레이 컨테이너 안에서 메모가 최소 폭으로 수축하는 문제를 발견해 `width: max-content`와 최대 190px 폭으로 수정하고 재검증했다.
 
 재현용 가상 데이터: `RUN_MAP_TOOLS_UI=1`, `LIVE_APP_ORIGIN=http://localhost:3001` 환경으로 `node scripts/check-map-tools-ui.mjs` 실행. 검사 후 같은 환경에서 `node scripts/check-map-tools-ui.mjs cleanup` 실행. 기존 로컬 환경 파일의 연결 정보를 사용하며 출력에는 인증 정보가 포함되지 않는다. 가상 데이터만 정확한 소유자 식별자로 정리한다.

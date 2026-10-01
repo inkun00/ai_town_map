@@ -39,6 +39,6 @@
 .map-tool-action button { border:0; border-radius:8px; padding:8px 12px; min-height:40px; background:#176a62; color:#fff; font-weight:800; }
 .map-drawing-label { padding:4px 7px; border:1px solid #526975; border-radius:7px; color:#253d4c; background:#fffef8; font:700 11px/1.4 system-ui,sans-serif; white-space:nowrap; pointer-events:none; }
 .map-drawing-order { min-width:23px; border:2px solid white; border-radius:50%; background:#9b43cc; color:white; padding:2px; text-align:center; font:800 12px/1.4 system-ui,sans-serif; pointer-events:none; }
-.map-drawing-note { max-width:190px; padding:7px 10px; border:2px solid #253d4c; border-radius:12px; color:#253d4c; font:700 15px/1.5 system-ui,sans-serif; white-space:pre-wrap; overflow-wrap:anywhere; pointer-events:none; box-shadow:0 3px 0 #253d4c26; }
+.map-drawing-note { width:max-content; max-width:190px; padding:7px 10px; border:2px solid #253d4c; border-radius:12px; color:#253d4c; font:700 15px/1.5 system-ui,sans-serif; white-space:pre-wrap; overflow-wrap:anywhere; pointer-events:none; box-shadow:0 3px 0 #253d4c26; }
 .map-drawing-note--emoji { background:transparent!important; border:0; padding:0; font-size:34px; box-shadow:none; }
 @media(max-width:360px){.map-tools__buttons { gap:4px; }.map-tools__buttons button { padding:7px 5px; gap:3px; }.map-tools__buttons .map-tools__legend b { display:none; }.map-tools__buttons button svg { width:15px; }.map-tools__buttons b { padding:2px 3px; }.workbench-tabs button { font-size:11px; }.workbench { gap:10px; }}
