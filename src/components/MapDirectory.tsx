@@ -27,12 +27,12 @@ function DirectorySection({ scope, query, themeKey, onOpen }: {
 
   const title = scope === "public" ? "공개 지도" : "내가 참여한 지도";
   return <section className="home-section map-directory-section" id={scope === "mine" ? "my-maps" : "public-maps"} aria-label={title}>
-    <div className="section-heading"><div><span className="eyebrow">{scope === "public" ? "EXPLORE" : "MY MAPS"}</span><h2>{title}</h2></div></div>
+    <div className="section-heading"><div><span className="eyebrow">{scope === "public" ? "🧭 새로운 탐험을 찾아서" : "🎒 나의 탐험 일지"}</span><h2>{scope==="public"?"함께 떠날 탐험 지도":"내가 참여한 탐험"}</h2></div><span className="section-stamp" aria-hidden="true">{scope==="public"?"MAP":"MY"}</span></div>
     <div className="my-map-list" aria-busy={page.busy}>
       {page.items.map(map => <button type="button" key={map.id} onClick={() => onOpen(map)}>
-        <span className="my-map-list__emoji" aria-hidden="true">{symbols[map.themeKey]}</span>
+        <span className={`my-map-list__emoji adventure-theme--${map.themeKey}`} aria-hidden="true">{symbols[map.themeKey]}</span>
         <span><strong>{map.title}</strong><small>{themeByKey[map.themeKey].label} · {map.location}</small><small>{map.status === "archived" ? "보관 중 · " : ""}{map.visibility === "invite_only" ? "초대 전용" : "공개 지도"}</small></span>
-        <span aria-hidden="true">›</span>
+        <span className="map-entry-arrow" aria-hidden="true">›</span>
       </button>)}
     </div>
     <p className="directory-status" role="status">{page.busy ? "지도를 불러오고 있어요…" : page.loaded ? page.items.length ? `${page.items.length}개 표시${page.nextCursor ? " · 더 불러올 지도가 있어요" : " · 마지막 목록이에요"}` : "조건에 맞는 지도가 없어요." : ""}</p>
@@ -48,9 +48,9 @@ export function MapDirectory({ signedIn, onOpen }: { signedIn: boolean; onOpen: 
   useEffect(() => { const timer = setTimeout(() => setQuery(input.trim()), 300); return () => clearTimeout(timer); }, [input]);
   return <>
     <section className="home-section directory-filters" aria-label="지도 검색 조건">
-      <label className="search-field"><span className="sr-only">지도 검색</span><input maxLength={100} value={input} onChange={event => setInput(event.target.value)} placeholder="지도 이름이나 지역으로 찾아요" /></label>
-      <label className="directory-theme">주제<select value={theme} onChange={event => setTheme(event.target.value)}><option value="">모든 주제</option>{themes.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
-      <p className="directory-status">공개 지도와 내가 참여한 지도 전체에서 검색해요.</p>
+      <label className="search-field"><span aria-hidden="true">🔎</span><span className="sr-only">지도 검색</span><input maxLength={100} value={input} onChange={event => setInput(event.target.value)} placeholder="어디로 탐험을 떠날까요?" /></label>
+      <label className="directory-theme">탐험 주제<select aria-label="주제" value={theme} onChange={event => setTheme(event.target.value)}><option value="">모든 주제</option>{themes.map(item => <option key={item.key} value={item.key}>{symbols[item.key]} {item.label}</option>)}</select></label>
+      <p className="directory-status">지도 이름이나 지역으로 탐험할 곳을 찾아요.</p>
     </section>
     <DirectorySection key={`public:${query}:${theme}`} scope="public" query={query} themeKey={theme} onOpen={onOpen} />
     {signedIn ? <DirectorySection key={`mine:${query}:${theme}`} scope="mine" query={query} themeKey={theme} onOpen={onOpen} /> : <section className="home-section" id="my-maps"><h2>내가 참여한 지도</h2><p>로그인하거나 <a href="/join">초대 코드로 참여</a>해 주세요.</p></section>}

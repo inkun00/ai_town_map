@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./adventure.css";
 
 export const metadata: Metadata = {
-  title: "모두의 지도 · 우리 동네를 함께 기록해요",
+  title: "모두의 지도 · 우리 동네 탐험대",
   description: "주제에 맞는 지도를 만들고, 동네의 발견을 함께 기록하는 커뮤니티 지도",
 };
 

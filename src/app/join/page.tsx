@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { inviteFeedback, validInviteInput } from "@/lib/invite-feedback";
+import {GameIcon} from "@/components/AdventureArt";
 
 export default function JoinPage() {
   const [code, setCode] = useState("");
@@ -36,5 +37,5 @@ export default function JoinPage() {
     finally { submitting.current = false; setBusy(false); }
   }
 
-  return <main className="join-page"><div className="join-card"><a href="/" className="join-back">← 모두의 지도</a><span className="join-emoji" aria-hidden="true">🗺️</span><h1>친구들과 함께<br />지도를 채워요</h1><p>초대 코드와 닉네임으로 참여할 수 있어요. 같은 닉네임을 써도 참여 권한은 각자의 기기에 발급된 세션으로 구분됩니다.</p><form onSubmit={join}><label>초대 코드<input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="XXXX-XXXX-XXXX" autoComplete="off" required /></label><label>닉네임<input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="2~20자 닉네임" minLength={2} maxLength={20} required /></label>{message && <div role="alert" className="join-error">{message}</div>}<button disabled={busy} type="submit">{busy ? "입장 중..." : "지도에 참여하기"}</button></form><small>참여 세션은 7일 후 만료됩니다. 쿠키를 지우거나 기기를 바꾸면 이전 기록의 작성 권한은 복구되지 않습니다.</small></div></main>;
+  return <main className="join-page"><div className="join-card"><a href="/" className="join-back">← 모두의 지도</a><div className="join-adventure"><span className="quest-tag"><GameIcon name="key" size={19}/> 탐험대 초대장</span><img src="/adventure/explorer-fox.webp" width="90" height="108" alt="손을 흔들며 반기는 여우 탐험대장"/></div><h1>친구들과 함께<br/>탐험을 시작해요!</h1><p>친구나 선생님에게 받은 초대 코드를 입력하고, 탐험에 사용할 닉네임을 정해 주세요.</p><form onSubmit={join}><label>초대 코드<input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="XXXX-XXXX-XXXX" autoComplete="off" required /></label><label>닉네임<input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="2~20자 닉네임" minLength={2} maxLength={20} required /></label>{message && <div role="alert" className="join-error">{message}</div>}<button disabled={busy} type="submit">{busy ? "입장 중..." : "지도에 참여하기"}</button></form><small>참여 세션은 7일 후 만료됩니다. 쿠키를 지우거나 기기를 바꾸면 이전 기록의 작성 권한은 복구되지 않습니다.</small></div></main>;
 }
