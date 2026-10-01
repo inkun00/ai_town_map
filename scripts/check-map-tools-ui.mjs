@@ -15,13 +15,29 @@ const {base,sessionName,csrfName}=liveTestTarget();
 const marker=join(tmpdir(),"ai-town-map-tools-ui-fixture.json");
 const admin=new pg.Client({connectionString:process.env.DATABASE_ADMIN_URL});
 await admin.connect();
+async function cleanup(principalId,authId){
+  await admin.query("BEGIN");
+  try{
+    const owner=await admin.query("SELECT id FROM app.principals WHERE id=$1 AND auth_user_id=$2 AND kind='account' FOR UPDATE",[principalId,authId]);
+    if(owner.rowCount!==1)throw new Error("Fixture principal mismatch; stop cleanup");
+    await admin.query("SET CONSTRAINTS ALL DEFERRED");
+    const maps=await admin.query("SELECT id FROM app.maps WHERE owner_principal_id=$1 AND title=$2 FOR UPDATE",[principalId,"지도 도구 기능 검사 · 자동 정리"]);
+    const ids=maps.rows.map(map=>map.id);
+    // Configuration has cyclic FKs, and map children deliberately do not cascade.
+    for(const table of ["app.proposal_versions","app.proposals","app.audit_events","app.reports","app.comments","app.observation_photos","app.observations","app.map_config_revisions","app.question_versions","app.questions","app.rating_options","app.rating_schemes","app.emoji_options","app.categories","app_private.invites","app.map_members"]){
+      await admin.query(`DELETE FROM ${table} WHERE map_id=ANY($1::uuid[])`,[ids]);
+    }
+    await admin.query("DELETE FROM app.maps WHERE id=ANY($1::uuid[])",[ids]);
+    await admin.query("DELETE FROM app_private.idempotency_keys WHERE principal_id=$1",[principalId]);
+    await admin.query("DELETE FROM app_private.sessions WHERE principal_id=$1",[principalId]);
+    await admin.query("DELETE FROM app.principals WHERE id=$1 AND auth_user_id=$2",[principalId,authId]);
+    await admin.query("COMMIT");
+  }catch(error){await admin.query("ROLLBACK");throw error;}
+}
 try{
   if(process.argv[2]==="cleanup"){
     const fixture=JSON.parse(readFileSync(marker,"utf8"));
-    const owner=await admin.query("SELECT id FROM app.principals WHERE id=$1 AND auth_user_id=$2 AND kind='account'",[fixture.principalId,fixture.authId]);
-    if(owner.rowCount!==1)throw new Error("Fixture principal mismatch; stop cleanup");
-    await admin.query("DELETE FROM app.maps WHERE owner_principal_id=$1 AND title=$2",[fixture.principalId,"지도 도구 기능 검사 · 자동 정리"]);
-    await admin.query("DELETE FROM app.principals WHERE id=$1 AND auth_user_id=$2",[fixture.principalId,fixture.authId]);
+    await cleanup(fixture.principalId,fixture.authId);
     unlinkSync(marker);console.log("Synthetic map tools fixture cleaned up");
   }else{
     if(existsSync(marker))throw new Error("Clean up the previous map tools fixture first");
@@ -39,6 +55,6 @@ try{
       }
       writeFileSync(marker,JSON.stringify({principalId,authId,mapId:map.id,pointIds:points.map(point=>point.id)},null,2));
       console.log(JSON.stringify({url:`${base}/?map=${map.id}`,pointIds:points.map(point=>point.id),marker},null,2));
-    }catch(error){await admin.query("DELETE FROM app.maps WHERE owner_principal_id=$1",[principalId]);await admin.query("DELETE FROM app.principals WHERE id=$1",[principalId]);throw error;}
+    }catch(error){await cleanup(principalId,authId);throw error;}
   }
 }finally{await admin.end();}
