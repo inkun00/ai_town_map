@@ -4,13 +4,17 @@ import Script from "next/script";
 import {pinSvg,type RatingMeaning} from "@/domain/point-presentation";
 import {PointDialog} from "./PointDialog";
 import {groupMapPoints} from "@/domain/map-points";
+import {formatDistance,routeSegments,type WorkbenchState} from "@/domain/map-workbench";
 import { useEffect, useRef, useState } from "react";
 
 export type Coordinates={lat:number;lng:number};
+export type MapFocus={location:Coordinates;nonce:number;radiusMeters?:number;locations?:Coordinates[]};
 export type MapPoint={id:string;title:string;emoji:string;color:string;description?:string;rating?:RatingMeaning|null;location:Coordinates};
-type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean};
-type KakaoApi={maps:{load:(callback:()=>void)=>void;LatLng:new(lat:number,lng:number)=>unknown;Map:new(element:HTMLElement,options:Record<string,unknown>)=>KakaoMapObject;Marker:new(options:Record<string,unknown>)=>KakaoMarker;MarkerImage:new(src:string,size:unknown,options?:Record<string,unknown>)=>unknown;Size:new(width:number,height:number)=>unknown;Point:new(x:number,y:number)=>unknown;MarkerClusterer:new(options:Record<string,unknown>)=>{addMarkers:(markers:KakaoMarker[])=>void;clear:()=>void};services:{Places:new()=>{keywordSearch:(term:string,callback:(result:{x:string;y:string;place_name:string}[],status:string)=>void)=>void};Status:{OK:string}};event:{addListener:(target:unknown,name:string,callback:(event?:{latLng?:{getLat:()=>number;getLng:()=>number}})=>void)=>void}}};
-type KakaoMapObject={setCenter:(center:unknown)=>void;relayout:()=>void;getCenter:()=>{getLat:()=>number;getLng:()=>number};getBounds:()=>{getSouthWest:()=>{getLat:()=>number;getLng:()=>number};getNorthEast:()=>{getLat:()=>number;getLng:()=>number}};setLevel:(level:number)=>void};
+type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean;workbench?:WorkbenchState;anchorPoints?:MapPoint[];onCanvasPick?:(location:Coordinates)=>void;focus?:MapFocus|null};
+type KakaoBounds={extend:(position:unknown)=>void};
+type KakaoOverlay={setMap:(map:KakaoMapObject|null)=>void};
+type KakaoApi={maps:{LatLngBounds:new()=>KakaoBounds;Circle:new(options:Record<string,unknown>)=>KakaoOverlay;Polyline:new(options:Record<string,unknown>)=>KakaoOverlay;CustomOverlay:new(options:Record<string,unknown>)=>KakaoOverlay;load:(callback:()=>void)=>void;LatLng:new(lat:number,lng:number)=>unknown;Map:new(element:HTMLElement,options:Record<string,unknown>)=>KakaoMapObject;Marker:new(options:Record<string,unknown>)=>KakaoMarker;MarkerImage:new(src:string,size:unknown,options?:Record<string,unknown>)=>unknown;Size:new(width:number,height:number)=>unknown;Point:new(x:number,y:number)=>unknown;MarkerClusterer:new(options:Record<string,unknown>)=>{addMarkers:(markers:KakaoMarker[])=>void;clear:()=>void};services:{Places:new()=>{keywordSearch:(term:string,callback:(result:{x:string;y:string;place_name:string}[],status:string)=>void)=>void};Status:{OK:string}};event:{addListener:(target:unknown,name:string,callback:(event?:{latLng?:{getLat:()=>number;getLng:()=>number}})=>void)=>void}}};
+type KakaoMapObject={setBounds:(bounds:KakaoBounds,paddingTop?:number,paddingRight?:number,paddingBottom?:number,paddingLeft?:number)=>void;setCenter:(center:unknown)=>void;relayout:()=>void;getCenter:()=>{getLat:()=>number;getLng:()=>number};getBounds:()=>{getSouthWest:()=>{getLat:()=>number;getLng:()=>number};getNorthEast:()=>{getLat:()=>number;getLng:()=>number}};setLevel:(level:number)=>void};
 type KakaoMarker={setMap:(map:KakaoMapObject|null)=>void};
 declare global {interface Window {kakao?:KakaoApi}}
 
@@ -21,13 +25,14 @@ function markerImage(kakao:KakaoApi,glyph:string,color:string,selected:boolean,s
   return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,new kakao.maps.Size(48,54),{offset:new kakao.maps.Point(21,50)});
 }
 
-export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false}:Props) {
+export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false,workbench,anchorPoints=points,onCanvasPick,focus}:Props) {
   const elementRef=useRef<HTMLDivElement>(null);
   const mapRef=useRef<KakaoMapObject|null>(null);
   const pinRef=useRef<KakaoMarker[]>([]);
   const clusterRef=useRef<{clear:()=>void}|null>(null);
   const chosenRef=useRef<KakaoMarker|null>(null);
   const onPickRef=useRef(onPick); onPickRef.current=onPick;
+  const canvasPickRef=useRef(onCanvasPick);canvasPickRef.current=onCanvasPick;
   const boundsRef=useRef(onBoundsChange);boundsRef.current=onBoundsChange;
   const [ready,setReady]=useState(false);
   const [error,setError]=useState("");
@@ -52,7 +57,7 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     const reportBounds=()=>{const bounds=map.getBounds(),sw=bounds.getSouthWest(),ne=bounds.getNorthEast();boundsRef.current?.([sw.getLng(),sw.getLat(),ne.getLng(),ne.getLat()]);};
     kakao.maps.event.addListener(map,"idle",reportBounds);
     kakao.maps.event.addListener(map,"dragstart",()=>{lookupRef.current++;setLocating(false);});
-    if(onPickRef.current) kakao.maps.event.addListener(map,"click",(event)=>{const latLng=event?.latLng;if(latLng) {lookupRef.current++;setLocating(false);setSearching(false);setGpsCandidate(null);onPickRef.current?.({lat:latLng.getLat(),lng:latLng.getLng()},"manual");}});
+    kakao.maps.event.addListener(map,"click",(event)=>{const latLng=event?.latLng;if(latLng&&(onPickRef.current||canvasPickRef.current)) {lookupRef.current++;setLocating(false);setSearching(false);setGpsCandidate(null);const location={lat:latLng.getLat(),lng:latLng.getLng()};onPickRef.current?.(location,"manual");canvasPickRef.current?.(location);}});
     const timer=window.setTimeout(()=>{map.relayout();reportBounds();},80);
     const observer=new ResizeObserver(()=>{map.relayout();reportBounds();});
     observer.observe(elementRef.current);
@@ -60,6 +65,49 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
   },[ready,compact]);
 
   useEffect(()=>{const kakao=window.kakao;if(ready && kakao && mapRef.current && center) mapRef.current.setCenter(new kakao.maps.LatLng(center.lat,center.lng));},[ready,center?.lat,center?.lng]);
+
+  useEffect(()=>{
+    const kakao=window.kakao,map=mapRef.current;if(!ready||!kakao||!map||!focus)return;
+    lookupRef.current++;setLocating(false);
+    let positions=focus.locations;
+    if(focus.radiusMeters){
+      const deltaLat=focus.radiusMeters/111195.08,deltaLng=deltaLat/Math.max(.01,Math.cos(focus.location.lat*Math.PI/180));
+      positions=[{lat:Math.max(-90,focus.location.lat-deltaLat),lng:Math.max(-180,focus.location.lng-deltaLng)},{lat:Math.min(90,focus.location.lat+deltaLat),lng:Math.min(180,focus.location.lng+deltaLng)}];
+    }
+    if(positions&&positions.length>1){const bounds=new kakao.maps.LatLngBounds();positions.forEach(position=>bounds.extend(new kakao.maps.LatLng(position.lat,position.lng)));map.setBounds(bounds,80,35,80,35);}
+    else map.setCenter(new kakao.maps.LatLng(focus.location.lat,focus.location.lng));
+  },[ready,focus]);
+
+  useEffect(()=>{
+    const kakao=window.kakao,map=mapRef.current;
+    if(!ready||!kakao||!map||!workbench)return;
+    const overlays:KakaoOverlay[]=[];
+    const latLng=(location:Coordinates)=>new kakao.maps.LatLng(location.lat,location.lng);
+    const label=(location:Coordinates,text:string,className="map-drawing-label",color?:string)=>{
+      const content=document.createElement("div");content.className=className;content.textContent=text;
+      if(color)content.style.backgroundColor=color;
+      overlays.push(new kakao.maps.CustomOverlay({map,position:latLng(location),content,xAnchor:.5,yAnchor:1.1,zIndex:4}));
+    };
+    const lookup=new Map(anchorPoints.map(point=>[point.id,point]));
+    if(workbench.layers.radii)for(const radius of workbench.radii){
+      const point=lookup.get(radius.pointId);if(!point)continue;
+      for(const meters of [...new Set(radius.meters)].sort((a,b)=>b-a)){
+        overlays.push(new kakao.maps.Circle({map,center:latLng(point.location),radius:meters,strokeWeight:2,strokeColor:"#2563eb",strokeOpacity:.85,strokeStyle:"dash",fillColor:"#93c5fd",fillOpacity:.06,zIndex:1}));
+        // Geographic north edge of each circle, with a distance label in meters.
+        label({lat:Math.min(90,point.location.lat+meters/111195.08),lng:point.location.lng},`반경 ${formatDistance(meters)}`);
+      }
+    }
+    if(workbench.layers.route){
+      for(const segment of routeSegments(workbench.route,anchorPoints)){
+        const from=segment.from.location!,to=segment.to.location!;
+        overlays.push(new kakao.maps.Polyline({map,path:[latLng(from),latLng(to)],strokeWeight:4,strokeColor:"#9b43cc",strokeOpacity:.9,zIndex:2}));
+        label({lat:(from.lat+to.lat)/2,lng:(from.lng+to.lng)/2},`${segment.index+1}구간 · ${formatDistance(segment.meters)}`);
+      }
+      workbench.route.forEach((id,index)=>{const point=lookup.get(id);if(point)label(point.location,String(index+1),"map-drawing-order");});
+    }
+    if(workbench.layers.notes)for(const note of workbench.notes)label(note.location,[note.emoji,note.text].filter(Boolean).join(" "),`map-drawing-note${note.text?"":" map-drawing-note--emoji"}`,note.color);
+    return()=>{overlays.forEach(overlay=>overlay.setMap(null));};
+  },[ready,workbench,anchorPoints]);
 
   useEffect(()=>{
     if(!ready||!mapRef.current||!viewing||autoLocatedRef.current)return;
