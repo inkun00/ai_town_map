@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {distanceMeters,emojiGroup,emptyWorkbench,formatDistance,parseWorkbench,routeSegments,serializeWorkbench,toggleHidden,visiblePoint,workbenchKey} from "../src/domain/map-workbench";
+import {addConnection,connectionEdges,connectionSegments,removePointConnections,snapPoint,distanceMeters,emojiGroup,emptyWorkbench,formatDistance,parseWorkbench,routeSegments,serializeWorkbench,toggleHidden,visiblePoint,workbenchKey} from "../src/domain/map-workbench";
 
 describe("personal map tools",()=>{
   it("counts overlapping points individually and combines category, emoji and point visibility",()=>{
@@ -39,5 +39,37 @@ describe("personal map tools",()=>{
   it("restores a large map's hidden point list within file limits",()=>{
     const state=emptyWorkbench();state.hiddenPoints=Array.from({length:10000},(_,index)=>`12345678-1234-1234-1234-${String(index).padStart(12,"0")}`);
     expect(parseWorkbench(serializeWorkbench("large-map",state),"large-map").hiddenPoints).toHaveLength(10000);
+  });
+});
+
+describe("direct point manipulation",()=>{
+  it("stores independent edges without joining unrelated starting points",()=>{
+    let state=emptyWorkbench();state.route=["a","b"];
+    state=addConnection(state,"c","d");expect(state.route).toEqual([]);
+    expect(connectionEdges(state)).toEqual([{fromId:"a",toId:"b"},{fromId:"c",toId:"d"}]);
+    expect(addConnection(state,"b","a")).toBe(state);expect(addConnection(state,"a","a")).toBe(state);
+    expect(removePointConnections(state,"b").connections).toEqual([{fromId:"c",toId:"d"}]);
+    const points=["a","c","d"].map((id,index)=>({id,location:{lat:37+index*.001,lng:127}}));
+    expect(connectionSegments(state,points)).toHaveLength(1);
+  });
+  it("snaps to the marker body or tip with hysteresis, excluding the source",()=>{
+    const points=[{id:"a",x:10,y:100},{id:"b",x:200,y:100}];
+    expect(snapPoint({x:10,y:100},points,"a")).toBeNull();
+    expect(snapPoint({x:200,y:75},points,"a")).toBe("b");
+    expect(snapPoint({x:235,y:100},points,"a")).toBeNull();
+    expect(snapPoint({x:235,y:100},points,"a","b")).toBe("b");
+    expect(snapPoint({x:245,y:100},points,"a","b")).toBeNull();
+    expect(snapPoint({x:220,y:75},[...points,{id:"c",x:220,y:100}],"a","b")).toBe("c");
+    expect(snapPoint({x:200,y:100},points.filter(point=>point.id!=="b"),"a","b")).toBeNull();
+  });
+  it("reads old drawings and round trips continuous radii and new edges",()=>{
+    const old=JSON.parse(serializeWorkbench("m",emptyWorkbench()));delete old.state.connections;old.state.route=["a","b"];
+    expect(parseWorkbench(JSON.stringify(old),"m").connections).toEqual([]);
+    let state=addConnection(parseWorkbench(JSON.stringify(old),"m"),"a","c");state.radii=[{pointId:"a",meters:[327]}];
+    expect(parseWorkbench(serializeWorkbench("m",state),"m")).toEqual(state);
+    state.radii[0].meters=[20001];expect(()=>serializeWorkbench("m",state)).toThrow();
+    state.radii=[];state.connections=Array.from({length:100},(_,index)=>({fromId:"a",toId:String(index)}));
+    expect(addConnection(state,"new","other")).toBe(state);
+    state.route=["a","b"];expect(()=>serializeWorkbench("m",state)).toThrow();
   });
 });

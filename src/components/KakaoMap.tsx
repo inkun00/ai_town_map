@@ -4,17 +4,18 @@ import Script from "next/script";
 import {pinSvg,type RatingMeaning} from "@/domain/point-presentation";
 import {PointDialog} from "./PointDialog";
 import {groupMapPoints} from "@/domain/map-points";
-import {formatDistance,routeSegments,type WorkbenchState} from "@/domain/map-workbench";
+import {formatDistance,connectionSegments,type WorkbenchState} from "@/domain/map-workbench";
+import {PointInteraction,type GestureTool} from "./PointInteraction";
 import { useEffect, useRef, useState } from "react";
 
 export type Coordinates={lat:number;lng:number};
 export type MapFocus={location:Coordinates;nonce:number;radiusMeters?:number;locations?:Coordinates[]};
 export type MapPoint={id:string;title:string;emoji:string;color:string;description?:string;rating?:RatingMeaning|null;location:Coordinates};
-type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean;workbench?:WorkbenchState;anchorPoints?:MapPoint[];onCanvasPick?:(location:Coordinates)=>void;focus?:MapFocus|null};
+type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean;workbench?:WorkbenchState;anchorPoints?:MapPoint[];onCanvasPick?:(location:Coordinates)=>void;focus?:MapFocus|null;contextPointId?:string|null;contextPopup?:React.ReactNode;onCloseContext?:()=>void;gestureTool?:GestureTool|null;onSelectNote?:(id:string)=>void;onGestureEnd?:(result:{pointId:string;meters?:number;targetId?:string}|null)=>void};
 type KakaoBounds={extend:(position:unknown)=>void};
-type KakaoOverlay={setMap:(map:KakaoMapObject|null)=>void};
-type KakaoApi={maps:{LatLngBounds:new()=>KakaoBounds;Circle:new(options:Record<string,unknown>)=>KakaoOverlay;Polyline:new(options:Record<string,unknown>)=>KakaoOverlay;CustomOverlay:new(options:Record<string,unknown>)=>KakaoOverlay;load:(callback:()=>void)=>void;LatLng:new(lat:number,lng:number)=>unknown;Map:new(element:HTMLElement,options:Record<string,unknown>)=>KakaoMapObject;Marker:new(options:Record<string,unknown>)=>KakaoMarker;MarkerImage:new(src:string,size:unknown,options?:Record<string,unknown>)=>unknown;Size:new(width:number,height:number)=>unknown;Point:new(x:number,y:number)=>unknown;MarkerClusterer:new(options:Record<string,unknown>)=>{addMarkers:(markers:KakaoMarker[])=>void;clear:()=>void};services:{Places:new()=>{keywordSearch:(term:string,callback:(result:{x:string;y:string;place_name:string}[],status:string)=>void)=>void};Status:{OK:string}};event:{addListener:(target:unknown,name:string,callback:(event?:{latLng?:{getLat:()=>number;getLng:()=>number}})=>void)=>void}}};
-type KakaoMapObject={setBounds:(bounds:KakaoBounds,paddingTop?:number,paddingRight?:number,paddingBottom?:number,paddingLeft?:number)=>void;setCenter:(center:unknown)=>void;relayout:()=>void;getCenter:()=>{getLat:()=>number;getLng:()=>number};getBounds:()=>{getSouthWest:()=>{getLat:()=>number;getLng:()=>number};getNorthEast:()=>{getLat:()=>number;getLng:()=>number}};setLevel:(level:number)=>void};
+export type KakaoOverlay={setMap:(map:KakaoMapObject|null)=>void;setRadius?:(radius:number)=>void;setPath?:(path:unknown[])=>void};
+export type KakaoApi={maps:{LatLngBounds:new()=>KakaoBounds;Circle:new(options:Record<string,unknown>)=>KakaoOverlay;Polyline:new(options:Record<string,unknown>)=>KakaoOverlay;CustomOverlay:new(options:Record<string,unknown>)=>KakaoOverlay;load:(callback:()=>void)=>void;LatLng:new(lat:number,lng:number)=>unknown;Map:new(element:HTMLElement,options:Record<string,unknown>)=>KakaoMapObject;Marker:new(options:Record<string,unknown>)=>KakaoMarker;MarkerImage:new(src:string,size:unknown,options?:Record<string,unknown>)=>unknown;Size:new(width:number,height:number)=>unknown;Point:new(x:number,y:number)=>unknown;MarkerClusterer:new(options:Record<string,unknown>)=>{addMarkers:(markers:KakaoMarker[])=>void;clear:()=>void};services:{Places:new()=>{keywordSearch:(term:string,callback:(result:{x:string;y:string;place_name:string}[],status:string)=>void)=>void};Status:{OK:string}};event:{removeListener:(target:unknown,name:string,callback:()=>void)=>void;addListener:(target:unknown,name:string,callback:(event?:{latLng?:{getLat:()=>number;getLng:()=>number}})=>void)=>void}}};
+export type KakaoMapObject={getDraggable:()=>boolean;setDraggable:(value:boolean)=>void;getZoomable:()=>boolean;setZoomable:(value:boolean)=>void;getProjection:()=>{containerPointFromCoords:(position:unknown)=>{x:number;y:number};coordsFromContainerPoint:(point:unknown)=>{getLat:()=>number;getLng:()=>number}};setBounds:(bounds:KakaoBounds,paddingTop?:number,paddingRight?:number,paddingBottom?:number,paddingLeft?:number)=>void;setCenter:(center:unknown)=>void;relayout:()=>void;getCenter:()=>{getLat:()=>number;getLng:()=>number};getBounds:()=>{getSouthWest:()=>{getLat:()=>number;getLng:()=>number};getNorthEast:()=>{getLat:()=>number;getLng:()=>number}};setLevel:(level:number)=>void};
 type KakaoMarker={setMap:(map:KakaoMapObject|null)=>void};
 declare global {interface Window {kakao?:KakaoApi}}
 
@@ -25,13 +26,15 @@ function markerImage(kakao:KakaoApi,glyph:string,color:string,selected:boolean,s
   return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,new kakao.maps.Size(48,54),{offset:new kakao.maps.Point(21,50)});
 }
 
-export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false,workbench,anchorPoints=points,onCanvasPick,focus}:Props) {
+export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false,workbench,anchorPoints=points,onCanvasPick,focus,contextPointId,contextPopup,onCloseContext,gestureTool,onGestureEnd,onSelectNote}:Props) {
   const elementRef=useRef<HTMLDivElement>(null);
   const mapRef=useRef<KakaoMapObject|null>(null);
   const pinRef=useRef<KakaoMarker[]>([]);
   const clusterRef=useRef<{clear:()=>void}|null>(null);
   const chosenRef=useRef<KakaoMarker|null>(null);
   const onPickRef=useRef(onPick); onPickRef.current=onPick;
+  const noteSelectRef=useRef(onSelectNote);noteSelectRef.current=onSelectNote;
+  const closeContextRef=useRef(onCloseContext);closeContextRef.current=onCloseContext;
   const canvasPickRef=useRef(onCanvasPick);canvasPickRef.current=onCanvasPick;
   const boundsRef=useRef(onBoundsChange);boundsRef.current=onBoundsChange;
   const [ready,setReady]=useState(false);
@@ -57,7 +60,7 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     const reportBounds=()=>{const bounds=map.getBounds(),sw=bounds.getSouthWest(),ne=bounds.getNorthEast();boundsRef.current?.([sw.getLng(),sw.getLat(),ne.getLng(),ne.getLat()]);};
     kakao.maps.event.addListener(map,"idle",reportBounds);
     kakao.maps.event.addListener(map,"dragstart",()=>{lookupRef.current++;setLocating(false);});
-    kakao.maps.event.addListener(map,"click",(event)=>{const latLng=event?.latLng;if(latLng&&(onPickRef.current||canvasPickRef.current)) {lookupRef.current++;setLocating(false);setSearching(false);setGpsCandidate(null);const location={lat:latLng.getLat(),lng:latLng.getLng()};onPickRef.current?.(location,"manual");canvasPickRef.current?.(location);}});
+    kakao.maps.event.addListener(map,"click",(event)=>{const latLng=event?.latLng;closeContextRef.current?.();if(latLng&&(onPickRef.current||canvasPickRef.current)) {lookupRef.current++;setLocating(false);setSearching(false);setGpsCandidate(null);const location={lat:latLng.getLat(),lng:latLng.getLng()};onPickRef.current?.(location,"manual");canvasPickRef.current?.(location);}});
     const timer=window.setTimeout(()=>{map.relayout();reportBounds();},80);
     const observer=new ResizeObserver(()=>{map.relayout();reportBounds();});
     observer.observe(elementRef.current);
@@ -83,14 +86,15 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     if(!ready||!kakao||!map||!workbench)return;
     const overlays:KakaoOverlay[]=[];
     const latLng=(location:Coordinates)=>new kakao.maps.LatLng(location.lat,location.lng);
-    const label=(location:Coordinates,text:string,className="map-drawing-label",color?:string)=>{
-      const content=document.createElement("div");content.className=className;content.textContent=text;
+    const label=(location:Coordinates,text:string,className="map-drawing-label",color?:string,noteId?:string)=>{
+      const content=document.createElement(noteId?"button":"div");content.className=className;content.textContent=text;
+      if(noteId){content.setAttribute("type","button");content.setAttribute("aria-label",`${text} 메모 수정`);content.addEventListener("click",event=>{event.stopPropagation();noteSelectRef.current?.(noteId);});}
       if(color)content.style.backgroundColor=color;
-      overlays.push(new kakao.maps.CustomOverlay({map,position:latLng(location),content,xAnchor:.5,yAnchor:1.1,zIndex:4}));
+      overlays.push(new kakao.maps.CustomOverlay({map,position:latLng(location),content,clickable:!!noteId,xAnchor:.5,yAnchor:1.1,zIndex:4}));
     };
     const lookup=new Map(anchorPoints.map(point=>[point.id,point]));
     if(workbench.layers.radii)for(const radius of workbench.radii){
-      const point=lookup.get(radius.pointId);if(!point)continue;
+      const point=lookup.get(radius.pointId);if(!point||gestureTool?.kind==="radius"&&gestureTool.pointId===point.id)continue;
       for(const meters of [...new Set(radius.meters)].sort((a,b)=>b-a)){
         overlays.push(new kakao.maps.Circle({map,center:latLng(point.location),radius:meters,strokeWeight:2,strokeColor:"#2563eb",strokeOpacity:.85,strokeStyle:"dash",fillColor:"#93c5fd",fillOpacity:.06,zIndex:1}));
         // Geographic north edge of each circle, with a distance label in meters.
@@ -98,16 +102,16 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
       }
     }
     if(workbench.layers.route){
-      for(const segment of routeSegments(workbench.route,anchorPoints)){
+      for(const segment of connectionSegments(workbench,anchorPoints)){
         const from=segment.from.location!,to=segment.to.location!;
         overlays.push(new kakao.maps.Polyline({map,path:[latLng(from),latLng(to)],strokeWeight:4,strokeColor:"#9b43cc",strokeOpacity:.9,zIndex:2}));
         label({lat:(from.lat+to.lat)/2,lng:(from.lng+to.lng)/2},`${segment.index+1}구간 · ${formatDistance(segment.meters)}`);
       }
       workbench.route.forEach((id,index)=>{const point=lookup.get(id);if(point)label(point.location,String(index+1),"map-drawing-order");});
     }
-    if(workbench.layers.notes)for(const note of workbench.notes)label(note.location,[note.emoji,note.text].filter(Boolean).join(" "),`map-drawing-note${note.text?"":" map-drawing-note--emoji"}`,note.color);
+    if(workbench.layers.notes)for(const note of workbench.notes)label(note.location,[note.emoji,note.text].filter(Boolean).join(" "),`map-drawing-note${note.text?"":" map-drawing-note--emoji"}`,note.color,note.id);
     return()=>{overlays.forEach(overlay=>overlay.setMap(null));};
-  },[ready,workbench,anchorPoints]);
+  },[ready,workbench,anchorPoints,gestureTool]);
 
   useEffect(()=>{
     if(!ready||!mapRef.current||!viewing||autoLocatedRef.current)return;
@@ -131,7 +135,7 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     clusterRef.current?.clear(); pinRef.current.forEach((marker)=>marker.setMap(null));
     const markers=groupMapPoints(points).map((group)=>{
       const point=group.find(item=>item.id===selectedId)??group[0];
-      const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(point.location.lat,point.location.lng),image:markerImage(kakao,point.emoji,point.color,point.id===selectedId,point.rating?.symbol,group.length),title:group.length>1?`같은 위치의 기록 ${group.length}개 · 개별 평가 확인`:(point.description??point.title)});
+      const marker=new kakao.maps.Marker({position:new kakao.maps.LatLng(point.location.lat,point.location.lng),image:markerImage(kakao,point.emoji,point.color,point.id===selectedId,point.rating?.symbol,group.length),zIndex:point.id===selectedId?7:6,clickable:true,title:group.length>1?`같은 위치의 기록 ${group.length}개 · 개별 평가 확인`:(point.description??point.title)});
       kakao.maps.event.addListener(marker,"click",()=>{if(group.length>1)setOverlapIds(group.map(item=>item.id));else onSelectPoint?.(point.id);});
       return marker;
     });
@@ -184,7 +188,8 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
   return <div className={`kakao-map-shell ${compact?"kakao-map-shell--compact":""}`}>
     <Script src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false&libraries=services,clusterer`} strategy="afterInteractive" onReady={()=>window.kakao?.maps.load(()=>setReady(true))} onError={()=>setError("지도를 불러오지 못했습니다. 연결 상태를 확인하고 새로고침해 주세요. 기존 기록은 목록에서 볼 수 있어요.")}/>
     <div className="kakao-map" ref={elementRef} role="region" aria-label="카카오 지도"/>
-    {viewing&&<button type="button" className="map-current-location" onClick={locate} disabled={!ready||locating} aria-label={locating?"현재 위치 확인 중":"현재 위치로 이동"}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg><span>{locating?"확인 중":"현재 위치"}</span></button>}
+    {viewing&&ready&&mapRef.current&&window.kakao&&<PointInteraction map={mapRef.current} kakao={window.kakao} points={points} tool={gestureTool??null} contextId={contextPointId??null} popup={contextPopup} onEnd={onGestureEnd} onClose={onCloseContext} onArm={()=>{lookupRef.current++;setLocating(false);}}/>}
+    {viewing&&<button type="button" className="map-current-location" onClick={locate} disabled={!ready||locating||!!gestureTool} aria-label={locating?"현재 위치 확인 중":"현재 위치로 이동"}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg><span>{locating?"확인 중":"현재 위치"}</span></button>}
     {currentLocation&&<span className="sr-only" role="status">현재 위치를 파란 점으로 표시했어요. 예상 오차 약 {currentLocation.accuracy}m.</span>}
     {onPick && <div className="kakao-map-controls"><div className="kakao-map-search"><label className="sr-only" htmlFor={compact?"place-search-compact":"place-search-main"}>장소 검색</label><input id={compact?"place-search-compact":"place-search-main"} value={search} onChange={(event)=>setSearch(event.target.value)} onKeyDown={(event)=>{if(event.key==="Enter"){event.preventDefault();event.stopPropagation();if(!event.nativeEvent.isComposing) findPlace();}}} placeholder="장소 검색"/><button type="button" onClick={findPlace} disabled={!ready||searching}>{searching?"검색 중":"검색"}</button></div><button type="button" onClick={locate} disabled={!ready||locating}>{locating?"위치 확인 중":"◎ 현재 위치"}</button></div>}
     {gpsCandidate && <div className="gps-confirm" role="status"><span>현재 위치의 예상 오차는 약 {gpsCandidate.accuracy}m입니다. 핀을 확인하고, 다르면 지도를 눌러 조정해 주세요.</span><button type="button" onClick={()=>{onPickRef.current?.(gpsCandidate.location,"gps");setGpsCandidate(null);}}>이 위치 사용</button></div>}
