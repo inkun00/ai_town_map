@@ -14,7 +14,8 @@
     "db:check-retention": "node scripts/check-retention.mjs",
     "db:audit-retention": "node scripts/audit-retention.mjs",
     "db:check-restore": "node scripts/check-restore-drill.mjs",
-    "db:schedule-retention": "node scripts/schedule-retention.mjs"
+    "db:schedule-retention": "node scripts/schedule-retention.mjs",
+    "db:schedule-games": "node scripts/schedule-games.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

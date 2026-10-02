@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 export type Coordinates={lat:number;lng:number};
 export type MapFocus={location:Coordinates;nonce:number;radiusMeters?:number;locations?:Coordinates[]};
 export type MapPoint={id:string;title:string;emoji:string;color:string;description?:string;rating?:RatingMeaning|null;location:Coordinates};
-type Props={center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean;workbench?:WorkbenchState;anchorPoints?:MapPoint[];onCanvasPick?:(location:Coordinates)=>void;focus?:MapFocus|null;contextPointId?:string|null;contextPopup?:React.ReactNode;onCloseContext?:()=>void;gestureTool?:GestureTool|null;onSelectNote?:(id:string)=>void;onGestureEnd?:(result:{pointId:string;meters?:number;targetId?:string}|null)=>void};
+type Props={autoLocate?:boolean;center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean;workbench?:WorkbenchState;anchorPoints?:MapPoint[];onCanvasPick?:(location:Coordinates)=>void;focus?:MapFocus|null;contextPointId?:string|null;contextPopup?:React.ReactNode;onCloseContext?:()=>void;gestureTool?:GestureTool|null;onSelectNote?:(id:string)=>void;onGestureEnd?:(result:{pointId:string;meters?:number;targetId?:string}|null)=>void};
 type KakaoBounds={extend:(position:unknown)=>void};
 export type KakaoOverlay={setMap:(map:KakaoMapObject|null)=>void;setRadius?:(radius:number)=>void;setPath?:(path:unknown[])=>void};
 export type KakaoApi={maps:{LatLngBounds:new()=>KakaoBounds;Circle:new(options:Record<string,unknown>)=>KakaoOverlay;Polyline:new(options:Record<string,unknown>)=>KakaoOverlay;CustomOverlay:new(options:Record<string,unknown>)=>KakaoOverlay;load:(callback:()=>void)=>void;LatLng:new(lat:number,lng:number)=>unknown;Map:new(element:HTMLElement,options:Record<string,unknown>)=>KakaoMapObject;Marker:new(options:Record<string,unknown>)=>KakaoMarker;MarkerImage:new(src:string,size:unknown,options?:Record<string,unknown>)=>unknown;Size:new(width:number,height:number)=>unknown;Point:new(x:number,y:number)=>unknown;MarkerClusterer:new(options:Record<string,unknown>)=>{addMarkers:(markers:KakaoMarker[])=>void;clear:()=>void};services:{Places:new()=>{keywordSearch:(term:string,callback:(result:{x:string;y:string;place_name:string}[],status:string)=>void)=>void};Status:{OK:string}};event:{removeListener:(target:unknown,name:string,callback:()=>void)=>void;addListener:(target:unknown,name:string,callback:(event?:{latLng?:{getLat:()=>number;getLng:()=>number}})=>void)=>void}}};
@@ -26,7 +26,7 @@ function markerImage(kakao:KakaoApi,glyph:string,color:string,selected:boolean,s
   return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,new kakao.maps.Size(48,54),{offset:new kakao.maps.Point(21,50)});
 }
 
-export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false,workbench,anchorPoints=points,onCanvasPick,focus,contextPointId,contextPopup,onCloseContext,gestureTool,onGestureEnd,onSelectNote}:Props) {
+export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false,workbench,anchorPoints=points,onCanvasPick,focus,contextPointId,contextPopup,onCloseContext,gestureTool,onGestureEnd,onSelectNote,autoLocate=true}:Props) {
   const elementRef=useRef<HTMLDivElement>(null);
   const mapRef=useRef<KakaoMapObject|null>(null);
   const pinRef=useRef<KakaoMarker[]>([]);
@@ -114,10 +114,10 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
   },[ready,workbench,anchorPoints,gestureTool]);
 
   useEffect(()=>{
-    if(!ready||!mapRef.current||!viewing||autoLocatedRef.current)return;
+    if(!ready||!mapRef.current||!viewing||!autoLocate||autoLocatedRef.current)return;
     autoLocatedRef.current=true;
     locate();
-  },[ready,viewing]);
+  },[ready,viewing,autoLocate]);
 
   useEffect(()=>{
     const kakao=window.kakao,map=mapRef.current;

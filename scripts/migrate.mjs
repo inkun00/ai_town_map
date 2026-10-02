@@ -26,7 +26,7 @@ try {
   await client.query("CREATE SCHEMA IF NOT EXISTS app_private");
   await client.query(`CREATE TABLE IF NOT EXISTS app_private.schema_migrations(
     name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`);
-  const migrations = ["001_core.sql", "002_observations.sql", "003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql"];
+  const migrations = ["001_core.sql", "002_observations.sql", "003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql"];
   for (const name of migrations) {
     const previous = await client.query("SELECT 1 FROM app_private.schema_migrations WHERE name=$1", [name]);
     if (previous.rowCount) continue;

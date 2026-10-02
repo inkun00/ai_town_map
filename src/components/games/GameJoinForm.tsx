@@ -1,0 +1,9 @@
+"use client";
+import {useEffect,useState,type FormEvent} from "react";
+import {gameRequest,GameMessage,type GameSession} from "./GameShared";
+export function GameJoinForm({session,ready}:{session:GameSession|null;ready:boolean}){
+  const [code,setCode]=useState(""),[nickname,setNickname]=useState(""),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState("");
+  useEffect(()=>{const code=new URLSearchParams(window.location.hash.slice(1)).get("code");if(code)setCode(code.slice(0,14));},[]);
+  async function join(e:FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError("");try{const joined=await gameRequest<{roomId:string}>("/api/v1/game-rooms/join",session?.csrfToken??null,{code,nickname,locationConsent:consent});window.location.assign(`/games/rooms/${joined.roomId}`);}catch(e){setError(e instanceof Error?e.message:"입장하지 못했어요.");setBusy(false);}}
+  return <form className="game-join" onSubmit={join}><h2>🔑 방 코드로 참여하기</h2><div className="game-form-grid"><label className="game-field">게임방 코드<input required minLength={8} maxLength={14} value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="예: ABCD-2345" autoCapitalize="characters" autoComplete="off"/></label><label className="game-field">닉네임<input required minLength={2} maxLength={20} value={nickname} onChange={e=>setNickname(e.target.value)} placeholder="친구들이 알아볼 탐험 이름" autoComplete="nickname"/></label></div><label className="game-consent"><input type="checkbox" required checked={consent} onChange={e=>setConsent(e.target.checked)}/><span>게임방에 있는 동안 내 위치를 <b>이 방을 연 교사에게 공유</b>하는 데 동의해요. 다른 학생에게는 내 위치가 보이지 않아요. 위치 공유는 언제든 끌 수 있고 게임 종료 시 중지돼요.</span></label><p className="game-help">위치 권한을 허용해야 현장 미션을 수행할 수 있어요. 화면을 열어 두고 이동하며, 이동 중에는 주변을 먼저 살펴요.</p><GameMessage error={error}/><button className="button button--primary button--full" disabled={busy||!ready||!consent} type="submit">{busy?"입장하는 중…":"탐험게임 참여하기"}</button></form>;
+}
