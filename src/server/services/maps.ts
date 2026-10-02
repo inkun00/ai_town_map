@@ -1,3 +1,4 @@
+import {requireTeacher} from "./accounts";
 import "server-only";
 import { createHash } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
@@ -113,6 +114,7 @@ export async function createMap(input: CreateMapInput, session: AppSession, key:
   return withTransaction(async (client) => {
     const actor = await client.query<{ kind: string }>("SELECT kind FROM app.principals WHERE id = $1 AND status = 'active' FOR UPDATE", [session.principalId]);
     if (actor.rows[0]?.kind !== "account") throw new ApiError(403, "ACCOUNT_REQUIRED", "지도 개설에는 Google 로그인이 필요합니다.");
+    await requireTeacher(client,session);
     await client.query("DELETE FROM app_private.idempotency_keys WHERE principal_id=$1 AND route_scope='create_map' AND key=$2 AND expires_at < now()", [session.principalId, key]);
     await client.query(`INSERT INTO app_private.idempotency_keys(principal_id, route_scope, key, request_hash)
       VALUES($1,'create_map',$2,$3) ON CONFLICT DO NOTHING`, [session.principalId, key, requestHash]);

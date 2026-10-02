@@ -5,17 +5,71 @@ import {randomUUID} from "node:crypto";
 import type {AppSession} from "../src/server/auth/session";
 import {arrivalFailure,evaluateMission,rankedPlayers,missionSchema,joinGameSchema,type GameDefinition} from "../src/domain/exploration-game";
 let db:PGlite;let queue:Promise<unknown>=Promise.resolve();
-const execute=async(sql:string,values:unknown[]=[])=>{const r=await db.query(sql,values);return {...r,rowCount:r.rows.length||r.affectedRows||0};};
+// Match pg's bytea Buffer and int8 string decoding when using PGlite.
+const execute=async(sql:string,values:unknown[]=[])=>{const r=await db.query(sql,values);return {...r,rows:r.rows.map(row=>Object.fromEntries(Object.entries(row as Record<string,unknown>).map(([key,value])=>[key,value instanceof Uint8Array?Buffer.from(value):key==="version"?String(value):value]))),rowCount:r.rows.length||r.affectedRows||0};};
 vi.mock("../src/server/db",()=>({query:async(sql:string,values:unknown[]=[])=> (await execute(sql,values)).rows,withTransaction:(action:(client:unknown)=>unknown)=>{const next=queue.then(async()=>{await db.exec("BEGIN");try{const result=await action({query:execute});await db.exec("COMMIT");return result;}catch(e){await db.exec("ROLLBACK");throw e;}});queue=next.catch(()=>{});return next;}}));
 vi.mock("../src/server/env",()=>({getServerConfig:()=>({invitePepper:"test-game-pepper-only",appOrigin:"http://localhost:3001"})}));
 vi.mock("../src/server/auth/session",()=>({issueSession:async()=>({sessionToken:"test-only",csrfToken:"test-only",expiresAt:new Date(Date.now()+86400000)})}));
-import {createGame,getGame,changeGame,createRoom,joinRoom,getRoom,roomAction,updateLocation,submitMission,listGames} from "../src/server/services/exploration-games";
+import {createGame,getGame,changeGame,createRoom,joinRoom,getRoom,roomAction,updateLocation,submitMission,listGames,deleteGame,restoreGame} from "../src/server/services/exploration-games";
+import {registerAccount} from "../src/server/services/accounts";
+import {registrationSchema} from "../src/domain/account";
+import {createMap,createMapSchema} from "../src/server/services/maps";
+import {deleteMap,restoreMap} from "../src/server/services/operations";
 const session=(id:string,kind:AppSession["kind"]="account"):AppSession=>({id:randomUUID(),principalId:id,kind,csrfHash:Buffer.alloc(32),expiresAt:new Date(Date.now()+86400000)});
-beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));},30000);
+beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql", "007_account_roles_game_deletion.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));},30000);
 afterAll(async()=>{await db.close();});
+describe("registration, teacher-only creation and owner deletion",()=>{
+ it("registers an account once, rejects guest roles and ignores forged session roles",async()=>{
+  const id=randomUUID();await execute("INSERT INTO app.principals(id,kind,auth_user_id) VALUES($1,'account',$2)",[id,randomUUID()]);const student=session(id);
+  expect(await registerAccount(student,"student")).toMatchObject({accountRole:"student",canCreateMap:false});
+  expect(await registerAccount(student,"student")).toMatchObject({accountRole:"student"});
+  await expect(registerAccount(student,"teacher")).rejects.toMatchObject({code:"ROLE_ALREADY_SET"});
+  const guest=randomUUID();await execute("INSERT INTO app.principals(id,kind) VALUES($1,'guest')",[guest]);await expect(registerAccount(session(guest,"guest"),"teacher")).rejects.toMatchObject({code:"ACCOUNT_REQUIRED"});
+  expect(registrationSchema.safeParse({role:"admin"}).success).toBe(false);
+  const input=createMapSchema.parse({themeKey:"ecology",themeVersion:2,title:"권한 확인 지도",locationLabel:"가상 지역",visibility:"invite_only"});
+  await expect(createMap(input,{...student,accountRole:"teacher"},randomUUID())).rejects.toMatchObject({code:"TEACHER_REQUIRED"});
+ });
+ it("allows teacher map creation and blocks member and unset accounts for both map types",async()=>{
+  const preset=JSON.parse(await readFile("docs/contracts/theme-presets.json","utf8")).templates.find((t:{key:string})=>t.key==="ecology");
+  await execute("INSERT INTO app.theme_templates(theme_key,version,definition) VALUES('ecology',2,$1)",[JSON.stringify(preset)]);
+  const id=randomUUID();await execute("INSERT INTO app.principals(id,kind,auth_user_id) VALUES($1,'account',$2)",[id,randomUUID()]);const teacher=session(id);
+  const input=createMapSchema.parse({themeKey:"ecology",themeVersion:2,title:"교사 생성 지도",locationLabel:"가상 지역",visibility:"invite_only"});
+  await expect(createMap(input,teacher,randomUUID())).rejects.toMatchObject({code:"TEACHER_REQUIRED"});
+  await registerAccount(teacher,"teacher");const created=await createMap(input,teacher,randomUUID());expect(created.map.isOwner).toBe(true);
+  const f=await fixture();for(const role of ["student","member",null]){
+   await execute("UPDATE app.principals SET account_role=$2 WHERE id=$1",[f.teacher.principalId,role]);
+   await expect(createMap(input,f.teacher,randomUUID())).rejects.toMatchObject({code:"TEACHER_REQUIRED"});
+   await expect(createGame(f.teacher,{...f.input,requestId:randomUUID()})).rejects.toMatchObject({code:"TEACHER_REQUIRED"});
+   expect((await getGame(f.game.id,f.teacher)).canManage).toBe(false);
+  }
+ });
+ it("lets the game creator delete, ends rooms and hides deleted games from other administrators",async()=>{
+  const f=await fixture();await mission(f);const r=await opened(f),p=await player(r.id,f.teacher);await roomAction(r.id,f.teacher,{action:"start"});await locate(r.id,p);
+  const otherId=randomUUID();await execute("INSERT INTO app.principals(id,kind,auth_user_id,account_role) VALUES($1,'account',$2,'teacher')",[otherId,randomUUID()]);await execute("INSERT INTO app.map_members(map_id,principal_id,nickname,role) VALUES($1,$2,'다른 교사','admin')",[f.map,otherId]);const other=session(otherId);
+  const current=await getGame(f.game.id,f.teacher);expect((await getGame(current.id,other)).canDelete).toBe(false);
+  await expect(deleteGame(current.id,other,current.version)).rejects.toMatchObject({code:"OWNER_REQUIRED"});
+  await expect(deleteGame(current.id,f.teacher,"999")).rejects.toMatchObject({code:"VERSION_CONFLICT"});
+  await deleteGame(current.id,f.teacher,current.version);expect((await getRoom(r.id,f.teacher)).players[0]).toMatchObject({sharing:false,location:null});expect((await getRoom(r.id,p)).room.status).toBe("ended");
+  expect((await getGame(current.id,f.teacher)).status).toBe("deleted");await expect(getGame(current.id,other)).rejects.toMatchObject({status:404});
+  expect((await listGames(f.teacher)).items.some(g=>g.id===current.id)).toBe(false);expect((await listGames(f.teacher,"","deleted")).items.some(g=>g.id===current.id)).toBe(true);expect((await listGames(other,"","deleted")).items.some(g=>g.id===current.id)).toBe(false);
+ });
+ it("restores a deleted game archived without restarting rooms, and expires restoration",async()=>{
+  const f=await fixture();await mission(f);const r=await opened(f);let g=await getGame(f.game.id,f.teacher);await deleteGame(g.id,f.teacher,g.version);g=await getGame(g.id,f.teacher);
+  await restoreGame(g.id,f.teacher,g.version);expect((await getGame(g.id,f.teacher)).status).toBe("archived");expect((await getRoom(r.id,f.teacher)).room.status).toBe("ended");
+  g=await getGame(g.id,f.teacher);await deleteGame(g.id,f.teacher,g.version);await execute("UPDATE app.game_maps SET deleted_at=now()-interval '31 days' WHERE id=$1",[g.id]);g=await getGame(g.id,f.teacher);await expect(restoreGame(g.id,f.teacher,g.version)).rejects.toMatchObject({code:"RESTORE_EXPIRED"});
+  await execute("SELECT app_private.purge_expired_content()");expect((await execute("SELECT id FROM app.game_rooms WHERE id=$1",[r.id])).rows).toHaveLength(0);expect((await execute("SELECT id FROM app.maps WHERE id=$1",[f.map])).rows).toHaveLength(1);
+ });
+ it("keeps legacy owners able to delete normal maps and denies even delegated admins",async()=>{
+  const f=await fixture();await mission(f);const r=await opened(f),p=await player(r.id,f.teacher);await locate(r.id,p);await execute("UPDATE app.principals SET account_role=NULL WHERE id=$1",[f.teacher.principalId]);
+  const otherId=randomUUID();await execute("INSERT INTO app.principals(id,kind,auth_user_id,account_role) VALUES($1,'account',$2,'teacher')",[otherId,randomUUID()]);await execute("INSERT INTO app.map_members(map_id,principal_id,nickname,role) VALUES($1,$2,'관리자','admin')",[f.map,otherId]);
+  let map=(await execute("SELECT version FROM app.maps WHERE id=$1",[f.map])).rows[0] as {version:string};await expect(deleteMap(f.map,session(otherId),String(map.version))).rejects.toMatchObject({code:"OWNER_REQUIRED"});
+  await deleteMap(f.map,f.teacher,String(map.version));await expect(getRoom(r.id,p)).rejects.toMatchObject({status:404});expect((await execute("SELECT status FROM app.game_rooms WHERE id=$1",[r.id])).rows[0]).toMatchObject({status:"ended"});expect((await execute("SELECT lat,lng FROM app.game_players WHERE room_id=$1",[r.id])).rows[0]).toMatchObject({lat:null,lng:null});
+  map=(await execute("SELECT version FROM app.maps WHERE id=$1",[f.map])).rows[0] as {version:string};expect(await restoreMap(f.map,f.teacher,String(map.version))).toMatchObject({status:"archived"});
+ });
+});
 async function fixture(){
  const owner=randomUUID(),map=randomUUID(),template=randomUUID(),member=randomUUID(),category=randomUUID(),emoji=randomUUID();
- await execute("INSERT INTO app.principals(id,kind,auth_user_id) VALUES($1,'account',$2)",[owner,randomUUID()]);
+ await execute("INSERT INTO app.principals(id,kind,auth_user_id,account_role) VALUES($1,'account',$2,'teacher')",[owner,randomUUID()]);
  await execute("INSERT INTO app.theme_templates(id,theme_key,version,definition) VALUES($1,$2,1,'{}')",[template,randomUUID()]);
  await execute(`INSERT INTO app.maps(id,owner_principal_id,template_id,theme_key,title,location_label,activity_context,visibility,pin_mode,single_color,rating_enabled,ideas_enabled,proposals_enabled,comments_enabled) VALUES($1,$2,$3,'custom','게임 시험 지도','가상 지역','school','invite_only','single','#267253',false,false,false,true)`,[map,owner,template]);
  await execute("INSERT INTO app.map_members(id,map_id,principal_id,nickname,role) VALUES($1,$2,$3,'교사','admin')",[member,map,owner]);

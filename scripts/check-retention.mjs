@@ -7,7 +7,7 @@ const id = n => `00000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
 const count = async (table, where="true") => Number((await q(`SELECT count(*)::int AS n FROM ${table} WHERE ${where}`)).rows[0].n);
 try {
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for (const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql"])
+  for (const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql","007_account_roles_game_deletion.sql"])
     await db.exec(await readFile(`db/migrations/${name}`,"utf8"));
   await q("INSERT INTO app.principals(id,kind,auth_user_id) VALUES($1,'account',$2)",[id(1),id(2)]);
   await q("INSERT INTO app.theme_templates(id,theme_key,version,definition) VALUES($1,'custom',1,'{}')",[id(3)]);

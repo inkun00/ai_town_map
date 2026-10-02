@@ -8,11 +8,12 @@ import {getServerConfig} from "@/server/env";
 import {issueSession,type AppSession} from "@/server/auth/session";
 import {communityMap,isAdmin,requireAdmin} from "./community-access";
 import {inviteAttemptActor} from "@/server/policies/invite-attempts";
+import {accountRole,requireTeacher} from "./accounts";
 import {arrivalFailure,evaluateMission,publicMission,rankedPlayers,missionSchema,coordinatesSchema,
   type MissionDefinition,type GameMission,type GameSummary,type GameSubmission,
   type createGameSchema,type createRoomSchema,type joinGameSchema,type locationSchema,type submitMissionSchema} from "@/domain/exploration-game";
 
-type GameRow=QueryResultRow&{id:string;source_map_id:string;created_by:string;title:string;description:string;status:"active"|"archived";version:string;location_label:string;point_count:string;mission_count:string};
+type GameRow=QueryResultRow&{id:string;source_map_id:string;created_by:string;title:string;description:string;status:"active"|"archived";deleted_at:Date|null;version:string;location_label:string;point_count:string;mission_count:string};
 type RoomRow=QueryResultRow&{id:string;game_id:string;host_principal_id:string;title:string;status:"lobby"|"running"|"ended";duration_minutes:number;max_players:number;starts_at:Date|null;ends_at:Date|null;ended_at:Date|null;join_expires_at:Date;join_code:string;source_map_id:string;game_status:string;map_status:string;host_allowed:boolean;server_now:Date};
 type PlayerRow=QueryResultRow&{id:string;nickname:string;principal_id:string;sharing:boolean;lat:number|null;lng:number|null;accuracy:number|null;observed_at:Date|null;last_seen_at:Date|null;score:string;completed:string};
 type SubmissionRow=QueryResultRow&{id:string;player_id:string;mission_id:string;status:GameSubmission["status"];attempts:number;score:number;response:GameSubmission["response"];reason:string|null;version:string;submitted_at:Date};
@@ -31,33 +32,36 @@ export const roomActionSchema=z.discriminatedUnion("action",[
   z.strictObject({action:z.literal("review"),submissionId:z.uuid(),version,decision:z.enum(["approve","reject"]),reason:z.string().trim().max(500).default("")}),
 ]);
 function account(session:AppSession){if(session.kind!=="account")throw new ApiError(403,"TEACHER_REQUIRED","교사의 Google 로그인이 필요합니다.");}
-function summary(row:GameRow,canManage:boolean):GameSummary{return {id:row.id,sourceMapId:row.source_map_id,title:row.title,description:row.description,location:row.location_label,status:row.status,version:String(row.version),pointCount:Number(row.point_count),missionCount:Number(row.mission_count),canManage};}
+function summary(row:GameRow,canManage:boolean,principalId:string|null):GameSummary{return {id:row.id,sourceMapId:row.source_map_id,title:row.title,description:row.description,location:row.location_label,status:row.deleted_at?"deleted":row.status,deletedAt:row.deleted_at?.toISOString()??null,canDelete:row.created_by===principalId,version:String(row.version),pointCount:Number(row.point_count),missionCount:Number(row.mission_count),canManage};}
 const gameSelect=`SELECT g.*,m.location_label,(SELECT count(*) FROM app.game_points p WHERE p.game_id=g.id)::text point_count,(SELECT count(*) FROM app.game_missions s WHERE s.game_id=g.id)::text mission_count FROM app.game_maps g JOIN app.maps m ON m.id=g.source_map_id`;
 async function gameAccess(client:PoolClient,id:string,session:AppSession|null,manage=false,lock=false){
   const {rows}=await client.query<GameRow>(`${gameSelect} WHERE g.id=$1 ${lock?"FOR UPDATE OF g":""}`,[id]);
   const row=rows[0];if(!row)throw new ApiError(404,"NOT_FOUND","게임맵을 찾을 수 없습니다.");
+  if(row.deleted_at&&row.created_by!==session?.principalId)throw new ApiError(404,"NOT_FOUND","게임맵을 찾을 수 없습니다.");
   const map=await communityMap(client,row.source_map_id,session);
-  const canManage=!!session&&session.kind==="account"&&isAdmin(map,session);
-  if(manage){account(session!);requireAdmin(map,session!);if(map.status!=="active")throw new ApiError(409,"MAP_CLOSED","운영 중인 지도에서 게임을 관리해 주세요.");}
+  const canManage=!row.deleted_at&&map.status==="active"&&await accountRole(client,session)==="teacher"&&isAdmin(map,session);
+  if(manage){await requireTeacher(client,session!);requireAdmin(map,session!);if(row.deleted_at)throw new ApiError(409,"GAME_DELETED","삭제한 게임맵은 먼저 복구해 주세요.");if(map.status!=="active")throw new ApiError(409,"MAP_CLOSED","운영 중인 지도에서 게임을 관리해 주세요.");}
   return {row,canManage};
 }
 async function missions(client:PoolClient,gameId:string){
   const {rows}=await client.query<{id:string;definition:MissionDefinition;lat:number;lng:number;emoji:string;point_title:string}>(`SELECT s.id,s.definition,p.lat,p.lng,p.emoji,p.title point_title FROM app.game_missions s JOIN app.game_points p ON p.id=s.point_id AND p.game_id=s.game_id WHERE s.game_id=$1 ORDER BY s.created_at,s.id`,[gameId]);
   return rows.map(r=>({...r.definition,id:r.id,location:{lat:r.lat,lng:r.lng},emoji:r.emoji,pointTitle:r.point_title}));
 }
-export async function listGames(session:AppSession|null,q:string=""){
+export async function listGames(session:AppSession|null,q:string="",scope:"active"|"deleted"="active"){
   return withTransaction(async client=>{
     const {rows}=await client.query<GameRow>(`${gameSelect} LEFT JOIN app.map_members mm ON mm.map_id=m.id AND mm.principal_id=$1
       WHERE m.status IN ('active','archived') AND (m.visibility='public' OR mm.status='active') AND (mm.status IS NULL OR mm.status<>'blocked')
-      AND (g.status='active' OR (mm.status='active' AND (mm.role='admin' OR m.owner_principal_id=$1)))
-      AND ($2='' OR strpos(lower(g.title),lower($2))>0) ORDER BY g.created_at DESC,g.id LIMIT 100`,[session?.principalId??null,q]);
-    const items=[];for(const row of rows){const map=await communityMap(client,row.source_map_id,session);items.push(summary(row,!!session&&session.kind==="account"&&isAdmin(map,session)));}
+      AND (($3='deleted' AND g.deleted_at IS NOT NULL AND g.created_by=$1) OR ($3='active' AND g.deleted_at IS NULL AND (g.status='active' OR (mm.status='active' AND (mm.role='admin' OR m.owner_principal_id=$1)))))
+      AND ($2='' OR strpos(lower(g.title),lower($2))>0) ORDER BY g.created_at DESC,g.id LIMIT 100`,[session?.principalId??null,q,scope]);
+    const teacher=await accountRole(client,session)==="teacher";
+    const items=[];for(const row of rows){const map=await communityMap(client,row.source_map_id,session);items.push(summary(row,!row.deleted_at&&map.status==="active"&&teacher&&isAdmin(map,session),session?.principalId??null));}
     return {items};
   });
 }
 export async function createGame(session:AppSession,input:z.infer<typeof createGameSchema>){
   account(session);
   return withTransaction(async client=>{
+    await requireTeacher(client,session);
     const map=await communityMap(client,input.sourceMapId,session);requireAdmin(map,session);
     if(map.status!=="active")throw new ApiError(409,"MAP_CLOSED","운영 중인 지도에서 게임맵을 만들어 주세요.");
     // Lock source so racing retries cannot create duplicate game maps.
@@ -79,7 +83,7 @@ export async function getGame(id:string,session:AppSession|null){
     const {rows:points}=await client.query<{id:string;title:string;emoji:string;lat:number;lng:number}>("SELECT id,title,emoji,lat,lng FROM app.game_points WHERE game_id=$1 ORDER BY title,id",[id]);
     const all=await missions(client,id);
     const rooms=canManage?await client.query<{id:string;title:string;status:string;created_at:Date}>("SELECT id,title,status,created_at FROM app.game_rooms WHERE game_id=$1 AND host_principal_id=$2 ORDER BY created_at DESC LIMIT 20",[id,session!.principalId]):{rows:[]};
-    return {...summary(row,canManage),points:points.map(p=>({id:p.id,title:p.title,emoji:p.emoji,location:{lat:p.lat,lng:p.lng}})),missions:canManage?all:all.map(publicMission),rooms:rooms.rows.map(r=>({id:r.id,title:r.title,status:r.status,createdAt:r.created_at.toISOString()}))};
+    return {...summary(row,canManage,session?.principalId??null),points:points.map(p=>({id:p.id,title:p.title,emoji:p.emoji,location:{lat:p.lat,lng:p.lng}})),missions:canManage?all:all.map(publicMission),rooms:rooms.rows.map(r=>({id:r.id,title:r.title,status:r.status,createdAt:r.created_at.toISOString()}))};
   });
 }
 export async function changeGame(id:string,session:AppSession,input:z.infer<typeof changeGameSchema>){
@@ -108,6 +112,35 @@ export async function changeGame(id:string,session:AppSession,input:z.infer<type
   });
 }
 const alphabet="23456789ABCDEFGHJKMNPQRSTVWXYZ";
+export const gameVersionSchema=z.strictObject({version});
+async function ownedGame(client:PoolClient,id:string,session:AppSession){
+  const {rows}=await client.query<GameRow>(`${gameSelect} WHERE g.id=$1 FOR UPDATE OF g`,[id]);
+  const row=rows[0];if(!row)throw new ApiError(404,"NOT_FOUND","게임맵을 찾을 수 없습니다.");
+  if(row.created_by!==session.principalId)throw new ApiError(403,"OWNER_REQUIRED","게임맵을 만든 사람만 삭제하거나 복구할 수 있습니다.");
+  return row;
+}
+export async function deleteGame(id:string,session:AppSession,expectedVersion:string){
+  return withTransaction(async client=>{
+    const row=await ownedGame(client,id,session);
+    if(String(row.version)!==expectedVersion)throw new ApiError(409,"VERSION_CONFLICT","게임맵이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
+    if(row.deleted_at)throw new ApiError(409,"GAME_DELETED","이미 삭제한 게임맵입니다.");
+    await client.query("UPDATE app.game_maps SET status='archived',deleted_at=now(),version=version+1 WHERE id=$1",[id]);
+    await client.query("UPDATE app.game_rooms SET status='ended',ended_at=COALESCE(ended_at,now()) WHERE game_id=$1",[id]);
+    await client.query("UPDATE app.game_players SET sharing=false,lat=NULL,lng=NULL,accuracy=NULL,observed_at=NULL WHERE room_id IN(SELECT id FROM app.game_rooms WHERE game_id=$1)",[id]);
+    return {deleted:true};
+  });
+}
+export async function restoreGame(id:string,session:AppSession,expectedVersion:string){
+  return withTransaction(async client=>{
+    const row=await ownedGame(client,id,session);
+    if(String(row.version)!==expectedVersion)throw new ApiError(409,"VERSION_CONFLICT","게임맵이 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
+    if(!row.deleted_at||Date.now()-row.deleted_at.getTime()>=30*86400000)throw new ApiError(409,"RESTORE_EXPIRED","복구 가능한 삭제일로부터 30일이 지났거나 삭제한 게임맵이 아닙니다.");
+    const source=await client.query<{status:string}>("SELECT status FROM app.maps WHERE id=$1",[row.source_map_id]);
+    if(source.rows[0]?.status==="deleted")throw new ApiError(409,"SOURCE_DELETED","원본 지도를 먼저 복구해 주세요.");
+    await client.query("UPDATE app.game_maps SET deleted_at=NULL,status='archived',version=version+1 WHERE id=$1",[id]);
+    return {restored:true};
+  });
+}
 function newCode(){return [...randomBytes(8)].map(v=>alphabet[v%alphabet.length]).join("");}
 function normalizeCode(value:string){return value.trim().toUpperCase().replace(/[\s-]/g,"");}
 function codeHash(value:string){return createHmac("sha256",getServerConfig().invitePepper).update(`game-room:${value}`).digest();}
@@ -132,7 +165,7 @@ export async function createRoom(gameId:string,session:AppSession,input:z.infer<
   });
 }
 async function roomRow(client:PoolClient,id:string,lock=true){
-  const {rows}=await client.query<RoomRow>(`SELECT r.*,g.source_map_id,g.status game_status,m.status map_status,clock_timestamp() server_now,
+  const {rows}=await client.query<RoomRow>(`SELECT r.*,g.source_map_id,CASE WHEN g.deleted_at IS NOT NULL THEN 'deleted' ELSE g.status END game_status,m.status map_status,clock_timestamp() server_now,
     (hm.status='active' AND (hm.role='admin' OR m.owner_principal_id=r.host_principal_id)) host_allowed
     FROM app.game_rooms r JOIN app.game_maps g ON g.id=r.game_id JOIN app.maps m ON m.id=g.source_map_id
     LEFT JOIN app.map_members hm ON hm.map_id=m.id AND hm.principal_id=r.host_principal_id WHERE r.id=$1 ${lock?"FOR UPDATE OF r":""}`,[id]);

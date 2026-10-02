@@ -20,6 +20,7 @@ export type AppSession = {
   id: string;
   principalId: string;
   kind: "account" | "guest";
+  accountRole?: import("@/domain/account").AccountRole | null;
   csrfHash: Buffer;
   expiresAt: Date;
 };
@@ -27,12 +28,12 @@ export type AppSession = {
 export async function getSession(request: NextRequest): Promise<AppSession | null> {
   const raw = request.cookies.get(cookieNames().session)?.value;
   if (!raw || !/^[A-Za-z0-9_-]{43}$/.test(raw)) return null;
-  const rows = await query<{ id: string; principal_id: string; kind: "account" | "guest"; csrf_hash: Buffer; expires_at: Date }>(
-    `SELECT s.id, s.principal_id, p.kind, s.csrf_hash, s.expires_at
+  const rows = await query<{ id: string; principal_id: string; kind: "account" | "guest"; account_role: import("@/domain/account").AccountRole|null; csrf_hash: Buffer; expires_at: Date }>(
+    `SELECT s.id, s.principal_id, p.kind, p.account_role, s.csrf_hash, s.expires_at
        FROM app_private.sessions s JOIN app.principals p ON p.id = s.principal_id
       WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now() AND p.status = 'active'`, [hash(raw)]);
   const row = rows[0];
-  return row ? { id: row.id, principalId: row.principal_id, kind: row.kind, csrfHash: row.csrf_hash, expiresAt: row.expires_at } : null;
+  return row ? { id: row.id, principalId: row.principal_id, kind: row.kind, accountRole:row.account_role, csrfHash: row.csrf_hash, expiresAt: row.expires_at } : null;
 }
 
 export function requireSession(session: AppSession | null): AppSession {
