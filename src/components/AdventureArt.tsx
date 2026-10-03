@@ -1,6 +1,6 @@
 import type {ReactNode} from "react";
 import Image from "next/image";
-import explorerFox from "../../public/adventure/explorer-fox.webp";
+import explorerFox from "@/assets/adventure/explorer-fox.webp";
 
 export type GameIconName = "compass" | "map" | "journal" | "chart" | "flag" | "backpack" | "key";
 
