@@ -1,5 +1,4 @@
 import source from "../../docs/contracts/theme-presets.json";
-import legacySource from "../../docs/contracts/theme-presets-v1.json";
 
 export type ThemeKey = "universal_design" | "safety" | "ecology" | "weather_life" | "custom";
 export type PinMode = "rating" | "category" | "single";
@@ -32,7 +31,6 @@ export type Theme = {
 };
 
 export const themes = source.templates as Theme[];
-export const themeVersions = [...legacySource.templates, ...source.templates] as Theme[];
 export const themeByKey = Object.fromEntries(themes.map((theme) => [theme.key, theme])) as Record<ThemeKey, Theme>;
 export const emojiLibrary = Array.from(new Set(themes.flatMap(theme=>theme.categories.flatMap(category=>category.emojiOptions.map(emoji=>emoji.glyph))))).map((glyph,index)=>{
   const matches=themes.flatMap(theme=>theme.categories.flatMap(category=>category.emojiOptions.filter(emoji=>emoji.glyph===glyph).map(emoji=>({...emoji,searchTerms:`${theme.label} ${category.label} ${emoji.label}`}))));

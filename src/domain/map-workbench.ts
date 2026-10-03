@@ -1,4 +1,4 @@
-import {z} from "zod";
+import * as z from "zod";
 
 export const radiusOptions=[50,100,250,500,1000,2000] as const;
 export const maximumRadiusMeters=20000;

@@ -1,0 +1,6 @@
+# Local media outputs are deliverables, not website assets.
+/outputs/
+# QA artifacts and tests are not needed to build/run the app.
+/docs/qa/
+/tests/
+*.tsbuildinfo

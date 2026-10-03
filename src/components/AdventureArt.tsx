@@ -1,4 +1,6 @@
 import type {ReactNode} from "react";
+import Image from "next/image";
+import explorerFox from "../../public/adventure/explorer-fox.webp";
 
 export type GameIconName = "compass" | "map" | "journal" | "chart" | "flag" | "backpack" | "key";
 
@@ -17,5 +19,5 @@ export function GameIcon({name,size=28}:{name:GameIconName;size?:number}){
 }
 
 export function ExplorerGuide({children}:{children:ReactNode}){
-  return <div className="explorer-guide"><img src="/adventure/explorer-fox.webp" width="64" height="75" alt="" loading="lazy"/><div><small>여우 탐험대장의 한마디</small><p>{children}</p></div></div>;
+  return <div className="explorer-guide"><Image src={explorerFox} sizes="56px" alt="" loading="lazy"/><div><small>여우 탐험대장의 한마디</small><p>{children}</p></div></div>;
 }

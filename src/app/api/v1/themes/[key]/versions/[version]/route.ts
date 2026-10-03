@@ -1,5 +1,5 @@
 import { ApiError, failure, ok } from "@/server/http";
-import { themeVersions } from "@/lib/demo-data";
+import { themeVersions } from "@/server/theme-history";
 
 export async function GET(_request: Request, context: { params: Promise<{ key: string; version: string }> }) {
   try {

@@ -1,4 +1,4 @@
-import {z} from "zod";
+import * as z from "zod";
 
 const text=z.string().max(10000);
 export const recordDraftSchema=z.object({title:text,body:text,categoryKey:text,emojiKey:text,ratingKey:text,location:text,idea:text,imageName:text,link:text,answers:z.record(z.string().max(100),z.array(text).max(100))});

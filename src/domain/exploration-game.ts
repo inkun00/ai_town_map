@@ -1,4 +1,4 @@
-import {z} from "zod";
+import * as z from "zod";
 
 export const missionKinds=["quiz","short_answer","observation","checklist"] as const;
 export type MissionKind=typeof missionKinds[number];

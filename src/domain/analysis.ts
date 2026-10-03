@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import type { Theme } from "../lib/demo-data";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => !value.startsWith("0000") && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value);

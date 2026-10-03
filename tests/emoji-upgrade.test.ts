@@ -1,6 +1,7 @@
 import {describe,it,expect} from "vitest";
 import {emojiUpgradePlan} from "../src/domain/emoji-upgrade";
-import {themeVersions,themes,type Theme} from "../src/lib/demo-data";
+import {themes,type Theme} from "../src/lib/demo-data";
+import {themeVersions} from "../src/server/theme-history";
 
 describe("이모지 확장과 과거 기록 보존",()=>{
   it("네 기본 주제에 100개 이상을 제공하고 원래 키와 의미를 보존한다",()=>{
