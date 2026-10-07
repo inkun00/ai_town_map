@@ -1,12 +1,14 @@
 "use client";
 
-import { FormEvent,useEffect,useState } from "react";
+import { FormEvent,useEffect,useRef,useState } from "react";
+import { MapPager, type PageState } from "@/lib/map-directory";
 
 type Comment={id:string;body:string|null;status:string;version:string;author:string|null;createdAt:string;canEdit:boolean;canModerate:boolean};
 type ReviewObservation={id:string;title:string;body:string;locationLabel:string;photoUrl:string|null;link:string|null;improvementIdea:string|null;status:string;version:string;author:string|null;moderationReason:string|null};
 type Report={id:string;targetType:"observation"|"comment";targetId:string;reasonCode:string;detail:string|null;status:string;version:string;reporter:string;createdAt:string;targetTitle:string|null;targetBody:string|null;targetStatus:string|null;photoUrl:string|null};
 type Member={id:string;nickname:string;role:"admin"|"participant";status:"active"|"blocked"|"left";version:string;isOwner:boolean;accountType:"account"|"guest"};
 type Settings={visibility:"public"|"invite_only";participation:"invited"|"admin_only"|"closed";moderation:"immediate"|"approval";commentsEnabled:boolean;status:"active"|"archived";version:string};
+type DeletedMap={id:string;title:string;version:string;deletedAt:string};
 
 async function jsonRequest(url:string,method:string,csrf:string,body:unknown,version?:string,key?:string){
   const response=await fetch(url,{method,headers:{"Content-Type":"application/json","X-CSRF-Token":csrf,...(version?{"X-Resource-Version":`"${version}"`}:{}),...(key?{"Idempotency-Key":key}:{})},body:JSON.stringify(body)});
@@ -35,11 +37,32 @@ export function ObservationActions({mapId,id,version,canDelete,canModerate,csrfT
 }
 
 export function DeletedMaps({csrfToken,onNotice}:{csrfToken:string;onNotice:(message:string)=>void}){
-  const [items,setItems]=useState<Array<{id:string;title:string;version:string;deletedAt:string}>>([]),[busy,setBusy]=useState(false);
-  useEffect(()=>{let active=true;void fetch("/api/v1/maps?scope=deleted&limit=50",{cache:"no-store"}).then(response=>response.json()).then(result=>{if(active&&result.data?.items)setItems(result.data.items);}).catch(()=>{});return()=>{active=false;};},[]);
+  const [page,setPage]=useState<PageState<DeletedMap>>({items:[],nextCursor:null,busy:true,error:"",loaded:false});
+  const [busy,setBusy]=useState(false),[selectedId,setSelectedId]=useState("");
+  const pager=useRef<MapPager<DeletedMap>|null>(null);
+  useEffect(()=>{
+    const current=new MapPager<DeletedMap>(async(cursor,signal)=>{
+      const params=new URLSearchParams({scope:"deleted",limit:"50"});
+      if(cursor)params.set("cursor",cursor);
+      const response=await fetch(`/api/v1/maps?${params}`,{cache:"no-store",signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error?.message??"삭제한 지도를 불러오지 못했습니다.");
+      return result.data;
+    },setPage);
+    pager.current=current;void current.load();return()=>current.dispose();
+  },[]);
   async function restore(item:{id:string;version:string}){if(busy)return;setBusy(true);try{await jsonRequest(`/api/v1/maps/${item.id}/restore`,"POST",csrfToken,{},item.version);onNotice("지도를 보관 상태로 복구했습니다.");window.location.reload();}catch(error){onNotice(error instanceof Error?error.message:"지도를 복구하지 못했습니다.");}finally{setBusy(false);}}
-  if(!items.length)return null;
-  return <section className="home-section home-section--last"><div className="section-heading"><div><span className="eyebrow">RECOVER</span><h2>삭제한 지도</h2></div></div><div className="community-list">{items.map(item=><article key={item.id}><strong>{item.title}</strong><small>삭제일 {new Date(item.deletedAt).toLocaleDateString("ko-KR")} · 30일 이내 복구 가능</small><button type="button" disabled={busy} onClick={()=>void restore(item)}>보관 상태로 복구</button></article>)}</div></section>;
+  const items=selectedId?page.items.filter(item=>item.id===selectedId):page.items;
+  return <section className="home-section home-section--last deleted-map-directory" aria-label="삭제한 지도">
+    <div className="section-heading"><div><span className="eyebrow">RECOVER</span><h2>삭제한 지도</h2></div></div>
+    <label className="directory-theme">지도 선택<select aria-label="삭제한 지도 선택" value={selectedId} disabled={!page.items.length} onChange={event=>setSelectedId(event.target.value)}><option value="">전체 삭제한 지도</option>{page.items.map(item=><option key={item.id} value={item.id}>{item.title} · {new Date(item.deletedAt).toLocaleDateString("ko-KR")}</option>)}</select></label>
+    <div className="directory-scroll" role="region" aria-label="삭제한 지도 목록" tabIndex={0} aria-busy={page.busy}>
+      <div className="community-list">{items.map(item=><article key={item.id}><strong>{item.title}</strong><small>삭제일 {new Date(item.deletedAt).toLocaleDateString("ko-KR")} · 30일 이내 복구 가능</small><button type="button" disabled={busy} onClick={()=>void restore(item)}>보관 상태로 복구</button></article>)}</div>
+      <p className="directory-status" role="status">{page.busy?"삭제한 지도를 불러오고 있어요…":page.loaded?items.length?`${items.length}개 표시${page.nextCursor?" · 더 불러올 지도가 있어요":" · 마지막 목록이에요"}`:"복구할 지도가 없어요.":""}</p>
+      {page.error&&<p className="directory-error" role="alert">{page.error}</p>}
+      {(page.error||page.nextCursor)&&<button type="button" className="button button--light button--full" disabled={page.busy} onClick={()=>void pager.current?.load()}>{page.busy?"불러오는 중…":page.error?"삭제한 지도 다시 불러오기":"삭제한 지도 더 보기"}</button>}
+    </div>
+  </section>;
 }
 
 export function CommentSection({mapId,observationId,enabled,canWrite,canModerate,csrfToken,onNotice}:{mapId:string;observationId:string;enabled:boolean;canWrite:boolean;canModerate:boolean;csrfToken:string|null;onNotice:(message:string)=>void}){

@@ -72,6 +72,7 @@ export type DemoPoint = {
   y: number;
   author: string;
   date: string;
+  createdAt?: string;
   answers?: Record<string, string>;
   comments?: string[];
   location?: { lat: number; lng: number };

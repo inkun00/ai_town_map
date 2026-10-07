@@ -66,6 +66,16 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .directory-theme select { border: 1.5px solid #b9c6bb; background: #fffdf5; font-size: 13px; }
 .directory-status { font-size: 11px; color: #617578; margin: 9px 0 0; }
 .my-map-list { overflow: visible; background: transparent; border: 0; display: grid; gap: 11px; }
+.directory-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; padding: 5px; border: 1.5px solid #b9c6bb; border-radius: 15px; background: #edf2e4; }
+.directory-tabs button { min-height: 48px; padding: 7px; border: 1.5px solid transparent; border-radius: 10px; background: transparent; color: #56726d; font-size: 13px; font-weight: 800; }
+.directory-tabs button[aria-selected="true"] { background: #fce7a6; border-color: #c29d49; color: var(--ink); box-shadow: 0 2px 0 #c29d4940; }
+.directory-tabs button:focus-visible { outline: 2px solid #317f74; outline-offset: 1px; }
+.directory-scroll { height: 240px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #72968c #e7eee0; padding: 3px 7px 7px 3px; border-radius: 16px; }
+.directory-scroll:focus-visible { outline: 2px solid #317f74; outline-offset: 3px; }
+.directory-scroll .my-map-list { align-content: start; }
+.deleted-map-directory .directory-theme { margin: 0 0 14px; }
+.deleted-map-directory .community-list { align-content: start; padding-bottom: 0; }
+.deleted-map-directory .community-list article { background: #fffdf4; border: 2px solid #b3c6b7; border-radius: 16px; box-shadow: 0 4px 0 #ceddce; overflow-wrap: anywhere; }
 .my-map-list button { background: #fffdf4; border: 2px solid #b3c6b7; border-radius: 16px; min-height: 87px; padding: 12px; gap: 12px; box-shadow: 0 4px 0 #ceddce; transition: transform .15s, border-color .15s; }
 .my-map-list button+button { border-top: 2px solid #b3c6b7; }
 .my-map-list button:hover { transform: translateY(-1px); border-color: #317f74; }
@@ -188,12 +198,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 
 @media(min-width:700px) {
   .app-frame { border: 5px solid #253d4c; border-radius: 29px; min-height: 0; box-shadow: 0 8px 0 #253d4c,0 25px 80px #253d4c26; }
-  .desktop-aside { min-height: 0; padding-top: 30px; }
-  .desktop-aside__content h1 { color: #253d4c; font-size: clamp(36px,4vw,54px); letter-spacing: -.06em; }
-  .desktop-aside__content h1 em { color: #176a62; }
-  .desktop-aside__content p { color: #56726d; font-size: 14px; }
-  .desktop-explorer { display: block; width: 150px; height: 180px; margin-top: 18px; object-fit: contain; transform: rotate(-5deg); }
-  .desktop-aside__footer { color: #54716a; font-weight: 700; }
 }
 @media(max-width:359px) {
   .home-header { padding: 12px; }
