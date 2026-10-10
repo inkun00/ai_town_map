@@ -47,6 +47,14 @@ async function setField(labelText:string,value:string){
   const element=label?.querySelector<HTMLInputElement|HTMLTextAreaElement>("input,textarea");if(!element)throw new Error(`Field missing: ${labelText}`);
   await act(async()=>{const prototype=element.tagName==="TEXTAREA"?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(prototype,"value")!.set!.call(element,value);element.dispatchEvent(new Event("input",{bubbles:true}));});
 }
+async function setSourceFilter(sourceId:string){
+  const filter=container.querySelector<HTMLSelectElement>("select[aria-label='포인트 원본 지도']")!;
+  await act(async()=>{filter.value=sourceId;filter.dispatchEvent(new Event("change",{bubbles:true}));});
+}
+function previewWithPointCount(count:number){
+  const generated=Array.from({length:count},(_,index)=>({...structuredClone(points[index%points.length]),id:`20000000-0000-4000-8000-${String(index+1).padStart(12,"0")}`,title:`조사 지점 ${index+1}`}));
+  return {sources:structuredClone(sources).map(source=>({...source,pointCount:generated.filter(point=>point.mapId===source.id).length})),points:generated};
+}
 function creationCalls(){return fetchSpy.mock.calls.filter(([url])=>String(url)==="/api/v1/maps/merge");}
 async function render(){await act(async()=>root.render(<MapMergeFlow onNavigate={navigate}/>));}
 async function chooseSources(){await render();await checkboxFor(maps[0].title);await checkboxFor(maps[1].title);}
@@ -145,6 +153,47 @@ describe("mobile map merge flow",()=>{
     const filter=container.querySelector<HTMLSelectElement>("select[aria-label='포인트 원본 지도']")!;
     await act(async()=>{filter.value=sourceIds[0];filter.dispatchEvent(new Event("change",{bubbles:true}));});expect(mapProbe.points.map(point=>point.id)).toEqual([points[0].id]);
     await click("표시된 포인트 선택 해제");expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 1개 선택");await checkboxFor(points[0].title);expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 2개 선택");expect(creationCalls()).toHaveLength(0);
+  });
+
+  it("selects and clears every source above the map while a single source filter is active",async()=>{
+    await previewPoints();
+    const allButton=button("모든 포인트 선택"),clearButton=button("전체 선택 해제"),map=container.querySelector(".map-merge-map")!;
+    expect(allButton.compareDocumentPosition(map)&Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(clearButton.compareDocumentPosition(map)&Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(clearButton.disabled).toBe(true);
+    await click(`핀 ${points[0].title}`);await setSourceFilter(sourceIds[0]);
+    expect(allButton.disabled).toBe(false);await click("모든 포인트 선택");
+    expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 2개 선택");expect(allButton.disabled).toBe(true);
+    expect(mapProbe.points.map(point=>point.id)).toEqual([points[0].id]);expect(mapProbe.points.every(point=>point.color==="#2563eb")).toBe(true);
+    expect(container.querySelector<HTMLInputElement>(".map-merge-point-list input")?.checked).toBe(true);
+    await setSourceFilter(sourceIds[1]);expect(mapProbe.points.map(point=>point.id)).toEqual([points[1].id]);expect(mapProbe.points[0].color).toBe("#2563eb");
+    expect(container.querySelector<HTMLInputElement>(".map-merge-point-list input")?.checked).toBe(true);
+    await click("전체 선택 해제");expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 0개 선택");expect(clearButton.disabled).toBe(true);expect(allButton.disabled).toBe(false);expect(button("다음").disabled).toBe(true);
+    expect(mapProbe.points[0].color).toBe("#808b94");expect(container.querySelector<HTMLInputElement>(".map-merge-point-list input")?.checked).toBe(false);
+    await setSourceFilter(sourceIds[0]);expect(mapProbe.points[0].color).toBe("#808b94");expect(container.querySelector<HTMLInputElement>(".map-merge-point-list input")?.checked).toBe(false);
+    expect(creationCalls()).toHaveLength(0);
+  });
+
+  it.each([81,1000])("includes all %i points beyond the initial 80-row list in the final creation",async count=>{
+    preview=previewWithPointCount(count);await previewPoints();
+    expect(container.querySelectorAll(".map-merge-point-list input[type='checkbox']")).toHaveLength(80);
+    expect(button("모든 포인트 선택").disabled).toBe(false);await click("모든 포인트 선택");
+    expect(container.querySelector(".map-merge-footer")?.textContent).toContain(`포인트 ${count}개 선택`);
+    expect(mapProbe.points).toHaveLength(count);expect(mapProbe.points.every(point=>point.color==="#2563eb")).toBe(true);
+    expect([...container.querySelectorAll<HTMLInputElement>(".map-merge-point-list input")].every(input=>input.checked)).toBe(true);
+    await click("포인트 더 보기");expect(container.querySelectorAll(".map-merge-point-list input")).toHaveLength(Math.min(count,160));
+    expect([...container.querySelectorAll<HTMLInputElement>(".map-merge-point-list input")].every(input=>input.checked)).toBe(true);
+    await click("다음");await setField("새 지도 이름","모든 기록을 모은 지도");await setField("지역 또는 장소","우리 동네");await submit();
+    const payload=JSON.parse(String(creationCalls()[0][1].body));expect(payload.pointIds).toEqual(preview.points.map(point=>point.id));expect(navigate).toHaveBeenCalledWith("/?map=merged-map");
+  });
+
+  it("keeps the existing selection when all points exceed the 1,000-point limit and clears hidden selections",async()=>{
+    preview=previewWithPointCount(1001);await previewPoints();await click(`핀 ${preview.points[1].title}`);await setSourceFilter(sourceIds[0]);
+    expect(button("모든 포인트 선택").disabled).toBe(true);expect(container.querySelector(".map-merge-preview-heading")?.textContent).toContain("1,000");
+    await click("모든 포인트 선택");expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 1개 선택");expect(mapProbe.points.every(point=>point.color==="#808b94")).toBe(true);
+    await setSourceFilter(sourceIds[1]);expect(mapProbe.points.find(point=>point.id===preview.points[1].id)?.color).toBe("#2563eb");
+    await setSourceFilter(sourceIds[0]);expect(button("전체 선택 해제").disabled).toBe(false);await click("전체 선택 해제");
+    expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 0개 선택");await setSourceFilter(sourceIds[1]);expect(mapProbe.points.every(point=>point.color==="#808b94")).toBe(true);expect(creationCalls()).toHaveLength(0);
   });
 
   it("preserves input after a network failure and retries exactly the same idempotent creation",async()=>{
