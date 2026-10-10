@@ -23,7 +23,7 @@ export function RecordLocationPicker({ center, chosen, label, onPick, onLabelCha
     <div className="record-location-map"><KakaoMap center={chosen ?? center} chosen={chosen} onPick={onPick}/></div>
     <footer className="record-location-footer">
       <label className="field"><span>위치 또는 장소 이름</span><input value={label} maxLength={120} onChange={event => onLabelChange(event.target.value)} placeholder="예: 공원 북쪽 입구"/></label>
-      <button type="button" className="button button--primary button--full" disabled={!chosen || !label.trim()} onClick={onClose}>이 위치 선택</button>
+      <button type="button" className="button button--primary button--full" disabled={!chosen} onClick={onClose}>이 위치 선택</button>
     </footer>
   </dialog>;
 }

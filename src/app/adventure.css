@@ -195,6 +195,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .emoji-picker--catalog button small { color: #546866; font-size: 10px; line-height: 1.45; white-space: normal; overflow-wrap: anywhere; }
 .custom-emoji-library { margin: 15px 0 20px; }
 .custom-emoji-library summary { min-height: 44px; align-content: center; font-size: 12px; color: #365b51; font-weight: 800; cursor: pointer; }
+.emoji-catalog__category { display: grid; gap: 7px; margin-top: 12px; font-size: 12px; font-weight: 700; }
+.emoji-catalog__category select { width: 100%; min-height: 44px; padding: 8px 12px; border: 1.5px solid #b7c5b8; border-radius: 12px; color: var(--ink); background: #fffef8; }
+.emoji-catalog__scroll { height: 336px; overflow: auto; overscroll-behavior: contain; padding: 2px 3px 8px; scrollbar-gutter: stable; }
+.emoji-catalog__scroll h3 { margin: 8px 0; font-size: 13px; color: #365b51; }
+.emoji-catalog__scroll .emoji-picker--catalog { max-height: none; overflow: visible; }
+.emoji-catalog__scroll .button { margin-top: 12px; }
 
 .join-page { background: radial-gradient(ellipse at top,#fff0b2,#d7e7dd); }
 .join-card { background: var(--paper); border: 2px solid var(--game-edge); border-radius: 24px; box-shadow: 0 6px 0 var(--game-edge),0 18px 45px #253d4c20; }

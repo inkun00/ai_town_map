@@ -1,0 +1,6 @@
+{
+  "emoji": "https://www.unicode.org/Public/17.0.0/emoji/emoji-test.txt",
+  "annotations": "https://raw.githubusercontent.com/unicode-org/cldr/release-48/common/annotations/ko.xml",
+  "derived": "https://raw.githubusercontent.com/unicode-org/cldr/release-48/common/annotationsDerived/ko.xml",
+  "license": "https://www.unicode.org/license.txt"
+}

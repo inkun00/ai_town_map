@@ -8,6 +8,7 @@ import { withTransaction } from "@/server/db";
 import { ApiError } from "@/server/http";
 import { canReadMap } from "@/server/policies/maps";
 import { audit } from "./community-access";
+import {registerObservationEmoji} from "./observation-emoji";
 
 const answerSchema = z.record(z.string().min(1).max(60), z.array(z.string().max(500)).max(10));
 export const observationSchema = z.strictObject({
@@ -93,7 +94,8 @@ export async function createObservation(mapId:string,session:AppSession,key:stri
     const config=await client.query<{definition:Theme}>("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=$2",[mapId,map.config_revision]);
     const theme=config.rows[0]?.definition;
     if(!theme) throw new ApiError(503,"THEME_UNAVAILABLE","지도 설정을 불러올 수 없습니다.");
-    validateInput(input,theme);
+    const selectedTheme=await registerObservationEmoji(client,map,session.principalId,theme,input.categoryKey,input.emojiKey);
+    validateInput(input,selectedTheme);
     const category=await client.query<{id:string}>("SELECT id FROM app.categories WHERE map_id=$1 AND key=$2 AND active=true",[mapId,input.categoryKey]);
     const emoji=await client.query<{id:string}>("SELECT id FROM app.emoji_options WHERE map_id=$1 AND category_id=$2 AND key=$3 AND active=true",[mapId,category.rows[0]?.id,input.emojiKey]);
     const rating=input.ratingKey ? await client.query<{id:string}>("SELECT id FROM app.rating_options WHERE map_id=$1 AND key=$2",[mapId,input.ratingKey]) : null;
@@ -119,12 +121,15 @@ export async function updateObservation(mapId:string,id:string,session:AppSessio
     if(row.version!==version) throw new ApiError(412,"VERSION_CHANGED","다른 곳에서 기록이 수정됐습니다.");
     if(input.configRevision!==map.config_revision) throw new ApiError(409,"CONFIG_CHANGED","지도 설정이 바뀌었습니다.");
     const config=await client.query<{definition:Theme}>("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=$2",[mapId,map.config_revision]);
-    validateInput(input,config.rows[0].definition);
+    const theme=config.rows[0]?.definition;
+    if(!theme)throw new ApiError(503,"THEME_UNAVAILABLE","지도 설정을 불러올 수 없습니다.");
+    const selectedTheme=await registerObservationEmoji(client,map,session.principalId,theme,input.categoryKey,input.emojiKey);
+    validateInput(input,selectedTheme);
     const category=await client.query<{id:string}>("SELECT id FROM app.categories WHERE map_id=$1 AND key=$2 AND active=true",[mapId,input.categoryKey]);
     const emoji=await client.query<{id:string}>("SELECT id FROM app.emoji_options WHERE map_id=$1 AND category_id=$2 AND key=$3 AND (active=true OR $4)",[mapId,category.rows[0]?.id,input.emojiKey,row.category_key===input.categoryKey&&row.emoji_key===input.emojiKey]);
     const rating=input.ratingKey ? await client.query<{id:string}>("SELECT id FROM app.rating_options WHERE map_id=$1 AND key=$2",[mapId,input.ratingKey]) : null;
     if(!category.rows[0] || !emoji.rows[0] || (input.ratingKey && !rating?.rows[0])) throw new ApiError(422,"CONFIG_CHANGED","분류나 이모지 설정이 바뀌었습니다.");
-    await client.query(`UPDATE app.observations SET title=$3,body=$4,location_label=$5,location_source=$6,lat=$7,lng=$8,category_id=$9,emoji_option_id=$10,rating_option_id=$11,answers=$12,improvement_idea=$13,link_url=$14,status=$15,version=version+1,updated_at=now() WHERE id=$1 AND map_id=$2`,[id,mapId,input.title,input.body,input.locationLabel,input.locationSource,input.location.lat,input.location.lng,category.rows[0].id,emoji.rows[0].id,rating?.rows[0]?.id ?? null,JSON.stringify(input.answers),input.improvementIdea || null,input.link || null,map.moderation==="approval" ? "pending" : "published"]);
+    await client.query(`UPDATE app.observations SET title=$3,body=$4,location_label=$5,location_source=$6,lat=$7,lng=$8,category_id=$9,emoji_option_id=$10,rating_option_id=$11,answers=$12,improvement_idea=$13,link_url=$14,status=$15,config_revision=$16,version=version+1,updated_at=now() WHERE id=$1 AND map_id=$2`,[id,mapId,input.title,input.body,input.locationLabel,input.locationSource,input.location.lat,input.location.lng,category.rows[0].id,emoji.rows[0].id,rating?.rows[0]?.id ?? null,JSON.stringify(input.answers),input.improvementIdea || null,input.link || null,map.moderation==="approval" ? "pending" : "published",map.config_revision]);
     await client.query("UPDATE app.maps SET data_revision=data_revision+1 WHERE id=$1",[mapId]);
     const updated=await client.query<ObservationRow>(`${rowSql} WHERE o.id=$1`,[id]);
     return dto(updated.rows[0],map.member_id);

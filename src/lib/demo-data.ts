@@ -1,4 +1,5 @@
 import source from "../../docs/contracts/theme-presets.json";
+import {emojiCatalog,findCatalogEmoji} from "./emoji-catalog";
 
 export type ThemeKey = "universal_design" | "safety" | "ecology" | "weather_life" | "custom";
 export type PinMode = "rating" | "category" | "single";
@@ -32,10 +33,7 @@ export type Theme = {
 
 export const themes = source.templates as Theme[];
 export const themeByKey = Object.fromEntries(themes.map((theme) => [theme.key, theme])) as Record<ThemeKey, Theme>;
-export const emojiLibrary = Array.from(new Set(themes.flatMap(theme=>theme.categories.flatMap(category=>category.emojiOptions.map(emoji=>emoji.glyph))))).map((glyph,index)=>{
-  const matches=themes.flatMap(theme=>theme.categories.flatMap(category=>category.emojiOptions.filter(emoji=>emoji.glyph===glyph).map(emoji=>({...emoji,searchTerms:`${theme.label} ${category.label} ${emoji.label}`}))));
-  return {key:`library-${index}`,glyph,label:matches[0].label,searchTerms:matches.map(item=>item.searchTerms).join(" ")};
-});
+export const emojiLibrary = emojiCatalog;
 
 export type DemoMap = {
   id: string;
@@ -105,7 +103,7 @@ export const initialPoints: DemoPoint[] = [
 ];
 
 export function getPointEmoji(theme: Theme, point: Pick<DemoPoint, "categoryKey" | "emojiKey">): EmojiOption | undefined {
-  return theme.categories.find((item) => item.key === point.categoryKey)?.emojiOptions.find((item) => item.key === point.emojiKey);
+  return theme.categories.find((item) => item.key === point.categoryKey)?.emojiOptions.find((item) => item.key === point.emojiKey) ?? findCatalogEmoji(point.emojiKey);
 }
 
 export function getPinColor(theme: Theme, point: DemoPoint): string {
