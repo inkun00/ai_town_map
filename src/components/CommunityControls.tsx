@@ -36,9 +36,10 @@ export function ObservationActions({mapId,id,version,canDelete,canModerate,csrfT
   return <div className="observation-actions">{canModerate&&<><label>숨김 사유<input value={reason} onChange={event=>setReason(event.target.value)} maxLength={500} placeholder="숨기는 이유를 적어주세요"/></label><button type="button" disabled={busy||reason.trim().length<2} onClick={()=>void perform("hide")}>기록 숨기기</button></>}{canDelete&&<button type="button" disabled={busy} onClick={()=>void perform("delete")}>내 기록 삭제</button>}</div>;
 }
 
-export function DeletedMaps({csrfToken,onNotice}:{csrfToken:string;onNotice:(message:string)=>void}){
+export function DeletedMaps({csrfToken,onNotice,onRestored}:{csrfToken:string;onNotice:(message:string)=>void;onRestored?:()=>void}){
   const [page,setPage]=useState<PageState<DeletedMap>>({items:[],nextCursor:null,busy:true,error:"",loaded:false});
   const [busy,setBusy]=useState(false),[selectedId,setSelectedId]=useState("");
+  const [reload,setReload]=useState(0);
   const pager=useRef<MapPager<DeletedMap>|null>(null);
   useEffect(()=>{
     const current=new MapPager<DeletedMap>(async(cursor,signal)=>{
@@ -50,8 +51,8 @@ export function DeletedMaps({csrfToken,onNotice}:{csrfToken:string;onNotice:(mes
       return result.data;
     },setPage);
     pager.current=current;void current.load();return()=>current.dispose();
-  },[]);
-  async function restore(item:{id:string;version:string}){if(busy)return;setBusy(true);try{await jsonRequest(`/api/v1/maps/${item.id}/restore`,"POST",csrfToken,{},item.version);onNotice("지도를 보관 상태로 복구했습니다.");window.location.reload();}catch(error){onNotice(error instanceof Error?error.message:"지도를 복구하지 못했습니다.");}finally{setBusy(false);}}
+  },[reload]);
+  async function restore(item:{id:string;version:string}){if(busy)return;setBusy(true);try{await jsonRequest(`/api/v1/maps/${item.id}/restore`,"POST",csrfToken,{},item.version);onNotice("지도를 보관 상태로 복구했습니다.");if(onRestored){setSelectedId("");setReload(value=>value+1);onRestored();}else{window.location.reload();}}catch(error){onNotice(error instanceof Error?error.message:"지도를 복구하지 못했습니다.");}finally{setBusy(false);}}
   const items=selectedId?page.items.filter(item=>item.id===selectedId):page.items;
   return <section className="home-section home-section--last deleted-map-directory" aria-label="삭제한 지도">
     <div className="section-heading"><div><span className="eyebrow">RECOVER</span><h2>삭제한 지도</h2></div></div>

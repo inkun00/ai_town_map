@@ -77,6 +77,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .deleted-map-directory .directory-theme { margin: 0 0 14px; }
 .deleted-map-directory .community-list { align-content: start; padding-bottom: 0; }
 .deleted-map-directory .community-list article { background: #fffdf4; border: 2px solid #b3c6b7; border-radius: 16px; box-shadow: 0 4px 0 #ceddce; overflow-wrap: anywhere; }
+.exploration-bag-scroll .content-heading { padding: 27px 0 12px; }
+.exploration-bag-shortcuts, .exploration-bag-empty { padding: 0; }
+.exploration-bag-scroll .deleted-map-directory { padding: 25px 0; }
+.exploration-bag-empty { padding-top: 25px; padding-bottom: 25px; }
 .record-location-launch { display: flex; align-items: center; gap: 12px; width: 100%; padding: 18px 14px; margin-bottom: 18px; border: 2px solid #b3c6b7; border-radius: 16px; background: #edf2e4; color: var(--ink); text-align: left; }
 .record-location-launch>span { flex: 1; min-width: 0; display: grid; gap: 7px; }
 .record-location-launch strong { font-size: 14px; }

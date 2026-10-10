@@ -63,6 +63,10 @@ beforeEach(()=>{
     const url=String(raw);
     if(url==="/api/v1/session")return ok(session);
     if(url.startsWith("/api/v1/maps?"))return ok({items:maps,nextCursor:null});
+    const configurationMap=maps.find(map=>url===`/api/v1/maps/${map.id}/configuration`);
+    if(configurationMap)return ok({theme:themeByKey[configurationMap.themeKey],configRevision:1});
+    const analysisMap=maps.find(map=>url===`/api/v1/maps/${map.id}/analysis?filter=%7B%7D`);
+    if(analysisMap)return ok({items:points.filter(point=>point.mapId===analysisMap.id),stats:{total:1}});
     if(url==="/api/v1/maps/merge/preview")return ok(preview);
     if(url==="/api/v1/maps/merge"){
       const next=creationResponses.shift();if(next instanceof Error)throw next;
@@ -92,6 +96,22 @@ describe("mobile map merge flow",()=>{
     await click("내가 참여한 지도");await checkboxFor(maps[1].title);expect(button("만들기").disabled).toBe(false);
     expect(container.querySelector("[aria-label='선택한 지도']")?.textContent).toContain(maps[0].title);expect(container.querySelector("[aria-label='선택한 지도']")?.textContent).toContain(maps[1].title);
     expect(creationCalls()).toHaveLength(0);
+  });
+
+  it("opens a full map preview from a separate button without changing the merge selection",async()=>{
+    await render();await checkboxFor(maps[0].title);
+    expect(container.querySelector(".map-merge-footer")?.textContent).toContain("지도 1개 선택");
+    const previewButton=button(`${maps[0].title} 미리보기`);
+    expect(previewButton.textContent).toContain("🔍");expect(previewButton.closest("label")).toBeNull();
+    await click(`${maps[0].title} 미리보기`);
+    await vi.waitFor(()=>expect(container.querySelector("dialog.map-source-preview [aria-label='임시 지도']")).not.toBeNull());
+    expect(container.querySelector("dialog.map-source-preview")?.textContent).toContain(maps[0].description);
+    expect(container.querySelector(".map-merge-footer")?.textContent).toContain("지도 1개 선택");
+    expect(mapProbe.autoLocate).toBe(false);expect(mapProbe.points.map(point=>point.id)).toEqual([points[0].id]);
+    await act(async()=>{window.history.back();await new Promise(resolve=>setTimeout(resolve,20));});
+    expect(container.querySelector("dialog.map-source-preview")).toBeNull();expect(confirmSpy).not.toHaveBeenCalled();
+    expect(container.querySelector(".map-merge-footer")?.textContent).toContain("지도 1개 선택");
+    expect(fetchSpy.mock.calls.every(([,options])=>!options?.method||options.method==="GET")).toBe(true);expect(creationCalls()).toHaveLength(0);
   });
 
   it("supports arrow, Home and End navigation with roving focus and a labelled directory panel",async()=>{
