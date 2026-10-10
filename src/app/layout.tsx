@@ -4,6 +4,7 @@ import "./adventure.css";
 import "./map-workbench.css";
 import "./exploration-games.css";
 import "./point-details.css";
+import "./map-merge.css";
 
 export const metadata: Metadata = {
   title: "모두의 지도 · 우리 동네 탐험대",

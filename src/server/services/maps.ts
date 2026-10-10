@@ -1,6 +1,6 @@
 import {requireTeacher} from "./accounts";
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 import { z } from "zod";
 import { type Theme, type ThemeKey } from "@/lib/demo-data";
@@ -138,39 +138,71 @@ export async function createMap(input: CreateMapInput, session: AppSession, key:
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`, [session.principalId, template.rows[0].id, input.themeKey, input.title, input.description, input.locationLabel, input.activityContext, input.center?.lat ?? null, input.center?.lng ?? null, input.initialZoom, input.visibility, input.participation, input.moderation, theme.pin.mode, theme.pin.mode === "single" ? "#285943" : null, theme.features.ratingEnabled, theme.features.ideasEnabled, theme.features.proposalsEnabled, input.commentsEnabled??theme.features.commentsEnabled]);
     const map = inserted.rows[0];
     await client.query("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'지도 개설자')", [map.id, session.principalId]);
-    const identifiers = { categories: {} as Record<string, string>, emojiOptions: {} as Record<string, string>, ratingOptions: {} as Record<string, string>, questionVersions: {} as Record<string, string> };
-    for (const [index, category] of theme.categories.entries()) {
-      const added = await client.query<{ id: string }>("INSERT INTO app.categories(map_id,key,label,color,sort_order) VALUES($1,$2,$3,$4,$5) RETURNING id", [map.id, category.key, category.label, category.color, index]);
-      const categoryId = added.rows[0].id;
-      identifiers.categories[category.key] = categoryId;
-      let defaultId: string | null = null;
-      for (const [order, emoji] of category.emojiOptions.entries()) {
-        const option = await client.query<{ id: string }>("INSERT INTO app.emoji_options(map_id,category_id,key,glyph,label,sort_order) VALUES($1,$2,$3,$4,$5,$6) RETURNING id", [map.id, categoryId, emoji.key, emoji.glyph, emoji.label, order]);
-        identifiers.emojiOptions[`${category.key}:${emoji.key}`] = option.rows[0].id;
-        if (emoji.key === category.defaultEmojiKey) defaultId = option.rows[0].id;
-      }
-      if (!defaultId) throw new ApiError(422, "INVALID_EMOJI", "대표 이모지를 확인해 주세요.");
-      await client.query("UPDATE app.categories SET default_emoji_id=$1 WHERE id=$2", [defaultId, categoryId]);
-    }
-    if (theme.rating) {
-      const scheme = await client.query<{ id: string }>("INSERT INTO app.rating_schemes(map_id,label) VALUES($1,$2) RETURNING id", [map.id, theme.rating.label]);
-      for (const [index, option] of theme.rating.options.entries()) {
-        const added = await client.query<{ id: string }>("INSERT INTO app.rating_options(map_id,scheme_id,key,label,color,symbol,ordinal) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id", [map.id, scheme.rows[0].id, option.key, option.label, option.color, option.symbol, index]);
-        identifiers.ratingOptions[option.key] = added.rows[0].id;
-      }
-    }
-    for (const [index, question] of theme.questions.entries()) {
-      const added = await client.query<{ id: string }>("INSERT INTO app.questions(map_id,key,sort_order) VALUES($1,$2,$3) RETURNING id", [map.id, question.key, index]);
-      const version = await client.query<{ id: string }>(`INSERT INTO app.question_versions(map_id,question_id,label,type,required,allow_unknown,allow_na,options,max_length)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, [map.id, added.rows[0].id, question.label, question.type, question.required, question.allowUnknown, question.allowNotApplicable, JSON.stringify(question.options ?? []), question.maxLength ?? null]);
-      identifiers.questionVersions[question.key] = version.rows[0].id;
-      await client.query("UPDATE app.questions SET current_version_id=$1 WHERE id=$2", [version.rows[0].id, added.rows[0].id]);
-    }
-    await client.query("INSERT INTO app.map_config_revisions(map_id,revision,definition,created_by) VALUES($1,1,$2,$3)", [map.id, JSON.stringify({ ...theme, identifiers }), session.principalId]);
+    await insertMapDefinition(client, map.id, theme, session.principalId);
     await client.query(`UPDATE app_private.idempotency_keys SET resource_id=$1,response_code=201,completed_at=now() WHERE principal_id=$2 AND route_scope='create_map' AND key=$3`, [map.id, session.principalId, key]);
     const full = await readMap(client, map.id, session.principalId);
     return { map: mapDto(full!, session.principalId), repeated: false };
   });
+}
+
+export async function insertMapDefinition(client:PoolClient,mapId:string,theme:Theme,principalId:string){
+    const identifiers = { categories: {} as Record<string, string>, emojiOptions: {} as Record<string, string>, ratingOptions: {} as Record<string, string>, questionVersions: {} as Record<string, string> };
+    const emojis:{id:string;category_id:string;key:string;glyph:string;label:string;sort_order:number}[]=[];
+    const categories=theme.categories.map((category,index)=>{
+      const categoryId=randomUUID();
+      identifiers.categories[category.key] = categoryId;
+      let defaultId: string | null = null;
+      for (const [order, emoji] of category.emojiOptions.entries()) {
+        const id=randomUUID();
+        emojis.push({id,category_id:categoryId,key:emoji.key,glyph:emoji.glyph,label:emoji.label,sort_order:order});
+        identifiers.emojiOptions[`${category.key}:${emoji.key}`] = id;
+        if (emoji.key === category.defaultEmojiKey) defaultId = id;
+      }
+      if (!defaultId) throw new ApiError(422, "INVALID_EMOJI", "대표 이모지를 확인해 주세요.");
+      return {id:categoryId,key:category.key,label:category.label,color:category.color,sort_order:index,default_emoji_id:defaultId};
+    });
+    // The circular default-emoji/current-question FKs are deferred until commit.
+    // Allocate IDs first so each definition table can be written once, even for a merged map.
+    await client.query(`INSERT INTO app.categories(id,map_id,key,label,color,sort_order,default_emoji_id)
+      SELECT x.id,$1,x.key,x.label,x.color,x.sort_order,x.default_emoji_id FROM jsonb_to_recordset($2::jsonb)
+      AS x(id uuid,key text,label text,color text,sort_order integer,default_emoji_id uuid)`,[mapId,JSON.stringify(categories)]);
+    await client.query(`INSERT INTO app.emoji_options(id,map_id,category_id,key,glyph,label,sort_order)
+      SELECT x.id,$1,x.category_id,x.key,x.glyph,x.label,x.sort_order FROM jsonb_to_recordset($2::jsonb)
+      AS x(id uuid,category_id uuid,key text,glyph text,label text,sort_order integer)`,[mapId,JSON.stringify(emojis)]);
+    if (theme.rating) {
+      const scheme = await client.query<{ id: string }>("INSERT INTO app.rating_schemes(map_id,label) VALUES($1,$2) RETURNING id", [mapId, theme.rating.label]);
+      const ratings=theme.rating.options.map((option,index)=>{
+        const id=randomUUID();identifiers.ratingOptions[option.key]=id;
+        return {id,key:option.key,label:option.label,color:option.color,symbol:option.symbol,ordinal:index};
+      });
+      await client.query(`INSERT INTO app.rating_options(id,map_id,scheme_id,key,label,color,symbol,ordinal)
+        SELECT x.id,$1,$2,x.key,x.label,x.color,x.symbol,x.ordinal FROM jsonb_to_recordset($3::jsonb)
+        AS x(id uuid,key text,label text,color text,symbol text,ordinal integer)`,[mapId,scheme.rows[0].id,JSON.stringify(ratings)]);
+    }
+    if(theme.questions.length){
+      const questions=theme.questions.map((question,index)=>{
+        const id=randomUUID(),versionId=randomUUID();identifiers.questionVersions[question.key]=versionId;
+        return {id,key:question.key,sort_order:index,current_version_id:versionId,label:question.label,type:question.type,
+          required:question.required,allow_unknown:question.allowUnknown,allow_na:question.allowNotApplicable,
+          options:question.options??[],max_length:question.maxLength??null};
+      });
+      const serialized=JSON.stringify(questions);
+      await client.query(`INSERT INTO app.questions(id,map_id,key,sort_order,current_version_id)
+        SELECT x.id,$1,x.key,x.sort_order,x.current_version_id FROM jsonb_to_recordset($2::jsonb)
+        AS x(id uuid,key text,sort_order integer,current_version_id uuid)`,[mapId,serialized]);
+      await client.query(`INSERT INTO app.question_versions(id,map_id,question_id,label,type,required,allow_unknown,allow_na,options,max_length)
+        SELECT x.current_version_id,$1,x.id,x.label,x.type,x.required,x.allow_unknown,x.allow_na,x.options,x.max_length
+        FROM jsonb_to_recordset($2::jsonb)
+        AS x(id uuid,current_version_id uuid,label text,type text,required boolean,allow_unknown boolean,allow_na boolean,options jsonb,max_length integer)`,[mapId,serialized]);
+    }
+    await client.query("INSERT INTO app.map_config_revisions(map_id,revision,definition,created_by) VALUES($1,1,$2,$3)", [mapId, JSON.stringify({ ...theme, identifiers }), principalId]);
+    return identifiers;
+}
+
+export async function getMapInTransaction(client:PoolClient,mapId:string,session:AppSession|null){
+  const row=await readMap(client,mapId,session?.principalId??null);
+  if(!row||!canReadMap(session?.principalId??null,{visibility:row.visibility,status:row.status,ownerPrincipalId:row.owner_principal_id},row.member_status?{status:row.member_status,role:row.member_role!}:null))throw new ApiError(404,'NOT_FOUND','지도를 찾을 수 없습니다.');
+  return mapDto(row,session?.principalId??null);
 }
 
 export async function getManageableMap(client: PoolClient, mapId: string, session: AppSession): Promise<MapRow> {

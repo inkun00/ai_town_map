@@ -56,6 +56,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .auth-banner small { display: block; font-size: 10px; color: #567169; margin-top: 5px; line-height: 1.6; }
 .auth-banner a, .auth-banner button { min-height: 36px; border: 1px solid #b5c8b4; border-radius: 9px; padding: 7px 9px; background: #fffdf4; text-decoration: none; color: #365951; font-size: 10px; font-weight: 700; }
 .home-section { padding: 25px 18px 0; }
+.home-actions { display: grid; gap: 14px; }
 .section-heading h2 { font-size: 21px; color: var(--ink); margin-top: 7px; }
 .section-stamp { display: grid; place-items: center; height: 34px; min-width: 34px; border: 2px solid #c29d49; border-radius: 50%; color: #8a6b2d; font-size: 9px; font-weight: 900; transform: rotate(10deg); }
 .directory-filters { padding-top: 22px; }
