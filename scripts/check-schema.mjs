@@ -4,13 +4,15 @@ import { PGlite } from "@electric-sql/pglite";
 const db = new PGlite();
 try {
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql"]){
+  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql"]){
     await db.exec(await readFile(`db/migrations/${name}`,"utf8"));
   }
   const result = await db.query("SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema IN ('app','app_private')");
   if (result.rows[0].count < 22) throw new Error("Application tables were not created");
   const privileges = await db.query("SELECT has_table_privilege('anon','app.maps','SELECT') AS anon_read, has_table_privilege('app_backend','app.maps','SELECT') AS backend_read, has_table_privilege('app_backend','app.theme_templates','UPDATE') AS template_update");
   if (privileges.rows[0].anon_read || !privileges.rows[0].backend_read || privileges.rows[0].template_update) throw new Error("Database grants are not isolated");
+  const passwords = await db.query("SELECT has_table_privilege('anon','app_private.map_participation_passwords','SELECT') AS anon_read, has_table_privilege('authenticated','app_private.map_participation_passwords','SELECT') AS authenticated_read, has_table_privilege('app_backend','app_private.map_participation_passwords','SELECT,INSERT,UPDATE,DELETE') AS backend_access, (SELECT relrowsecurity FROM pg_class WHERE oid='app_private.map_participation_passwords'::regclass) AS rls");
+  if(passwords.rows[0].anon_read || passwords.rows[0].authenticated_read || !passwords.rows[0].backend_access || !passwords.rows[0].rls) throw new Error("Map passwords must stay in the backend-only RLS table");
   await db.exec(`
     INSERT INTO app.principals(id,kind,auth_user_id) VALUES
       ('00000000-0000-4000-8000-000000000001','account','00000000-0000-4000-8000-000000000011');

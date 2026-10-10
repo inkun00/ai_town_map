@@ -1,0 +1,16 @@
+.map-participation{display:grid;gap:12px;min-width:0;padding:0;color:var(--ink)}
+.map-participation>header{display:flex;align-items:center;gap:14px;justify-content:space-between}
+.map-participation>header>div{min-width:0}.map-participation>header small{font-size:12px;color:#336b5f}.map-participation>header h2{font-size:21px;line-height:1.4;margin:5px 0 0}
+.map-participation>header .sheet-close{position:static;flex:none;margin:0}
+.map-participation__title{font-size:17px;overflow-wrap:anywhere}.map-participation>p{margin:0;font-size:14px;line-height:1.7}
+.map-participation .map-participation__reading{padding:10px 12px;border-radius:12px;background:#edf5e8;font-size:13px;color:#355c50}
+.map-participation fieldset{border:0;margin:0;padding:0;min-width:0;display:grid;gap:16px}
+.map-participation__field{display:grid;gap:8px;font-size:14px;font-weight:700}
+.map-participation__field input{width:100%;min-width:0;min-height:48px;padding:12px;border:1.5px solid #b8cbbd;border-radius:13px;background:#fff;color:var(--ink);font-size:16px}
+.map-participation__methods{display:flex;gap:8px}.map-participation__methods button{flex:1;min-width:0;min-height:48px;border:1.5px solid #b8cbbd;border-radius:13px;padding:10px 8px;font:inherit;font-size:13px;font-weight:800;background:#fff;color:var(--ink)}
+.map-participation__methods button[aria-selected=true]{background:#fff0aa;border-color:#273f4b;box-shadow:0 3px 0 #273f4b}
+.map-participation__code-help{margin:0;font-size:13px;line-height:1.6}.map-participation__error{margin:0;border:1px solid #d7a374;background:#fff0df;color:#864017;border-radius:12px;padding:12px;font-size:14px;line-height:1.6}
+.map-participation__read-button{min-height:44px;padding:8px;background:transparent;color:#355c50;border:0;font:inherit;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:4px}
+.map-participation input:focus-visible,.map-participation button:focus-visible{outline:3px solid #4b95d9;outline-offset:3px}
+.map-participation button:disabled{opacity:.6}.map-participation .button{white-space:normal;height:auto;min-height:52px;padding:12px;line-height:1.4}
+.moderation-center .sharing-settings-save{min-height:44px;font-size:13px}

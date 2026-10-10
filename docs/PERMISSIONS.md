@@ -1,4 +1,14 @@
-# 1단계 권한과 공개 범위
+# 지도 권한과 포인트 등록 공유 설정
+
+## 2026-10-10 공유 설정
+
+지도 만들기와 지도 합치기의 최종 단계에서 `전체공개` 또는 `일부공개`를 선택한다. 모든 active/archived 지도와 published 기록은 누구나 열람하며, 이 선택은 신규 포인트 등록에 참여하는 방법만 결정한다. 삭제·초안 지도 및 미게시 기록의 비공개 상태는 유지한다.
+
+- `visibility=public`(전체공개): 닉네임만으로 참여 membership과 게스트 세션을 발급받아 등록한다. Google 로그인이나 인증코드는 필요하지 않다.
+- `visibility=invite_only`(일부공개): 지도 비밀번호 또는 교사의 지도별 인증코드로 참여한다. 비밀번호를 지정하지 않으면 인증코드만 사용한다.
+- 비밀번호는 4~100자이며 서버에서 무작위 salt와 scrypt로 해시해 `app_private.map_participation_passwords`에 저장한다. API는 비밀번호 설정 여부만 반환한다. 비밀번호가 있는 생성 요청의 중복 방지 fingerprint는 서버 비밀키로 HMAC 처리한다.
+- 기존 활성 membership은 재인증하지 않는다. blocked/left는 비밀번호·코드·전체공개 입장으로 복구하지 않는다. 소유자가 공유 설정·비밀번호를 바꿀 수 있고, 전체공개로 바꾸면 저장된 비밀번호를 지운다.
+- `participation=admin_only/closed`와 archived 상태의 등록 제한은 별도로 유지한다. 새 지도는 invited로 시작한다.
 
 ## 1. 판정 순서
 
@@ -18,9 +28,9 @@
 | 동작 | 방문자 | 참여자 | 관리자 | 소유자 |
 |---|---|---|---|---|
 | 공개 지도·게시 기록 읽기 | 가능 | 가능 | 가능 | 가능 |
-| 초대 전용 지도 읽기 | 불가 | 가능 | 가능 | 가능 |
+| 일부공개 지도·게시 기록 읽기 | 가능 | 가능 | 가능 | 가능 |
 | 지도 개설 | 교사 회원가입 필요 | teacher 계정만 | teacher 계정만 | teacher 계정만 |
-| 포인트 작성 | 불가 | invited 모드 | invited/admin_only | invited/admin_only |
+| 포인트 작성 | 공유 설정에 맞게 참여 후 가능 | invited 모드 | invited/admin_only | invited/admin_only |
 | 본인 draft/pending 읽기·수정 | 불가 | 가능 | 가능 | 가능 |
 | 게시 기록 본문 수정 | 불가 | 본인만 | 본인만 | 본인만 |
 | 타인 본문 변경 | 불가 | 불가 | MVP에서는 수정 요청 | MVP에서는 수정 요청 |
@@ -71,14 +81,14 @@ canReadProposalVersion(actor, map, membership, proposal, version)
 canReadAttachment(actor, map, membership, parentObservation)
 ```
 
-`canReadMap`은 public인 active/archived 지도 또는 active 멤버에게만 true다. private의 blocked/left는 false. draft 지도는 owner만. deleted 지도는 owner 복구 경로에서만 접근한다.
+`canReadMap`은 전체공개·일부공개 모두 active/archived 지도에 true다. blocked/left도 게시 기록을 방문자처럼 볼 수 있지만 쓰기 권한은 없다. draft 지도는 owner만. deleted 지도는 owner 복구 경로에서만 접근한다.
 
 파일 권한은 DB에서 attachment→observation→map을 읽어 결정하며 URL의 mapId는 검증 보조값일 뿐이다. 관리자가 전달받은 파일 URL을 방문자가 열어도 현재 권한을 검사한다.
 
 ## 5. 제안서와 근거
 
 - 초안·검토 중 버전은 작성자·관리자·소유자만 열람한다.
-- 확정·공유된 버전은 해당 지도 읽기 권한을 가진 사람만 열람한다. 초대 전용 지도 공유 링크는 초대 코드를 포함하지 않는다.
+- 확정·공유된 버전은 지도 방문자가 열람한다. 공유 링크에는 비밀번호나 인증코드를 포함하지 않는다.
 - proposal 기능을 끄면 일반 조회·쓰기·공유 링크를 막고 관리자 보관 API만 제공한다. 다시 켜면 저장된 상태를 복원한다.
 - 근거 선택은 현재 published 기록만 가능하다. 근거가 수정되면 버전 차이, 숨김·삭제면 접근 불가를 표시한다. 근거가 바뀌면 확정 전 재검토가 필수다.
 - 근거의 원본·집계 스냅샷은 매번 현재 권한을 재검사한다. 원본 권한이 좁아지면 연결된 제안서가 노출 우회 경로가 되어서는 안 된다.
@@ -88,17 +98,17 @@ canReadAttachment(actor, map, membership, parentObservation)
 - 존재를 알 권한이 없는 지도·기록·사진: 404. 공개 지도에서 로그인 없이 쓰기 시도: 401. 알려진 자원에 작업 권한이 없음: 403.
 - 권한 회수 후 세션에 저장된 오래된 역할을 사용하지 않는다. DB membership을 다시 조회한다.
 - 클라이언트가 게시·승인·owner ID를 직접 설정하면 422, 별도 권한 있는 명령 API만 해당 값을 변경한다.
-- 비공개 지도 정보가 들어간 OG·검색 색인·오류 로그·HTML preload·공유 캐시를 만들지 않는다. 공개 탐색 목록에는 public active 지도만 노출한다.
+- 공개 탐색 목록에는 전체공개·일부공개 모두 active 지도를 노출한다. 초안·미게시·삭제 콘텐츠나 비밀번호·인증코드는 OG·검색 색인·오류 로그·HTML preload·공유 캐시에 넣지 않는다.
 - 서버만 Storage 비밀키를 가지므로 직접 Storage 호출로 사진을 읽을 수 없어야 한다. 실제 bucket 정책과 API 우회 테스트는 4단계 필수다.
 
 ## 7. 구현 시 검증할 권한 시나리오
 
 1. 같은 닉네임의 A/B가 서로의 기록을 수정하지 못한다.
-2. 지도 X의 참여자가 Y의 포인트·사진·CSV·제안 근거에 접근하지 못한다.
+2. 지도 X의 참여자는 Y의 게시 기록을 볼 수 있지만 Y의 비게시 기록·CSV·관리자 기능에는 접근하지 못한다.
 3. 공개 지도 방문자는 published만 읽고 pending·draft ID를 알아도 접근하지 못한다.
 4. 관리자는 타인 draft를 읽지 못하지만 제출된 pending은 검수할 수 있다.
 5. 게스트가 role=admin 또는 authorMemberId를 요청 body에 넣어도 권한을 얻지 못한다.
-6. 공개→비공개 전환 직후 방문자의 API·파일·export 접근이 끊긴다.
+6. 전체공개→일부공개 변경 후에도 게시 기록 열람은 가능하며, 신규 참여는 비밀번호 또는 해당 지도 인증코드가 필요하다.
 7. 마지막 초대 사용권에 동시 요청해도 max_uses를 넘지 않는다.
 8. 댓글·제안 기능을 끈 지도는 API 직접 호출로도 새 자료를 만들 수 없다.
 9. guest 세션 만료 후 같은 닉네임으로 입장해도 기존 작성권이 복구되지 않는다.

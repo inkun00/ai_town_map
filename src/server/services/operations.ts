@@ -5,8 +5,9 @@ import type { AppSession } from "@/server/auth/session";
 import { withTransaction } from "@/server/db";
 import { ApiError } from "@/server/http";
 import { audit,communityMap,requireAdmin } from "./community-access";
+import { participationPasswordSchema,setParticipationPassword } from "./map-passwords";
 
-export const mapSettingsInput=z.strictObject({visibility:z.enum(["public","invite_only"]).optional(),participation:z.enum(["invited","admin_only","closed"]).optional(),moderation:z.enum(["immediate","approval"]).optional(),commentsEnabled:z.boolean().optional(),proposalsEnabled:z.boolean().optional(),status:z.enum(["active","archived"]).optional()}).refine(value=>Object.keys(value).length>0);
+export const mapSettingsInput=z.strictObject({visibility:z.enum(["public","invite_only"]).optional(),participationPassword:participationPasswordSchema.nullable().optional(),participation:z.enum(["invited","admin_only","closed"]).optional(),moderation:z.enum(["immediate","approval"]).optional(),commentsEnabled:z.boolean().optional(),proposalsEnabled:z.boolean().optional(),status:z.enum(["active","archived"]).optional()}).refine(value=>Object.keys(value).length>0);
 export const memberInput=z.strictObject({role:z.enum(["admin","participant"]).optional(),status:z.enum(["active","blocked"]).optional()}).refine(value=>Object.keys(value).length===1);
 type MemberRow=QueryResultRow&{id:string;principal_id:string;nickname:string;role:"admin"|"participant";status:"active"|"blocked"|"left";version:string;joined_at:Date;kind:"account"|"guest"};
 function memberDto(row:MemberRow,ownerId:string){return{id:row.id,nickname:row.nickname,role:row.role,status:row.status,version:row.version,joinedAt:row.joined_at,isOwner:row.principal_id===ownerId,accountType:row.kind};}
@@ -17,10 +18,15 @@ export async function changeMapSettings(mapId:string,session:AppSession,version:
     const map=await communityMap(client,mapId,session);requireAdmin(map,session);
     if(map.version!==version)throw new ApiError(412,"VERSION_CHANGED","지도 설정이 다른 곳에서 변경됐습니다.");
     const owner=map.owner_principal_id===session.principalId;
-    if(!owner&&(input.visibility!==undefined||input.participation!==undefined||input.status!==undefined))throw new ApiError(403,"OWNER_REQUIRED","지도 개설자만 변경할 수 있습니다.");
+    if(!owner&&(input.visibility!==undefined||input.participationPassword!==undefined||input.participation!==undefined||input.status!==undefined))throw new ApiError(403,"OWNER_REQUIRED","지도 개설자만 변경할 수 있습니다.");
+    const visibility=input.visibility??map.visibility;
+    if(visibility==="public"&&typeof input.participationPassword==="string")throw new ApiError(422,"PASSWORD_NOT_ALLOWED","전체공개 지도는 비밀번호 없이 참여할 수 있습니다.");
     if(input.status&&input.status===map.status&&Object.keys(input).length===1)return{version:map.version};
     await client.query(`UPDATE app.maps SET visibility=coalesce($2,visibility),participation=coalesce($3,participation),moderation=coalesce($4,moderation),comments_enabled=coalesce($5,comments_enabled),status=coalesce($6,status),proposals_enabled=coalesce($7,proposals_enabled),version=version+1,updated_at=now() WHERE id=$1`,[mapId,input.visibility??null,input.participation??null,input.moderation??null,input.commentsEnabled??null,input.status??null,input.proposalsEnabled??null]);
-    await audit(client,mapId,session,"map.settings","map",mapId,JSON.stringify(input));
+    if(visibility==="public")await setParticipationPassword(client,mapId,null,session.principalId);
+    else if(input.participationPassword!==undefined)await setParticipationPassword(client,mapId,input.participationPassword,session.principalId);
+    const auditInput={...input,...(input.participationPassword!==undefined?{participationPassword:input.participationPassword===null?"cleared":"changed"}:{})};
+    await audit(client,mapId,session,"map.settings","map",mapId,JSON.stringify(auditInput));
     const result=await client.query<{version:string}>("SELECT version FROM app.maps WHERE id=$1",[mapId]);return{version:result.rows[0].version};
   });
 }

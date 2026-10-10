@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { NextRequest } from "next/server";
+import type { PoolClient } from "pg";
 import { z } from "zod";
 import { query, withTransaction } from "../db";
 import { getServerConfig } from "../env";
@@ -19,15 +20,32 @@ export const createInviteSchema = z.strictObject({
 });
 export const redeemSchema = z.strictObject({ code: z.string().min(12).max(20), nickname: z.string().trim().min(2).max(20) });
 
-export async function recordInviteAttempt(request: NextRequest) {
+function requestActor(request: NextRequest, mapId?: string) {
   const actor = inviteAttemptActor(request.headers, process.env);
   if (actor === undefined) throw new ApiError(503, "INVITE_LIMIT_NOT_CONFIGURED", "초대 기능을 준비 중입니다.");
+  return `${actor}:${mapId ?? "invitation"}`;
+}
+
+export async function recordInviteAttempt(request: NextRequest, mapId?: string) {
+  const actor = requestActor(request, mapId);
+  const failure = await query<{ attempts: number }>("SELECT attempts FROM app_private.invite_attempts WHERE actor_hash=$1 AND window_start>now()-interval '10 minutes'", [actorHash(`credentials:${actor}`)]);
+  if ((failure[0]?.attempts ?? 0) >= 20) throw new ApiError(429, "INVITE_RATE_LIMIT", "인증 실패가 여러 번 발생했습니다. 잠시 후 다시 시도해 주세요.");
   const rows = await query<{ attempts: number }>(`INSERT INTO app_private.invite_attempts(actor_hash,window_start,attempts)
     VALUES($1,now(),1) ON CONFLICT(actor_hash) DO UPDATE SET
       attempts = CASE WHEN app_private.invite_attempts.window_start < now() - interval '10 minutes' THEN 1 ELSE app_private.invite_attempts.attempts + 1 END,
       window_start = CASE WHEN app_private.invite_attempts.window_start < now() - interval '10 minutes' THEN now() ELSE app_private.invite_attempts.window_start END
-    RETURNING attempts`, [actorHash(actor)]);
-  if (rows[0].attempts > 20) throw new ApiError(429, "INVITE_RATE_LIMIT", "잠시 후 다시 시도해 주세요.");
+    RETURNING attempts`, [actorHash(`joins:${actor}`)]);
+  // A class sharing school Wi-Fi must be able to join successfully at the same time.
+  if (rows[0].attempts > 180) throw new ApiError(429, "INVITE_RATE_LIMIT", "잠시 후 다시 시도해 주세요.");
+}
+
+export async function recordFailedInviteAttempt(request: NextRequest, error: unknown, mapId?: string) {
+  if (!(error instanceof ApiError) || !["PARTICIPATION_PASSWORD_INVALID", "PARTICIPATION_AUTH_REQUIRED", "INVITE_INVALID", "INVITE_REVOKED", "INVITE_EXPIRED", "INVITE_EXHAUSTED"].includes(error.code)) return;
+  const actor = requestActor(request, mapId);
+  await query(`INSERT INTO app_private.invite_attempts(actor_hash,window_start,attempts)
+    VALUES($1,now(),1) ON CONFLICT(actor_hash) DO UPDATE SET
+      attempts=CASE WHEN app_private.invite_attempts.window_start<now()-interval '10 minutes' THEN 1 ELSE app_private.invite_attempts.attempts+1 END,
+      window_start=CASE WHEN app_private.invite_attempts.window_start<now()-interval '10 minutes' THEN now() ELSE app_private.invite_attempts.window_start END`, [actorHash(`credentials:${actor}`)]);
 }
 
 export async function createInvite(mapId: string, session: AppSession, input: z.infer<typeof createInviteSchema>) {
@@ -61,12 +79,20 @@ export async function revokeInvite(mapId: string, inviteId: string, session: App
   });
 }
 
-export async function redeemInvite(input: z.infer<typeof redeemSchema>, existing: AppSession | null) {
+export async function redeemInvite(input: z.infer<typeof redeemSchema>, existing: AppSession | null, expectedMapId?: string) {
+  return withTransaction(client => redeemInviteInTransaction(client, input, existing, expectedMapId));
+}
+
+/** The map-specific join endpoint must never redeem an invitation belonging to another map. */
+export async function redeemInviteInTransaction(client: PoolClient, input: z.infer<typeof redeemSchema>, existing: AppSession | null, expectedMapId?: string) {
   const code = normalizedCode(input.code);
   if (!code) throw new ApiError(422, "INVITE_INVALID", "초대 코드를 확인해 주세요.");
-  return withTransaction(async (client) => {
-    const found = await client.query<{ id: string; map_id: string; expires_at: Date; revoked_at: Date | null; max_uses: number; uses: number; status: string }>(
-      `SELECT i.id,i.map_id,i.expires_at,i.revoked_at,i.max_uses,i.uses,m.status
+    const candidate = await client.query<{ map_id: string }>("SELECT map_id FROM app_private.invites WHERE code_hmac=$1", [codeHash(code)]);
+    if (!candidate.rows[0] || (expectedMapId && candidate.rows[0].map_id !== expectedMapId)) throw new ApiError(422, "INVITE_INVALID", "이 지도의 교사 인증코드를 확인해 주세요.");
+    // Settings, joins and point writes all take the map lock before member/invite locks.
+    await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE", [candidate.rows[0].map_id]);
+    const found = await client.query<{ id: string; map_id: string; expires_at: Date; revoked_at: Date | null; max_uses: number; uses: number; status: string; participation: string }>(
+      `SELECT i.id,i.map_id,i.expires_at,i.revoked_at,i.max_uses,i.uses,m.status,m.participation
          FROM app_private.invites i JOIN app.maps m ON m.id=i.map_id
         WHERE i.code_hmac=$1 FOR UPDATE OF i`, [codeHash(code)]);
     const invite = found.rows[0];
@@ -79,6 +105,7 @@ export async function redeemInvite(input: z.infer<typeof redeemSchema>, existing
       if (membership.rows[0]?.status === "active") return { mapId: invite.map_id, session: null, repeated: true };
       if (membership.rows[0]) throw new ApiError(403, "MEMBERSHIP_BLOCKED", "이 지도에 참여할 수 없습니다.");
     }
+    if (invite.participation !== "invited") throw new ApiError(403, "WRITE_FORBIDDEN", "현재 이 지도는 새 포인트 등록 참여를 받지 않습니다.");
     if (invite.uses >= invite.max_uses) throw new ApiError(409, "INVITE_EXHAUSTED", "초대 사용 횟수가 모두 찼습니다.");
     let principalId = existing?.principalId;
     if (!principalId) {
@@ -89,5 +116,4 @@ export async function redeemInvite(input: z.infer<typeof redeemSchema>, existing
     await client.query("UPDATE app_private.invites SET uses=uses+1 WHERE id=$1", [invite.id]);
     const issued = existing ? null : await issueSession(client, principalId);
     return { mapId: invite.map_id, session: issued, repeated: false };
-  });
 }

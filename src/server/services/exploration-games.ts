@@ -50,7 +50,7 @@ async function missions(client:PoolClient,gameId:string){
 export async function listGames(session:AppSession|null,q:string="",scope:"active"|"deleted"="active"){
   return withTransaction(async client=>{
     const {rows}=await client.query<GameRow>(`${gameSelect} LEFT JOIN app.map_members mm ON mm.map_id=m.id AND mm.principal_id=$1
-      WHERE m.status IN ('active','archived') AND (m.visibility='public' OR mm.status='active') AND (mm.status IS NULL OR mm.status<>'blocked')
+      WHERE m.status IN ('active','archived')
       AND (($3='deleted' AND g.deleted_at IS NOT NULL AND g.created_by=$1) OR ($3='active' AND g.deleted_at IS NULL AND (g.status='active' OR (mm.status='active' AND (mm.role='admin' OR m.owner_principal_id=$1)))))
       AND ($2='' OR strpos(lower(g.title),lower($2))>0) ORDER BY g.created_at DESC,g.id LIMIT 100`,[session?.principalId??null,q,scope]);
     const teacher=await accountRole(client,session)==="teacher";

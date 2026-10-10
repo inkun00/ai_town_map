@@ -33,7 +33,7 @@ function DirectorySection({ scope, active, query, themeKey, onOpen }: {
     <div className="my-map-list" aria-busy={page.busy}>
       {page.items.map(map => <button type="button" key={map.id} onClick={() => onOpen(map)}>
         <span className={`my-map-list__emoji adventure-theme--${map.themeKey}`} aria-hidden="true">{symbols[map.themeKey]}</span>
-        <span><strong>{map.title}</strong><small>{themeByKey[map.themeKey].label} · {map.location}</small><small>{map.status === "archived" ? "보관 중 · " : ""}{map.visibility === "invite_only" ? "초대 전용" : "공개 지도"}</small></span>
+        <span><strong>{map.title}</strong><small>{themeByKey[map.themeKey].label} · {map.location}</small><small>{map.status === "archived" ? "보관 중 · " : ""}{map.visibility === "invite_only" ? "일부공개 · 인증 후 기록" : "전체공개 · 누구나 기록"}</small></span>
         <span className="map-entry-arrow" aria-hidden="true">›</span>
       </button>)}
     </div>

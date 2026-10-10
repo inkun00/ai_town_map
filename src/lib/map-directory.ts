@@ -3,7 +3,7 @@ import type { ThemeKey } from "./demo-data";
 export type LiveMap = {
   id: string; title: string; description: string; themeKey: ThemeKey; location: string;
   center: { lat: number; lng: number } | null; configRevision: number;
-  visibility: "public" | "invite_only"; participation: "invited" | "admin_only" | "closed";
+  visibility: "public" | "invite_only"; passwordEnabled?: boolean; participation: "invited" | "admin_only" | "closed";
   moderation: "immediate" | "approval"; commentsEnabled: boolean; status: "active" | "archived";
   version: string; isMine: boolean; isOwner: boolean;
   capabilities: { canManageMap: boolean; canCreateObservation: boolean; canComment: boolean };

@@ -2,6 +2,8 @@
 
 상태: PostgreSQL 논리·제약 설계. 실제 migration과 DB 검증은 3단계에서 작성·실행한다.
 
+2026-10-10 변경: `visibility=public/invite_only`는 포인트 등록 참여 방식(전체공개/일부공개)이다. 두 종류 모두 active/archived 지도와 published 기록은 공개 열람한다. 비밀번호는 아래 private 해시 테이블에만 보관한다.
+
 ## 1. 공통 규칙
 
 - PK는 UUID, 시각은 `timestamptz` UTC, 화면은 사용자 시간대로 표시한다. 문자열 길이는 Unicode code point 기준이며 이모지를 길이 1로 제한하지 않는다.
@@ -19,6 +21,7 @@
 | `theme_templates` | id, theme_key, version, definition jsonb, published_at | UNIQUE(theme_key,version), 게시 후 수정 금지 |
 | `maps` | id, owner_principal_id, template_id, title, description, activity_context(school/community), center_lat/lng, initial_zoom, bounds?, visibility(public/invite_only), participation(invited/admin_only/closed), moderation(immediate/approval), status(draft/active/archived/deleted), pin_mode(rating/category/single), single_color?, rating_enabled, ideas_enabled, proposals_enabled, comments_enabled, theme_locked_at?, config_revision, data_revision, version, deleted_at/by | owner는 active account만 가능. rating pin은 rating_enabled 필수. single 모드 색상 필수. 범위 min<max·좌표 유효성 검사 |
 | `map_members` | id, map_id, principal_id, nickname, role(admin/participant), status(active/blocked/left), version, joined_at | UNIQUE(map_id,principal_id), 닉네임은 2~20자, 동일 닉네임 허용. 소유자는 maps.owner_principal_id로 단일 결정 |
+| `app_private.map_participation_passwords` | map_id PK/FK, salt, password_hash, algorithm(scrypt-v1), updated_by, updated_at | salt·해시 각각 32바이트. app_backend만 CRUD 가능, anon/authenticated 접근 금지. 지도 삭제 시 CASCADE |
 | `app_private.invites` | id, map_id, code_hmac, expires_at, revoked_at?, max_uses, uses, created_by, created_at | code_hmac UNIQUE. 난수 Crockford Base32 12자·256bit 서버 pepper로 HMAC. uses 0..max_uses. role은 항상 participant |
 
 소유자도 지도별 닉네임을 위해 active membership을 가진다. 소유권 위임은 MVP에서 제공하지 않는다. 관리자는 Google 계정 principal에게만 부여한다. 관련 계정 조건은 단순 CHECK가 다른 행을 읽을 수 없으므로 트랜잭션 서비스와 DB constraint trigger로 강제한다.
@@ -81,15 +84,15 @@
 | 동작 | 같은 트랜잭션에서 보장할 것 |
 |---|---|
 | 지도 개설 | account 검증 → 템플릿 복사 → 분류·이모지·질문·scheme → owner membership → config revision → active |
-| 초대 입장 | invite row lock → 유효성·잔여 사용량 → membership 유일성 → 신규 입장일 때만 uses 증가 → 세션 생성 |
+| 등록 참여 | map lock → 상태·기존 membership → 전체공개 또는 비밀번호·인증코드 검증 → membership 생성 → guest 세션 생성. 코드 방식은 invite lock·잔여 사용량·지도 일치 검사 후 신규 참여만 uses 증가 |
 | 기록 제출 | map row lock → 권한·active·config version → 필수·참조·첨부 ready 검증 → 상태 결정 → theme lock → map data revision 증가 |
 | 기록 수정 | map → observation 순서 잠금 → X-Resource-Version 검사 → 새 값 검증 → approval 지도면 pending → version/data revision 증가 |
 | 검수 | 같은 잠금 순서로 상태 전이·audit·data revision 증가. 숨김 이유 필수 |
-| 공개 변경 | owner 확인 → X-Resource-Version → visibility 변경 → data revision 증가·audit. 공개 전환 전 UI에서 노출 요약 조회 |
+| 공유 설정 변경 | owner 확인 → X-Resource-Version → visibility·비밀번호 해시 변경 → version 증가·audit. 지도와 게시 기록 열람은 계속 공개 |
 | 제안 확정 | map → proposal 잠금 → 요청 version과 근거의 현재 접근·버전 검사 → 불변 버전 확정·published pointer 갱신 |
 | 기능 변경 | map 잠금 → X-Resource-Version·theme lock 규칙 → config revision 스냅샷 → 기존 데이터 보존·audit |
 
-잠금 순서는 map → 대상 루트 → 자식으로 통일한다. 공개→비공개 변경과 첨부 열람은 파일 스트리밍 시작 시 현재 권한으로 결정하며 이미 전송 중인 바이트 회수는 보장하지 않는다.
+잠금 순서는 map → 대상 루트 → 자식으로 통일한다. 첨부 열람은 부모의 현재 게시·삭제·숨김 상태로 결정하며 이미 전송 중인 바이트 회수는 보장하지 않는다.
 
 idempotency 키는 24시간 보관한다. 같은 actor·route·key·body의 재시도는 기존 resource를 가리키며 동작을 반복하지 않는다. 재시도 응답 전 현재 열람 권한을 다시 검사한다. 키 만료 뒤까지의 exactly-once를 보장하지 않으며 클라이언트는 성공 여부 불명 시 기존 resource ID를 조회한다.
 
@@ -99,7 +102,7 @@ idempotency 키는 24시간 보관한다. 같은 actor·route·key·body의 재�
 
 - observations: `GiST(location)` + `(map_id,status,observed_at DESC,id)` + `(map_id,category_id,status)` + `(map_id,rating_option_id,status)` + `(map_id,author_member_id,status)`.
 - map_members: UNIQUE(map_id,principal_id), `(principal_id,status)`.
-- maps: 공개·active 탐색용 `(visibility,status,created_at DESC,id)`.
+- maps: 전체공개·일부공개를 함께 탐색하는 `(status,created_at DESC,id)` 인덱스.
 - answers: `(map_id,question_version_id)`; 의미 있는 선택 질문만 추가 인덱스 검토, 본문 전체에 무차별 GIN 금지.
 - comments: `(map_id,observation_id,status,created_at,id)`.
 - sessions/invites: token hash/HMAC UNIQUE, 만료 정리 인덱스.

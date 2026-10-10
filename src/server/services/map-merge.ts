@@ -1,6 +1,6 @@
 import "server-only";
 
-import {createHash,randomUUID} from "node:crypto";
+import {randomUUID} from "node:crypto";
 import type {PoolClient,QueryResultRow} from "pg";
 import {z} from "zod";
 import {buildMergedTheme,type MergePoint,type MergeSource} from "@/domain/map-merge";
@@ -11,6 +11,7 @@ import {ApiError} from "@/server/http";
 import {canReadMap} from "@/server/policies/maps";
 import {requireTeacher} from "./accounts";
 import {getMapInTransaction,insertMapDefinition} from "./maps";
+import {mapCreationRequestHash,participationPasswordSchema,setParticipationPassword} from "./map-passwords";
 
 const mapIds=z.array(z.uuid()).min(2).max(10).refine(ids=>new Set(ids).size===ids.length,"지도를 중복 선택할 수 없습니다.");
 const versions=z.record(z.uuid(),z.string().regex(/^\d+$/));
@@ -19,7 +20,9 @@ export const createMergedMapSchema=z.strictObject({
   mapIds,title:z.string().trim().min(2).max(60),description:z.string().trim().max(300).default(""),locationLabel:z.string().trim().min(1).max(120),
   pointIds:z.array(z.uuid()).min(1).max(1000).refine(ids=>new Set(ids).size===ids.length,"위치 기록을 중복 선택할 수 없습니다."),
   sourceVersions:z.record(z.uuid(),z.string().regex(/^\d+:\d+:\d+$/)),pointVersions:versions,
+  visibility:z.enum(["public","invite_only"]).default("invite_only"),participationPassword:participationPasswordSchema.optional(),
 }).superRefine((input,context)=>{
+  if(input.visibility==="public"&&input.participationPassword!==undefined)context.addIssue({code:"custom",path:["participationPassword"],message:"전체공개 지도는 비밀번호 없이 참여할 수 있습니다."});
   if(Object.keys(input.sourceVersions).length!==input.mapIds.length||input.mapIds.some(id=>!input.sourceVersions[id]))context.addIssue({code:"custom",path:["sourceVersions"],message:"선택한 모든 지도의 미리보기 버전이 필요합니다."});
   if(Object.keys(input.pointVersions).length!==input.pointIds.length||input.pointIds.some(id=>!input.pointVersions[id]))context.addIssue({code:"custom",path:["pointVersions"],message:"선택한 모든 기록의 버전이 필요합니다."});
 });
@@ -82,7 +85,7 @@ export async function previewMapMerge(input:z.infer<typeof mergePreviewSchema>,s
 }
 
 export async function createMergedMap(input:CreateMergedMapInput,session:AppSession,key:string){
-  const parsed=createMergedMapSchema.parse(input);const hash=createHash("sha256").update(JSON.stringify(parsed)).digest();
+  const parsed=createMergedMapSchema.parse(input);const hash=mapCreationRequestHash(parsed);
   return withTransaction(async client=>{
     await teacher(client,session,true);
     await client.query("DELETE FROM app_private.idempotency_keys WHERE principal_id=$1 AND route_scope='create_merged_map' AND key=$2 AND expires_at<now()",[session.principalId,key]);
@@ -100,8 +103,9 @@ export async function createMergedMap(input:CreateMergedMapInput,session:AppSess
     if(!template.rows[0])throw new ApiError(503,"THEME_UNAVAILABLE","합친 지도의 주제 설정을 불러올 수 없습니다.");
     const center=points.length?{lat:points.reduce((sum,point)=>sum+point.location.lat,0)/points.length,lng:points.reduce((sum,point)=>sum+point.location.lng,0)/points.length}:null;
     const added=await client.query<{id:string}>(`INSERT INTO app.maps(owner_principal_id,template_id,theme_key,title,description,location_label,activity_context,center_lat,center_lng,initial_zoom,visibility,participation,moderation,pin_mode,single_color,rating_enabled,ideas_enabled,proposals_enabled,comments_enabled)
-      VALUES($1,$2,$3,$4,$5,$6,'community',$7,$8,5,'invite_only','invited','immediate',$9,$10,$11,$12,$13,$14) RETURNING id`,[session.principalId,template.rows[0].id,merged.theme.key,parsed.title,parsed.description,parsed.locationLabel,center?.lat??null,center?.lng??null,merged.theme.pin.mode,merged.theme.pin.mode==="single"?"#285943":null,merged.theme.features.ratingEnabled,merged.theme.features.ideasEnabled,merged.theme.features.proposalsEnabled,merged.theme.features.commentsEnabled]);
+      VALUES($1,$2,$3,$4,$5,$6,'community',$7,$8,5,$15,'invited','immediate',$9,$10,$11,$12,$13,$14) RETURNING id`,[session.principalId,template.rows[0].id,merged.theme.key,parsed.title,parsed.description,parsed.locationLabel,center?.lat??null,center?.lng??null,merged.theme.pin.mode,merged.theme.pin.mode==="single"?"#285943":null,merged.theme.features.ratingEnabled,merged.theme.features.ideasEnabled,merged.theme.features.proposalsEnabled,merged.theme.features.commentsEnabled,parsed.visibility]);
     const targetId=added.rows[0].id;
+    if(parsed.participationPassword!==undefined)await setParticipationPassword(client,targetId,parsed.participationPassword,session.principalId);
     const member=await client.query<{id:string}>("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'지도 개설자') RETURNING id",[targetId,session.principalId]);
     const identifiers=await insertMapDefinition(client,targetId,merged.theme,session.principalId);
     const mappings=merged.copies.map(copy=>{

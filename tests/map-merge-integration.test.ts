@@ -12,7 +12,7 @@ import {createMap,createMapSchema,getMapConfiguration} from "../src/server/servi
 import {createMergedMap,createMergedMapSchema,previewMapMerge} from "../src/server/services/map-merge";
 import {createObservation,observationSchema} from "../src/server/services/observations";
 const session=(id:string,kind:AppSession["kind"]="account"):AppSession=>({id:randomUUID(),principalId:id,kind,csrfHash:Buffer.alloc(32),expiresAt:new Date(Date.now()+86400000)});
-beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql","007_account_roles_game_deletion.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));for(const path of ["docs/contracts/theme-presets-v1.json","docs/contracts/theme-presets.json"]){const source=JSON.parse(await readFile(path,"utf8"));for(const theme of source.templates as Theme[])await execute("INSERT INTO app.theme_templates(theme_key,version,definition) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[theme.key,theme.version,JSON.stringify(theme)]);}},30000);
+beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql","007_account_roles_game_deletion.sql","008_map_participation_passwords.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));for(const path of ["docs/contracts/theme-presets-v1.json","docs/contracts/theme-presets.json"]){const source=JSON.parse(await readFile(path,"utf8"));for(const theme of source.templates as Theme[])await execute("INSERT INTO app.theme_templates(theme_key,version,definition) VALUES($1,$2,$3) ON CONFLICT DO NOTHING",[theme.key,theme.version,JSON.stringify(theme)]);}},30000);
 afterAll(async()=>db.close());
 
 async function actor(role:"teacher"|"student"="teacher",kind:AppSession["kind"]="account"){
@@ -48,9 +48,9 @@ describe("map merge transaction and source integrity",()=>{
     }
   });
 
-  it("previews only published points and requires real teacher role and source read access",async()=>{
+  it("previews published points from all publicly readable maps and requires real teacher role",async()=>{
     const f=await fixture();expect(f.preview.points.map(point=>point.id).sort()).toEqual([f.a.id,f.b.id].sort());expect(f.preview.sources.map(source=>source.pointCount)).toEqual([1,1]);expect(f.preview.sources[0].version).toMatch(/^\d+:\d+:\d+$/);expect(f.preview.points.every(point=>point.photoUrl?.startsWith("/api/v1/maps/"))).toBe(true);
-    const outsider=await actor();await expect(previewMapMerge({mapIds:[f.a.mapId,f.b.mapId]},outsider)).rejects.toMatchObject({code:"SOURCE_UNAVAILABLE"});const student=await actor("student");await expect(previewMapMerge({mapIds:[f.a.mapId,f.b.mapId]},{...student,accountRole:"teacher"})).rejects.toMatchObject({code:"TEACHER_REQUIRED"});const guest=await actor("teacher","guest");await expect(previewMapMerge({mapIds:[f.a.mapId,f.b.mapId]},guest)).rejects.toMatchObject({code:"ACCOUNT_REQUIRED"});
+    const outsider=await actor();expect((await previewMapMerge({mapIds:[f.a.mapId,f.b.mapId]},outsider)).points).toHaveLength(2);const student=await actor("student");await expect(previewMapMerge({mapIds:[f.a.mapId,f.b.mapId]},{...student,accountRole:"teacher"})).rejects.toMatchObject({code:"TEACHER_REQUIRED"});const guest=await actor("teacher","guest");await expect(previewMapMerge({mapIds:[f.a.mapId,f.b.mapId]},guest)).rejects.toMatchObject({code:"ACCOUNT_REQUIRED"});
   });
 
   it("atomically copies a selected subset, timestamp precision, independent photo bytes and origin metadata without changing sources",async()=>{
@@ -78,7 +78,7 @@ describe("map merge transaction and source integrity",()=>{
     expect(await createMergedMap(request,f.teacher,key)).toMatchObject({copiedPoints:2,repeated:false});
   });
 
-  it("requires complete preview tokens and rechecks teacher role and private membership before creation",async()=>{
+  it("requires complete preview tokens and rechecks teacher role without treating partial sharing as private read access",async()=>{
     const f=await fixture(),request=input(f);
     const {sourceVersions:omitted,...withoutSources}=request;void omitted;
     expect(createMergedMapSchema.safeParse(withoutSources).success).toBe(false);
@@ -92,9 +92,9 @@ describe("map merge transaction and source integrity",()=>{
     const collaboratorRequest={...request,sourceVersions:Object.fromEntries(preview.sources.map(source=>[source.id,source.version]))};
     for(const status of ["blocked","left"]){
       await execute("UPDATE app.map_members SET status=$3 WHERE map_id=$1 AND principal_id=$2",[f.b.mapId,collaborator.principalId,status]);
-      await expect(createMergedMap(collaboratorRequest,collaborator,randomUUID())).rejects.toMatchObject({code:"SOURCE_UNAVAILABLE"});
+      expect(await createMergedMap(collaboratorRequest,collaborator,randomUUID())).toMatchObject({repeated:false,copiedPoints:2});
     }
-    expect((await execute("SELECT id FROM app.maps WHERE title='선택해서 합친 지도' AND owner_principal_id=$1",[collaborator.principalId])).rows).toHaveLength(0);
+    expect((await execute("SELECT id FROM app.maps WHERE title='선택해서 합친 지도' AND owner_principal_id=$1",[collaborator.principalId])).rows).toHaveLength(2);
   });
 
   it("rejects over 2,000 published points and oversized preview payloads explicitly",async()=>{

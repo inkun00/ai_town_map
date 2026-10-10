@@ -16,7 +16,7 @@ import {registrationSchema} from "../src/domain/account";
 import {createMap,createMapSchema} from "../src/server/services/maps";
 import {deleteMap,restoreMap} from "../src/server/services/operations";
 const session=(id:string,kind:AppSession["kind"]="account"):AppSession=>({id:randomUUID(),principalId:id,kind,csrfHash:Buffer.alloc(32),expiresAt:new Date(Date.now()+86400000)});
-beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql", "007_account_roles_game_deletion.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));},30000);
+beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql", "007_account_roles_game_deletion.sql","008_map_participation_passwords.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));},30000);
 afterAll(async()=>{await db.close();});
 describe("registration, teacher-only creation and owner deletion",()=>{
  it("registers an account once, rejects guest roles and ignores forged session roles",async()=>{
@@ -109,7 +109,7 @@ describe("game database, access and score integrity",()=>{
  it("copies only published points, preserves source and makes retries idempotent",async()=>{
   const f=await fixture();expect(f.game.points).toHaveLength(1);expect((await createGame(f.teacher,f.input)).id).toBe(f.game.id);
   expect((await execute("SELECT id FROM app.observations WHERE map_id=$1",[f.map])).rows).toHaveLength(2);
-  const outsider=session(randomUUID());await expect(getGame(f.game.id,outsider)).rejects.toMatchObject({status:404});expect((await listGames(null)).items).toEqual([]);
+  const outsider=session(randomUUID());expect(await getGame(f.game.id,outsider)).toMatchObject({canManage:false,canDelete:false,pointCount:1});expect((await listGames(null)).items.some(game=>game.id===f.game.id)).toBe(true);
   await expect(changeGame(f.game.id,f.teacher,{action:"point",version:"999",point:{title:"새 지점",emoji:"🌳",location:{lat:37.5,lng:127}}})).rejects.toMatchObject({code:"VERSION_CONFLICT"});
  });
  it("freezes missions per room and hides answer keys and other students' locations",async()=>{

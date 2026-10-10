@@ -9,8 +9,8 @@ export type MemberPolicyInput = { status: "active" | "blocked" | "left"; role: "
 export function canReadMap(principalId: string | null, map: MapPolicyInput, member: MemberPolicyInput): boolean {
   if (map.status === "deleted") return false;
   if (map.status === "draft") return principalId === map.ownerPrincipalId;
-  if (map.visibility === "public") return true;
-  return !!principalId && !!member && member.status === "active";
+  // Sharing settings govern contribution, not whether the map can be viewed.
+  return true;
 }
 
 export function canManageMap(principalId: string | null, map: MapPolicyInput, member: MemberPolicyInput): boolean {

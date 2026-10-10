@@ -1,6 +1,6 @@
 import {requireTeacher} from "./accounts";
 import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 import { z } from "zod";
 import { type Theme, type ThemeKey } from "@/lib/demo-data";
@@ -9,6 +9,7 @@ import { query, withTransaction } from "../db";
 import { ApiError } from "../http";
 import type { AppSession } from "../auth/session";
 import { canManageMap, canReadMap, type MapPolicyInput, type MemberPolicyInput } from "../policies/maps";
+import { mapCreationRequestHash, participationPasswordSchema, setParticipationPassword } from "./map-passwords";
 
 const emojiSchema = z.strictObject({ key: z.string().min(1).max(60), glyph: z.string().min(1).max(16), label: z.string().min(1).max(60) });
 const categorySchema = z.strictObject({ key: z.string().min(1).max(60), label: z.string().min(1).max(40), color: z.string().regex(/^#[0-9a-fA-F]{6}$/), defaultEmojiKey: z.string(), emojiOptions: z.array(emojiSchema).min(1).max(32) });
@@ -20,6 +21,7 @@ export const createMapSchema = z.strictObject({
   locationLabel: z.string().trim().min(1).max(120),
   activityContext: z.enum(["school", "community"]).default("community"),
   visibility: z.enum(["public", "invite_only"]),
+  participationPassword: participationPasswordSchema.optional(),
   participation: z.enum(["invited", "admin_only", "closed"]).default("invited"),
   moderation: z.enum(["immediate", "approval"]).default("immediate"),
   center: z.strictObject({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }).nullable().default(null),
@@ -27,6 +29,8 @@ export const createMapSchema = z.strictObject({
   proposalsEnabled: z.boolean().optional(),
   commentsEnabled:z.boolean().optional(),
   custom: z.strictObject({ categories: z.array(categorySchema).min(1).max(12), pinMode: z.enum(["single", "category", "rating"]) }).optional(),
+}).superRefine((input, context) => {
+  if (input.visibility === "public" && input.participationPassword !== undefined) context.addIssue({ code: "custom", path: ["participationPassword"], message: "전체공개 지도는 비밀번호 없이 참여할 수 있습니다." });
 });
 export type CreateMapInput = z.infer<typeof createMapSchema>;
 
@@ -37,7 +41,7 @@ type MapRow = QueryResultRow & {
   status: MapPolicyInput["status"]; pin_mode: Theme["pin"]["mode"]; rating_enabled: boolean;
   ideas_enabled: boolean; proposals_enabled: boolean; comments_enabled: boolean; config_revision: number;
   version: string; created_at: Date; cursor_created_at?: string; member_role?: "admin" | "participant" | null; member_status?: "active" | "blocked" | "left" | null;
-  center_lat: number | null; center_lng: number | null; initial_zoom: number;deleted_at:Date|null;
+  center_lat: number | null; center_lng: number | null; initial_zoom: number;deleted_at:Date|null;password_enabled:boolean;
 };
 
 function mapDto(row: MapRow, principalId: string | null) {
@@ -45,7 +49,7 @@ function mapDto(row: MapRow, principalId: string | null) {
   return {
     id: row.id, title: row.title, description: row.description, themeKey: row.theme_key,
     location: row.location_label, center: row.center_lat === null ? null : { lat: row.center_lat, lng: row.center_lng }, initialZoom: row.initial_zoom, activityContext: row.activity_context, visibility: row.visibility,
-    status: row.status, participation:row.participation, moderation:row.moderation, commentsEnabled:row.comments_enabled, isMine: member?.status === "active", isOwner: principalId === row.owner_principal_id,
+    status: row.status, participation:row.participation, moderation:row.moderation, commentsEnabled:row.comments_enabled, passwordEnabled:row.password_enabled, isMine: member?.status === "active", isOwner: principalId === row.owner_principal_id,
     capabilities: { canRead: canReadMap(principalId, { visibility: row.visibility, status: row.status, ownerPrincipalId: row.owner_principal_id }, member), canManageMap: canManageMap(principalId, { visibility: row.visibility, status: row.status, ownerPrincipalId: row.owner_principal_id }, member), canModerate:canManageMap(principalId,{visibility:row.visibility,status:row.status,ownerPrincipalId:row.owner_principal_id},member),canComment:member?.status==="active"&&row.status==="active"&&row.comments_enabled, canCreateObservation: member?.status === "active" && row.status === "active" && (row.participation === "invited" || (row.participation === "admin_only" && (principalId === row.owner_principal_id || member.role === "admin"))) },
     configRevision: row.config_revision, version: row.version, createdAt: row.created_at,deletedAt:row.deleted_at,
   };
@@ -53,7 +57,7 @@ function mapDto(row: MapRow, principalId: string | null) {
 
 async function readMap(client: PoolClient, mapId: string, principalId: string | null): Promise<MapRow | null> {
   const result = await client.query<MapRow>(
-    `SELECT m.*, mm.role AS member_role, mm.status AS member_status
+    `SELECT m.*, mm.role AS member_role, mm.status AS member_status, EXISTS(SELECT 1 FROM app_private.map_participation_passwords p WHERE p.map_id=m.id) AS password_enabled
        FROM app.maps m LEFT JOIN app.map_members mm ON mm.map_id = m.id AND mm.principal_id = $2
       WHERE m.id = $1`, [mapId, principalId]);
   return result.rows[0] ?? null;
@@ -77,9 +81,9 @@ export async function listMaps(scope: "public" | "mine"|"deleted", session: AppS
     if (!z.object({ createdAt: z.iso.datetime({ offset: true }), id: z.uuid() }).safeParse(after).success) throw new ApiError(422, "INVALID_CURSOR", "목록을 다시 열어 주세요.");
   }
   const rows = await query<MapRow>(
-    `SELECT m.*, to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_created_at, mm.role AS member_role, mm.status AS member_status
+    `SELECT m.*, to_char(m.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_created_at, mm.role AS member_role, mm.status AS member_status, EXISTS(SELECT 1 FROM app_private.map_participation_passwords p WHERE p.map_id=m.id) AS password_enabled
        FROM app.maps m LEFT JOIN app.map_members mm ON mm.map_id = m.id AND mm.principal_id = $1
-      WHERE (($2 = 'public' AND m.visibility = 'public' AND m.status='active') OR ($2 = 'mine' AND mm.status = 'active' AND m.status IN ('active','archived')) OR ($2='deleted' AND m.owner_principal_id=$1 AND m.status='deleted' AND m.deleted_at>now()-interval '30 days'))
+      WHERE (($2 = 'public' AND m.status='active') OR ($2 = 'mine' AND mm.status = 'active' AND m.status IN ('active','archived')) OR ($2='deleted' AND m.owner_principal_id=$1 AND m.status='deleted' AND m.deleted_at>now()-interval '30 days'))
         AND ($3::text IS NULL OR strpos(lower(m.title), lower($3)) > 0 OR strpos(lower(m.location_label), lower($3)) > 0)
         AND ($4::text IS NULL OR m.theme_key = $4)
         AND ($5::timestamptz IS NULL OR (m.created_at, m.id) < ($5, $6::uuid))
@@ -110,7 +114,7 @@ export async function getMapConfiguration(mapId: string, session: AppSession | n
 }
 
 export async function createMap(input: CreateMapInput, session: AppSession, key: string) {
-  const requestHash = createHash("sha256").update(JSON.stringify(input)).digest();
+  const requestHash = mapCreationRequestHash(input);
   return withTransaction(async (client) => {
     const actor = await client.query<{ kind: string }>("SELECT kind FROM app.principals WHERE id = $1 AND status = 'active' FOR UPDATE", [session.principalId]);
     if (actor.rows[0]?.kind !== "account") throw new ApiError(403, "ACCOUNT_REQUIRED", "지도 개설에는 Google 로그인이 필요합니다.");
@@ -137,6 +141,7 @@ export async function createMap(input: CreateMapInput, session: AppSession, key:
       owner_principal_id,template_id,theme_key,title,description,location_label,activity_context,center_lat,center_lng,initial_zoom,visibility,participation,moderation,pin_mode,single_color,rating_enabled,ideas_enabled,proposals_enabled,comments_enabled)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`, [session.principalId, template.rows[0].id, input.themeKey, input.title, input.description, input.locationLabel, input.activityContext, input.center?.lat ?? null, input.center?.lng ?? null, input.initialZoom, input.visibility, input.participation, input.moderation, theme.pin.mode, theme.pin.mode === "single" ? "#285943" : null, theme.features.ratingEnabled, theme.features.ideasEnabled, theme.features.proposalsEnabled, input.commentsEnabled??theme.features.commentsEnabled]);
     const map = inserted.rows[0];
+    if (input.participationPassword !== undefined) await setParticipationPassword(client, map.id, input.participationPassword, session.principalId);
     await client.query("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'지도 개설자')", [map.id, session.principalId]);
     await insertMapDefinition(client, map.id, theme, session.principalId);
     await client.query(`UPDATE app_private.idempotency_keys SET resource_id=$1,response_code=201,completed_at=now() WHERE principal_id=$2 AND route_scope='create_map' AND key=$3`, [map.id, session.principalId, key]);

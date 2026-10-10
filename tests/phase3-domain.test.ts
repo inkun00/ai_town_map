@@ -7,9 +7,9 @@ import { canManageMap, canReadMap } from "../src/server/policies/maps";
 describe("지도 접근 경계", () => {
   const privateMap = { visibility: "invite_only" as const, status: "active" as const, ownerPrincipalId: "owner" };
 
-  it("초대 전용 지도는 활성 멤버만 읽는다", () => {
-    expect(canReadMap(null, privateMap, null)).toBe(false);
-    expect(canReadMap("a", privateMap, { status: "blocked", role: "participant" })).toBe(false);
+  it("일부공개 지도도 누구나 읽으며 참여 권한은 쓰기에만 적용된다", () => {
+    expect(canReadMap(null, privateMap, null)).toBe(true);
+    expect(canReadMap("a", privateMap, { status: "blocked", role: "participant" })).toBe(true);
     expect(canReadMap("a", privateMap, { status: "active", role: "participant" })).toBe(true);
   });
 

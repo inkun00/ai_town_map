@@ -51,6 +51,14 @@ async function setSourceFilter(sourceId:string){
   const filter=container.querySelector<HTMLSelectElement>("select[aria-label='포인트 원본 지도']")!;
   await act(async()=>{filter.value=sourceId;filter.dispatchEvent(new Event("change",{bubbles:true}));});
 }
+async function setSharing(value:"public"|"invite_only"){
+  const radio=container.querySelector<HTMLInputElement>(`#map-merge-finish input[type='radio'][value='${value}']`)!;
+  await act(async()=>radio.click());
+}
+async function setPassword(value:string){
+  const input=container.querySelector<HTMLInputElement>("#map-merge-finish input[type='password']")!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,value);input.dispatchEvent(new Event("input",{bubbles:true}));});
+}
 function previewWithPointCount(count:number){
   const generated=Array.from({length:count},(_,index)=>({...structuredClone(points[index%points.length]),id:`20000000-0000-4000-8000-${String(index+1).padStart(12,"0")}`,title:`조사 지점 ${index+1}`}));
   return {sources:structuredClone(sources).map(source=>({...source,pointCount:generated.filter(point=>point.mapId===source.id).length})),points:generated};
@@ -162,7 +170,7 @@ describe("mobile map merge flow",()=>{
     await click(`핀 ${points[0].title}`);expect(container.querySelector("dialog")).toBeNull();expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 1개 선택");expect(mapProbe.points.find(point=>point.id===points[0].id)?.color).toBe("#2563eb");expect(mapProbe.points.find(point=>point.id===points[1].id)?.color).toBe("#808b94");expect(mapProbe.points[0].rating?.label).toBe(sources[0].theme.rating!.options.find(option=>option.key===points[0].ratingKey)!.label);
     expectSelection(points[0].title,true);expectSelection(points[1].title,false);
     await click(`${points[0].title} 정보 보기`);expect(container.querySelector("dialog")?.textContent).toContain(points[0].body);expect(container.querySelector("dialog .sheet-photo")?.getAttribute("src")).toBe(points[0].photoUrl);expect(container.querySelector("dialog .sheet-link")?.getAttribute("href")).toBe(points[0].link);await click("합칠 기록 정보 닫기");
-    await click("다음");expect(container.textContent).toContain("초대 전용");expect(container.textContent).toContain("분류별 색");await setField("새 지도 이름","함께 걷는 지도");await setField("지역 또는 장소","우리마을");await submit();
+    await click("다음");expect(container.textContent).toContain("모든 지도는 누구나 볼 수 있어요");expect(container.textContent).toContain("분류별 색");await setField("새 지도 이름","함께 걷는 지도");await setField("지역 또는 장소","우리마을");await submit();
     const [,options]=creationCalls()[0];const payload=JSON.parse(String(options.body));expect(payload.pointIds).toEqual([points[0].id]);expect(payload.mapIds).toEqual(sourceIds.slice(0,2));expect(payload.pointVersions).toEqual({[points[0].id]:"7"});expect(payload.sourceVersions).toEqual(Object.fromEntries(sources.map(source=>[source.id,source.version])));expect(options.headers["X-CSRF-Token"]).toBe("teacher-csrf");expect(options.headers["Idempotency-Key"]).toMatch(/^[0-9a-f-]{36}$/);expect(navigate).toHaveBeenCalledWith("/?map=merged-map");
     const unload=new Event("beforeunload",{cancelable:true});window.dispatchEvent(unload);expect(unload.defaultPrevented).toBe(false);
   });
@@ -233,6 +241,32 @@ describe("mobile map merge flow",()=>{
   it("preserves input after a network failure and retries exactly the same idempotent creation",async()=>{
     await prepareFinal();creationResponses=[new TypeError("연결이 끊겼어요."),null];await submit();expect(navigate).not.toHaveBeenCalled();expect(container.querySelector<HTMLInputElement>("#map-merge-finish input")?.value).toBe("함께 걷는 우리 동네");expect(container.querySelector(".map-merge-footer")?.textContent).toContain("포인트 1개 선택");
     await submit();const calls=creationCalls();expect(calls).toHaveLength(2);expect(calls[0][1].body).toBe(calls[1][1].body);expect(calls[0][1].headers["Idempotency-Key"]).toBe(calls[1][1].headers["Idempotency-Key"]);expect(navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers sharing only at the final step and allows code-only partial participation",async()=>{
+    await chooseSources();expect(container.querySelector(".map-merge-directory")?.textContent).toContain("전체공개 · 누구나 기록");expect(container.querySelector(".map-merge-directory")?.textContent).toContain("일부공개 · 인증 후 기록");
+    await click("만들기");await vi.waitFor(()=>expect(container.querySelector("[aria-label='임시 지도']")).not.toBeNull());expect(container.querySelector("fieldset")).toBeNull();
+    await click(`핀 ${points[0].title}`);await click("다음");
+    expect(container.querySelector<HTMLInputElement>("input[type='radio'][value='invite_only']")?.checked).toBe(true);
+    expect(container.textContent).toContain("비밀번호를 비워 두면 교사가 발급한 인증코드로만");
+    await setField("새 지도 이름","인증 후 기록하는 지도");await setField("지역 또는 장소","우리 동네");await submit();
+    const payload=JSON.parse(String(creationCalls()[0][1].body));
+    expect(payload.visibility).toBe("invite_only");expect(payload).not.toHaveProperty("participationPassword");
+  });
+
+  it("validates a partial-map password and keeps it across step navigation",async()=>{
+    await prepareFinal();await setPassword("abc");expect(button("완료").disabled).toBe(true);
+    expect(container.querySelector("input[type='password']")?.getAttribute("aria-invalid")).toBe("true");await submit();expect(creationCalls()).toHaveLength(0);
+    await setPassword("x".repeat(101));expect(button("완료").disabled).toBe(true);await submit();expect(creationCalls()).toHaveLength(0);
+    await setPassword("town-secret");expect(button("완료").disabled).toBe(false);await click("이전");await click("다음");
+    expect(container.querySelector<HTMLInputElement>("input[type='password']")?.value).toBe("town-secret");
+    await submit();const payload=JSON.parse(String(creationCalls()[0][1].body));expect(payload.visibility).toBe("invite_only");expect(payload.participationPassword).toBe("town-secret");
+  });
+
+  it("does not submit a remembered password when choosing full participation",async()=>{
+    await prepareFinal();await setPassword("town-secret");await setSharing("public");
+    expect(container.querySelector("input[type='password']")).toBeNull();expect(container.textContent).toContain("누구나 입장해서 포인트를 등록");
+    await submit();const payload=JSON.parse(String(creationCalls()[0][1].body));expect(payload.visibility).toBe("public");expect(payload).not.toHaveProperty("participationPassword");
   });
 
   it("requires a fresh preview after a source conflict and retains title and selected surviving points",async()=>{
