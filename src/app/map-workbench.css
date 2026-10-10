@@ -1,4 +1,13 @@
 .map-tools__buttons button.map-tools__workbench { background:#ffdd83; }
+.analysis-map-create { pointer-events:auto; min-height:44px; margin-top:8px; padding:9px 14px; border:2px solid #253d4c; border-radius:13px; background:#fff3c9; color:#253d4c; font-size:12px; font-weight:800; box-shadow:0 3px 0 #253d4c26; }
+.analysis-map-create:disabled { opacity:.5; cursor:not-allowed; }
+.personal-analysis-map { display:flex; flex-direction:column; }
+.analysis-map-header { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:none; min-height:58px; padding:8px 12px; background:#eef5dd; border-bottom:1px solid #bdc9b1; color:#253d4c; }
+.analysis-map-header>div { min-width:0; display:grid; gap:3px; }
+.analysis-map-header strong { font-size:14px; }
+.analysis-map-header small { font-size:10px; line-height:1.4; }
+.analysis-map-header button { flex:none; min-height:44px; padding:8px 10px; border:1px solid #253d4c; border-radius:11px; background:#fffdf2; color:#253d4c; font-size:11px; font-weight:800; }
+.analysis-map-header button:focus-visible,.analysis-map-create:focus-visible { outline:3px solid #2563eb; outline-offset:2px; }
 .workbench { display:grid; gap:12px; }
 .workbench h3 { font-size:16px; margin:9px 0 0; }
 .workbench-help { margin:0; font-size:12px; line-height:1.6; color:#526975; overflow-wrap:anywhere; }
