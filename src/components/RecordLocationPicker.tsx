@@ -18,7 +18,7 @@ export function RecordLocationPicker({ center, chosen, label, onPick, onLabelCha
     dialog?.showModal();
     return () => { dialog?.close(); if (opener?.isConnected) opener.focus(); };
   }, []);
-  return <dialog ref={ref} className="record-location-dialog" aria-label="전체 화면에서 위치 선택" onCancel={event => { event.preventDefault(); onClose(); }}>
+  return <dialog ref={ref} className="record-location-dialog" aria-label="전체 화면에서 위치 선택" onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose(); }}>
     <header className="record-location-header"><button type="button" onClick={onClose} aria-label="위치 선택 닫기">‹</button><div><strong>발견한 위치 고르기</strong><small>지도를 눌러 핀을 놓아주세요.</small></div></header>
     <div className="record-location-map"><KakaoMap center={chosen ?? center} chosen={chosen} onPick={onPick}/></div>
     <footer className="record-location-footer">

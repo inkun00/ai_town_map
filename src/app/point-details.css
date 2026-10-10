@@ -1,0 +1,32 @@
+.point-detail-actions { margin-top:16px; }
+.point-detail-actions__buttons { display:flex; gap:10px; }
+.point-detail-actions__buttons > button { flex:1; min-width:0; min-height:48px; padding:10px 12px; font-size:14px; gap:6px; }
+.point-detail-actions__arrow { margin-left:auto; }
+.point-detail-actions__buttons .point-detail-action--open { background:#ffdf7f; }
+.point-detail-panel { margin-top:18px; border-top:1px solid var(--line); padding-top:16px; scroll-margin-top:14px; }
+.point-detail-panel[hidden] { display:none; }
+.point-detail-panel .sheet-comments { padding-top:0; }
+.point-detail-management { margin-top:18px; font-size:13px; }
+.point-detail-management > summary { min-height:44px; padding:12px 4px; cursor:pointer; font-weight:700; color:#526553; }
+.point-detail-management .observation-actions { margin-top:4px; }
+.point-detail-management__fields { min-width:0; border:0; padding:0; margin:0; }
+.point-detail-panel .comment-reason { display:grid; gap:6px; margin:14px 0; font-size:12px; }
+.point-detail-panel .comment-reason input { flex:none; width:100%; }
+.inline-record-editor { display:grid; gap:12px; }
+.inline-record-editor > fieldset { border:0; padding:0; margin:0; min-width:0; }
+.inline-record-editor h3 { margin:0 0 8px; font-size:17px; }
+.inline-record-editor__heading p { margin:0; font-size:13px; color:#526553; }
+.inline-record-editor__error { padding:12px; margin:0; border:1px solid #dfa39c; border-radius:12px; background:#fff1ed; font-size:13px; color:#933c2b; overflow-wrap:anywhere; }
+.inline-record-editor__conflict { padding:12px; border-radius:12px; background:#fff3c9; font-size:13px; overflow-wrap:anywhere; }
+.inline-record-editor .field { margin-bottom:14px; }
+.inline-record-editor .field > span { font-size:13px; }
+.inline-record-editor .field input,.inline-record-editor .field textarea,.inline-record-editor .field select { font-size:16px; }
+.inline-record-editor .record-location-launch { margin-bottom:16px; }
+.inline-record-editor .photo-picker { margin:8px 0 12px; }
+.inline-record-editor .question-list { margin-top:14px; }
+.inline-record-editor .button { min-height:48px; }
+.inline-record-editor .inline-record-status { margin:0; font-size:13px; overflow-wrap:anywhere; }
+.inline-record-editor progress { width:100%; }
+.point-detail-panel .sheet-comments > form input { min-height:44px; font-size:16px; }
+.point-detail-panel .sheet-comments > form button { min-height:44px; font-size:13px; }
+@media (max-width:360px) { .point-detail-actions__buttons > button { padding:9px 7px; font-size:13px; } }

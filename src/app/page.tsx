@@ -14,7 +14,9 @@ import {MapDirectory, type DirectoryScope} from "@/components/MapDirectory";
 import type {LiveMap} from "@/lib/map-directory";
 import {RatingLabel} from "@/components/MapMeaning";
 import {PointDialog} from "@/components/PointDialog";
+import {PointDetailPanels} from "@/components/PointDetailPanels";
 import {RecordLocationPicker} from "@/components/RecordLocationPicker";
+import {RecordQuestionInputs as QuestionInputs,answerChoices} from "@/components/RecordQuestionInputs";
 import {attachUnsavedRecordGuard, unsavedRecordMessage} from "@/lib/unsaved-record-guard";
 import {EmojiPicker} from "@/components/EmojiPicker";
 import {recordEmojiOptions} from "@/lib/emoji-catalog";
@@ -42,6 +44,7 @@ import {
 } from "@/lib/demo-data";
 
 const panelLoading=()=> <p className="help-text" role="status">탐험 도구를 불러오고 있어요…</p>;
+const InlineRecordEditor=dynamic(()=>import("@/components/InlineRecordEditor").then(m=>m.InlineRecordEditor),{loading:()=> <p role="status">기록 수정 도구를 불러오고 있어요…</p>});
 const MapWorkspace=dynamic(()=>import("@/components/MapWorkspace").then(m=>m.MapWorkspace),{loading:panelLoading});
 const KakaoMap=dynamic(()=>import("@/components/KakaoMap"),{loading:panelLoading});
 const AnalysisPanel=dynamic(()=>import("@/components/AnalysisControls").then(m=>m.AnalysisPanel),{loading:panelLoading});
@@ -154,26 +157,6 @@ function EmptyState({ emoji, title, children }: { emoji: string; title: string; 
   return <div className="empty-state"><span className="empty-state__emoji" aria-hidden="true">{emoji}</span><strong>{title}</strong>{children && <p>{children}</p>}</div>;
 }
 
-const questionIcons: Record<string, string> = { mobility: "♿", information: "ℹ️", audio_guidance: "🔊", rest_area: "🪑", safety: "🛡️", risk_reasons: "⚠️", lighting: "💡", condition: "🛠️", organism_name: "🔎", habitat: "🌿", characteristics: "📝", reason: "☀️", shade: "🌳", drainage: "💧", shelter: "🏠" };
-
-function answerChoices(question: Question) {
-  const options = question.type === "boolean" ? [{ key: "yes", label: "있음" }, { key: "no", label: "없음" }] : question.options ?? [];
-  return [...options, ...(question.allowUnknown ? [{ key: "unknown", label: "확인 못함" }] : []), ...(question.allowNotApplicable ? [{ key: "na", label: "해당 없음" }] : [])];
-}
-
-function QuestionInputs({ questions, answers, onChange }: { questions: Question[]; answers: Draft["answers"]; onChange: (key: string, values: string[]) => void }) {
-  return <div className="question-list"><div className="question-list__heading"><strong>이 주제에서 살펴볼 항목</strong><small>모르는 항목은 ‘확인 못함’을 선택할 수 있어요.</small></div>{questions.map((question) => {
-    const selected = answers[question.key] ?? [];
-    return <div className="question-item" key={question.key}><div className="question-item__title"><span aria-hidden="true">{questionIcons[question.key] ?? "📝"}</span><strong>{question.label} {question.required && <b>*</b>}</strong></div>{question.type === "text" ? <input value={selected[0] ?? ""} maxLength={question.maxLength ?? 500} onChange={(event) => onChange(question.key, event.target.value ? [event.target.value] : [])} placeholder={`${question.label}을(를) 적어주세요`} /> : <div className="answer-choices">{answerChoices(question).map((option) => <button type="button" key={option.key} className={selected.includes(option.key) ? "selected" : ""} aria-pressed={selected.includes(option.key)} onClick={() => {
-      if (question.type !== "multi") { onChange(question.key, [option.key]); return; }
-      const special = option.key === "unknown" || option.key === "na";
-      if (special) { onChange(question.key, selected.includes(option.key) ? [] : [option.key]); return; }
-      const ordinary = selected.filter((key) => key !== "unknown" && key !== "na");
-      onChange(question.key, ordinary.includes(option.key) ? ordinary.filter((key) => key !== option.key) : [...ordinary, option.key]);
-    }}>{option.label}</button>)}</div>}</div>;
-  })}</div>;
-}
-
 export default function HomePage() {
   const [screen, setScreen] = useState<ScreenKey>("home");
   const [directoryScope, setDirectoryScope] = useState<DirectoryScope>("public");
@@ -182,6 +165,11 @@ export default function HomePage() {
   const [activeMapId, setActiveMapId] = useState(initialMaps[0].id);
   const [tab, setTab] = useState<TabKey>("map");
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const [detailSavedPoint,setDetailSavedPoint]=useState<DemoPoint|null>(null);
+  const [detailEditDirty,setDetailEditDirty]=useState(false);
+  const [detailCommentDirty,setDetailCommentDirty]=useState(false);
+  const [detailEditBusy,setDetailEditBusy]=useState(false);
+  const [detailCommentBusy,setDetailCommentBusy]=useState(false);
   const [filter, setFilter] = useState<ObservationFilter>({});
   const [analysis,setAnalysis]=useState<AnalysisData|null>(null);
   const [dataLoading,setDataLoading]=useState(false);
@@ -301,7 +289,7 @@ export default function HomePage() {
   const datasetReady=!liveMode||(!dataLoading&&!dataError&&dataKey===activeMap.id+filterKey);
   const filteredPoints=datasetReady?mapPoints.filter(point=>(!liveMode||datasetIds.has(point.id))&&(!filter.category||point.categoryKey===filter.category)&&(!filter.rating||point.ratingKey===filter.rating)):[];
   const displayedAnalysis=liveMode?analysis:{stats:aggregateRecords(filteredPoints.map(point=>({id:point.id,categoryKey:point.categoryKey,ratingKey:point.ratingKey,answers:point.rawAnswers??{},createdAt:"2026-09-25T00:00:00Z",configRevision:1})),activeTheme),dataRevision:"0",generatedAt:new Date().toISOString(),filterFingerprint:"demo",filter};
-  const selectedPoint = analysisMode ? (selectedAnalysisPoint?.id===selectedPointId&&selectedAnalysisPoint.mapId===activeMap.id?selectedAnalysisPoint:null) : points.find((item) => item.id === selectedPointId && item.mapId === activeMap.id) ?? null;
+  const selectedPoint = analysisMode ? (selectedAnalysisPoint?.id===selectedPointId&&selectedAnalysisPoint.mapId===activeMap.id?selectedAnalysisPoint:null) : points.find((item) => item.id === selectedPointId && item.mapId === activeMap.id) ?? (detailSavedPoint?.id===selectedPointId&&detailSavedPoint.mapId===activeMap.id?detailSavedPoint:null);
   const createTheme = selectedTheme ? themeByKey[selectedTheme] : null;
   const previewPinMode = selectedTheme === "custom" ? customPinMode : createTheme?.pin.mode;
   const createCategories = selectedTheme === "custom" ? customCategories : createTheme?.categories ?? [];
@@ -325,10 +313,24 @@ export default function HomePage() {
     catch{setDraftStorageError("임시 저장 공간이 부족하거나 사용할 수 없습니다. 이 화면을 유지한 채 기록을 저장해 주세요.");}
   }
   useEffect(()=>{if(screen==="workspace"&&tab==="record")persistDraft();},[draft,draftCoordinates,draftSource,recordStep,editingVersion,screen,tab,activeMap.id,liveSession?.draftScope]);
-  const hasUnsavedRecord = (screen === "workspace" && tab === "record" && ((!savedPointId && recordBaseline.current !== JSON.stringify([draft, draftCoordinates])) || !!draftPhoto)) || (screen === "workspace" && !!photoRetry) || savingPoint || photoPreparing || retryingPhoto;
+  useEffect(()=>{setDetailSavedPoint(null);setDetailEditDirty(false);setDetailCommentDirty(false);setDetailEditBusy(false);setDetailCommentBusy(false);setCommentText("");},[selectedPointId,activeMapId,analysisMode]);
+  const detailBusy=detailEditBusy||detailCommentBusy;
+  const detailDirty=detailEditDirty||detailCommentDirty||(!liveMode&&!analysisMode&&!!selectedPointId&&commentText.length>0);
+  function closePointDetails(){
+    if(detailBusy){notify("저장이 끝날 때까지 기다려 주세요.");return;}
+    if(detailDirty&&!window.confirm(unsavedRecordMessage))return;
+    setSelectedPointId(null);
+  }
+  function saveDetailPoint(value:unknown){
+    const point=asDemoPoint(value as LiveObservation,activeTheme);
+    setDetailSavedPoint(point);
+    setPoints(items=>[point,...items.filter(item=>item.id!==point.id)]);
+    void refreshActiveMap().catch(()=>notify("기록은 저장됐습니다. 지도 정보를 새로고침해 주세요."));
+  }
+  const hasUnsavedRecord = detailDirty || detailBusy || (screen === "workspace" && tab === "record" && ((!savedPointId && recordBaseline.current !== JSON.stringify([draft, draftCoordinates])) || !!draftPhoto)) || (screen === "workspace" && !!photoRetry) || savingPoint || photoPreparing || retryingPhoto;
   useEffect(() => { if (hasUnsavedRecord) return attachUnsavedRecordGuard(window); }, [hasUnsavedRecord]);
   function leaveRecord(action: () => void) {
-    if (savingRef.current || retryingRef.current || photoPreparingRef.current) { notify("저장이 끝날 때까지 기다려 주세요." ); return; }
+    if (detailBusy || savingRef.current || retryingRef.current || photoPreparingRef.current) { notify("저장이 끝날 때까지 기다려 주세요." ); return; }
     if (hasUnsavedRecord && !window.confirm(unsavedRecordMessage)) return;
     setLocationPickerOpen(false);
     setAnalysisMode(false);
@@ -413,15 +415,6 @@ export default function HomePage() {
     resetPhotoState();draftContext.current={mapId:activeMap.id,editingId:null};requestRef.current=null;savedPointRef.current=null;setSavedPointId(null);
     const initialDraft=makeDraft();recordBaseline.current=JSON.stringify([initialDraft,null]);setLocationPickerOpen(!!liveMode);
     setDraft(initialDraft); setDraftPhoto(null); setDraftCoordinates(null); setDraftSource("manual"); setEditingPointId(null); setEditingVersion(null);  setRecordStep(0); setDraftPosition({ x: 52, y: 49 }); setTab("record"); setSelectedPointId(null);
-  }
-  function beginEdit(point:DemoPoint) {
-    if(savingRef.current||retryingRef.current)return;
-    setAnalysisMode(false);
-    if(liveSession?.draftScope){try{const existing=readDrafts(sessionStorage,liveSession.draftScope,activeMap.id).find(item=>item.editingId===point.id);if(existing){restoreDraft(existing);return;}}catch{setDraftStorageError("임시 저장을 사용할 수 없습니다.");}}
-    resetPhotoState();draftContext.current={mapId:activeMap.id,editingId:point.id};requestRef.current=null;savedPointRef.current=null;setSavedPointId(null);
-    const initialDraft={title:point.title,body:point.body,categoryKey:point.categoryKey,emojiKey:point.emojiKey,ratingKey:point.ratingKey??"",location:point.locationLabel??activeMap.location,idea:point.idea??"",imageName:"",link:point.link??"",answers:point.rawAnswers??{}};
-    recordBaseline.current=JSON.stringify([initialDraft,point.location??null]);setLocationPickerOpen(!!liveMode);setDraft(initialDraft);
-    setDraftCoordinates(point.location??null);setDraftSource(point.locationSource??"manual");setDraftPhoto(null);setEditingPointId(point.id);setEditingVersion(point.version??null);setRecordStep(0);setSelectedPointId(null);setTab("record");
   }
   function updateDraft<K extends keyof Draft>(key: K, value: Draft[K]) { setDraft((current) => ({ ...current, [key]: value })); }
   function updateAnswer(key: string, values: string[]) { setDraft((current) => ({ ...current, answers: { ...current.answers, [key]: values } })); }
@@ -563,7 +556,18 @@ export default function HomePage() {
 
         {(savingPoint||retryingPhoto||saveError)&&<div className="upload-status" role={saveError?"alert":"status"}>{saveError|| (uploadProgress===null?"기록을 저장하고 있어요…":uploadProgress===100?"사진 전송 완료 · 서버에서 저장 중…":`사진 전송 중 ${uploadProgress}%`)}{uploadProgress!==null&&<progress value={uploadProgress} max={100} aria-label="사진 전송 진행률"/>}{needsLogin&&<a href={liveSession?.kind==="guest"?"/join":`/api/v1/auth/google?returnTo=${encodeURIComponent(`/?map=${activeMap.id}`)}`}>다시 로그인·참여하기</a>}{saveError&&!savingPoint&&!retryingPhoto&&<button type="button" onClick={()=>setSaveError("")}>안내 닫기</button>}</div>}
         <nav inert={savingPoint||retryingPhoto} className="bottom-nav bottom-nav--workspace" aria-label="지도 메뉴"><button type="button" className={`bottom-nav__item ${tab === "map" ? "bottom-nav__item--active" : ""}`} onClick={() => leaveRecord(() => { setTab("map"); setSelectedPointId(null); })}><span className="nav-equipment"><GameIcon name="compass"/></span><span>탐험 지도</span></button><button type="button" className={`bottom-nav__item ${tab === "record" ? "bottom-nav__item--active" : ""}`} onClick={beginRecord}><span className="nav-equipment nav-equipment--record"><GameIcon name="journal"/></span><span>발견 기록</span></button><button type="button" className={`bottom-nav__item ${tab === "analysis" ? "bottom-nav__item--active" : ""}`} onClick={() => leaveRecord(() => { setTab("analysis"); setSelectedPointId(null); })}><span className="nav-equipment"><GameIcon name="chart"/></span><span>탐험 통계</span></button>{proposalEnabled && <button type="button" className={`bottom-nav__item ${tab === "proposal" ? "bottom-nav__item--active" : ""}`} onClick={() => leaveRecord(() => { setTab("proposal"); setSelectedPointId(null); })}><span className="nav-equipment"><GameIcon name="flag"/></span><span>개선 제안</span></button>}<button type="button" className={`bottom-nav__item ${tab === "more" ? "bottom-nav__item--active" : ""}`} onClick={() => leaveRecord(() => { setTab("more"); setSelectedPointId(null); })}><span className="nav-equipment"><GameIcon name="backpack"/></span><span>탐험 가방</span></button></nav>
-        {selectedPoint && tab === "map" && <PointDialog label={`${selectedPoint.title} 상세 기록`} onClose={() => setSelectedPointId(null)}><div className="sheet-handle" /><button type="button" className="sheet-close" aria-label="상세 닫기" onClick={() => setSelectedPointId(null)}><Icon name="close" size={21} /></button><div className="point-sheet__title"><span className="point-sheet__emoji" role="img" aria-label={getPointEmoji(activeTheme,selectedPoint)?.label??"위치 기록"} style={{ backgroundColor: getPinColor(activeTheme, selectedPoint) }}>{getPointEmoji(activeTheme, selectedPoint)?.glyph}</span><div><small>{activeTheme.categories.find((item) => item.key === selectedPoint.categoryKey)?.label} · 등록일 <time dateTime={selectedPoint.createdAt}>{selectedPoint.date}</time></small><h2>{selectedPoint.title}</h2></div></div>{pointRating(activeTheme,selectedPoint)&&<div className="sheet-rating"><RatingLabel theme={activeTheme} point={selectedPoint}/></div>}<p className="sheet-body">{selectedPoint.body}</p>{selectedPoint.photoUrl ? <img decoding="async" className="sheet-photo" src={selectedPoint.photoUrl} alt={`${selectedPoint.title} 현장 사진`}/> : selectedPoint.imageName && <div className="sheet-attachment">📷 첨부한 사진: {selectedPoint.imageName} <small>화면 시안 · 파일은 저장되지 않음</small></div>}{selectedPoint.link && <a className="sheet-link" href={selectedPoint.link} target="_blank" rel="noopener noreferrer">🔗 관련 링크 열기</a>}{selectedPoint.answers && Object.keys(selectedPoint.answers).length > 0 && <div className="sheet-answers">{Object.entries(selectedPoint.answers).map(([key, value]) => <span key={key}><b>{activeTheme.questions.find((item) => item.key === key)?.label ?? key}</b>{value}</span>)}</div>}{selectedPoint.idea && activeTheme.features.ideasEnabled && <div className="sheet-idea"><strong>💡 개선 아이디어</strong><p>{selectedPoint.idea}</p></div>}<div className="sheet-meta">{analysisMode&&<p>원본 기록을 보고 있어요. 분석 도구는 나의 분석지도에만 저장돼요.</p>}기록한 사람 · {selectedPoint.author}{selectedPoint.status==="pending" && " · 검수 대기"}</div>{liveMode && !analysisMode && selectedPoint.canEdit && <button type="button" className="button button--light button--full" onClick={()=>beginEdit(selectedPoint)}>기록 수정</button>}{liveMode && !analysisMode && photoRetry?.pointId===selectedPoint.id && <button disabled={retryingPhoto||savingPoint} type="button" className="button button--light button--full" onClick={()=>void retryPhoto()}>사진 업로드 다시 시도</button>}{liveMode&&!analysisMode&&photoRetry?.pointId===selectedPoint.id&&(saveError||retryingPhoto)&&<p role={saveError?"alert":"status"}>{saveError||(uploadProgress===100?"서버에서 사진을 저장하고 있어요…":`사진 전송 중 ${uploadProgress??0}%`)}</p>}{activeTheme.features.commentsEnabled && !liveMode && <div className="sheet-comments"><strong>댓글 {selectedPoint.comments?.length ?? 0}</strong>{selectedPoint.comments?.map((comment, i) => <p key={i}>{comment}</p>)}{!analysisMode&&<form onSubmit={addComment}><label className="sr-only" htmlFor="comment-input">댓글 입력</label><input id="comment-input" value={commentText} onChange={(event) => setCommentText(event.target.value)} maxLength={500} placeholder="의견을 남겨주세요" /><button type="submit" disabled={!commentText.trim()}>등록</button></form>}<small>화면 시안 · 댓글은 현재 화면에서만 유지됩니다.</small></div>}{liveMode && selectedPoint.status==="published" && <>{!analysisMode && liveSession?.csrfToken && (selectedPoint.canDelete||activeMap.canManageMap) && selectedPoint.version && <ObservationActions mapId={activeMap.id} id={selectedPoint.id} version={selectedPoint.version} canDelete={!!selectedPoint.canDelete} canModerate={!!activeMap.canManageMap} csrfToken={liveSession.csrfToken} onNotice={notify} onChanged={()=>{setSelectedPointId(null);void refreshActiveMap();}}/>}<CommentSection readOnly={analysisMode} mapId={activeMap.id} observationId={selectedPoint.id} enabled={!!activeMap.commentsEnabled} canWrite={!analysisMode&&!!activeMap.canComment} canModerate={!analysisMode&&!!activeMap.canManageMap} csrfToken={liveSession?.csrfToken??null} onNotice={notify}/>{!analysisMode && activeMap.isMine && activeMap.status==="active" && liveSession?.csrfToken && <ReportAction mapId={activeMap.id} targetType="observation" targetId={selectedPoint.id} csrfToken={liveSession.csrfToken} onNotice={notify}/>}</>}</PointDialog>}
+        {selectedPoint && tab === "map" && <PointDialog key={`${selectedPoint.id}:${analysisMode?"analysis":"shared"}`} label={`${selectedPoint.title} 상세 기록`} onClose={closePointDetails}><div className="sheet-handle" /><button type="button" className="sheet-close" aria-label="상세 닫기" onClick={closePointDetails}><Icon name="close" size={21} /></button><div className="point-sheet__title"><span className="point-sheet__emoji" role="img" aria-label={getPointEmoji(activeTheme,selectedPoint)?.label??"위치 기록"} style={{ backgroundColor: getPinColor(activeTheme, selectedPoint) }}>{getPointEmoji(activeTheme, selectedPoint)?.glyph}</span><div><small>{activeTheme.categories.find((item) => item.key === selectedPoint.categoryKey)?.label} · 등록일 <time dateTime={selectedPoint.createdAt}>{selectedPoint.date}</time></small><h2>{selectedPoint.title}</h2></div></div>{pointRating(activeTheme,selectedPoint)&&<div className="sheet-rating"><RatingLabel theme={activeTheme} point={selectedPoint}/></div>}<p className="sheet-body">{selectedPoint.body}</p>{selectedPoint.photoUrl ? <img decoding="async" className="sheet-photo" src={selectedPoint.photoUrl} alt={`${selectedPoint.title} 현장 사진`}/> : selectedPoint.imageName && <div className="sheet-attachment">📷 첨부한 사진: {selectedPoint.imageName} <small>화면 시안 · 파일은 저장되지 않음</small></div>}{selectedPoint.link && <a className="sheet-link" href={selectedPoint.link} target="_blank" rel="noopener noreferrer">🔗 관련 링크 열기</a>}{selectedPoint.answers && Object.keys(selectedPoint.answers).length > 0 && <div className="sheet-answers">{Object.entries(selectedPoint.answers).map(([key, value]) => <span key={key}><b>{activeTheme.questions.find((item) => item.key === key)?.label ?? key}</b>{value}</span>)}</div>}{selectedPoint.idea && activeTheme.features.ideasEnabled && <div className="sheet-idea"><strong>💡 개선 아이디어</strong><p>{selectedPoint.idea}</p></div>}<div className="sheet-meta">{analysisMode&&<p>원본 기록을 보고 있어요. 분석 도구는 나의 분석지도에만 저장돼요.</p>}기록한 사람 · {selectedPoint.author}{selectedPoint.status==="pending" && " · 검수 대기"}</div><PointDetailPanels key={`${selectedPoint.id}:${analysisMode?"analysis":"shared"}`}
+          edit={liveMode&&!analysisMode&&selectedPoint.canEdit&&selectedPoint.version&&selectedPoint.location&&liveSession?.csrfToken?<>
+            <InlineRecordEditor point={selectedPoint} theme={activeTheme} mapId={activeMap.id} configRevision={activeMap.configRevision??1} csrfToken={liveSession.csrfToken} center={activeMap.center} onSaved={saveDetailPoint} onNotice={notify} onDirtyChange={setDetailEditDirty} onBusyChange={setDetailEditBusy}/>
+            {photoRetry?.pointId===selectedPoint.id&&<button disabled={retryingPhoto||savingPoint||detailBusy} type="button" className="button button--light button--full" onClick={()=>void retryPhoto()}>사진 업로드 다시 시도</button>}
+            {photoRetry?.pointId===selectedPoint.id&&(saveError||retryingPhoto)&&<p role={saveError?"alert":"status"}>{saveError||(uploadProgress===100?"서버에서 사진을 저장하고 있어요…":`사진 전송 중 ${uploadProgress??0}%`)}</p>}
+          </>:undefined}
+          comments={liveMode?(selectedPoint.status==="published"?<CommentSection readOnly={analysisMode} mapId={activeMap.id} observationId={selectedPoint.id} enabled={!!activeMap.commentsEnabled} canWrite={!analysisMode&&!!activeMap.canComment} canModerate={!analysisMode&&!!activeMap.canManageMap} csrfToken={liveSession?.csrfToken??null} onNotice={notify} onDirtyChange={setDetailCommentDirty} onBusyChange={setDetailCommentBusy}/>:undefined):activeTheme.features.commentsEnabled?<div className="sheet-comments"><strong>댓글 {selectedPoint.comments?.length??0}</strong>{selectedPoint.comments?.map((comment,i)=><p key={i}>{comment}</p>)}{!analysisMode&&<form onSubmit={addComment}><label className="sr-only" htmlFor="comment-input">댓글 입력</label><input id="comment-input" value={commentText} onChange={event=>setCommentText(event.target.value)} maxLength={500} placeholder="의견을 남겨주세요"/><button type="submit" disabled={!commentText.trim()}>등록</button></form>}<small>화면 시안 · 댓글은 현재 화면에서만 유지됩니다.</small></div>:undefined}
+          management={liveMode&&!analysisMode&&selectedPoint.status==="published"&&liveSession?.csrfToken&&((selectedPoint.canDelete||activeMap.canManageMap)&&selectedPoint.version||activeMap.isMine&&activeMap.status==="active")?<fieldset className="point-detail-management__fields" disabled={detailBusy}>
+            {(selectedPoint.canDelete||activeMap.canManageMap)&&selectedPoint.version&&<ObservationActions mapId={activeMap.id} id={selectedPoint.id} version={selectedPoint.version} canDelete={!!selectedPoint.canDelete} canModerate={!!activeMap.canManageMap} csrfToken={liveSession.csrfToken} onNotice={notify} beforeChange={()=>!detailDirty||window.confirm(unsavedRecordMessage)} onChanged={()=>{setSelectedPointId(null);void refreshActiveMap();}}/>}
+            {activeMap.isMine&&activeMap.status==="active"&&<ReportAction mapId={activeMap.id} targetType="observation" targetId={selectedPoint.id} csrfToken={liveSession.csrfToken} onNotice={notify}/>}
+          </fieldset>:undefined}
+        /></PointDialog>}
       </>}
       {screen==="workspace" && tab==="record" && locationPickerOpen && liveMode && <RecordLocationPicker center={activeMap.center} chosen={draftCoordinates} label={draft.location} onPick={(location,source)=>{setDraftCoordinates(location);setDraftSource(source);}} onLabelChange={value=>updateDraft("location",value)} onClose={()=>setLocationPickerOpen(false)}/> }
       {toast && <div className="toast" role="status">{toast}</div>}
