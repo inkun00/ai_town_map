@@ -76,6 +76,20 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .deleted-map-directory .directory-theme { margin: 0 0 14px; }
 .deleted-map-directory .community-list { align-content: start; padding-bottom: 0; }
 .deleted-map-directory .community-list article { background: #fffdf4; border: 2px solid #b3c6b7; border-radius: 16px; box-shadow: 0 4px 0 #ceddce; overflow-wrap: anywhere; }
+.record-location-launch { display: flex; align-items: center; gap: 12px; width: 100%; padding: 18px 14px; margin-bottom: 18px; border: 2px solid #b3c6b7; border-radius: 16px; background: #edf2e4; color: var(--ink); text-align: left; }
+.record-location-launch>span { flex: 1; min-width: 0; display: grid; gap: 7px; }
+.record-location-launch strong { font-size: 14px; }
+.record-location-launch small { font-size: 12px; line-height: 1.5; color: #56726d; }
+.record-location-dialog { position: fixed; inset: 0; width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
+.record-location-dialog[open] { display: flex; flex-direction: column; }
+.record-location-header { display: flex; align-items: center; gap: 12px; flex: none; padding: max(10px,env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid #b9c6bb; }
+.record-location-header button { min-width: 44px; min-height: 44px; border: 1px solid #b9c6bb; border-radius: 12px; background: #fff5d7; color: var(--ink); font-size: 30px; }
+.record-location-header>div { display: grid; gap: 4px; }
+.record-location-header small { color: #56726d; font-size: 12px; }
+.record-location-map { flex: 1; min-height: 0; position: relative; }
+.record-location-footer { flex: none; padding: 12px 16px max(12px,env(safe-area-inset-bottom)); background: var(--paper); border-top: 1px solid #b9c6bb; }
+.record-location-footer .field { margin-bottom: 10px; }
+.record-location-dialog input { font-size: 16px; }
 .my-map-list button { background: #fffdf4; border: 2px solid #b3c6b7; border-radius: 16px; min-height: 87px; padding: 12px; gap: 12px; box-shadow: 0 4px 0 #ceddce; transition: transform .15s, border-color .15s; }
 .my-map-list button+button { border-top: 2px solid #b3c6b7; }
 .my-map-list button:hover { transform: translateY(-1px); border-color: #317f74; }
