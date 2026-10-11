@@ -111,6 +111,8 @@ try {
   await admin.connect(); connected = true;
   check((await admin.query("SELECT to_regclass('app.student_analysis_reports') AS reports")).rows[0].reports !== null, "apply migration 010 before running this check");
   const owner = await actor("teacher"), first = await actor("student"), second = await actor("student");
+  const ownerSession = expect(await api("/api/v1/session", owner), 200, "synthetic teacher session");
+  check(ownerSession?.kind === "account" && ownerSession.accountRole === "teacher" && ownerSession.canCreateMap === true, "synthetic teacher session must resolve before creating a map");
   const map = await createMap(owner, "AI 분석 합성 검사 지도"), otherMap = await createMap(owner, "AI 근거 합성 검사 지도");
   const base = `/api/v1/maps/${map.id}`, reportPath = `${base}/student-analysis`;
   await admin.query("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'가상 학생 하나')", [map.id, first.principal]);
