@@ -43,7 +43,7 @@ npm run dev
 
 마이그레이션은 업무 테이블을 외부 Data API에 노출되지 않는 `app`·`app_private` schema에 만들고, 제한된 `app_backend` 권한과 RLS를 설정한 뒤 다섯 주제 템플릿을 저장한다. 완료 후 `http://localhost:3001/api/v1/status`의 `configured`가 `true`인지 확인한다. 기존 `npm run dev`가 실행 중이었다면 환경 파일을 읽도록 서버를 재시작한다.
 
-브라우저에서 Google 로그인 → 지도 만들기 → ‘더보기’의 새 초대 코드 생성 → 다른 브라우저 프로필 또는 다른 기기에서 초대 링크 열기 → 닉네임 입장을 차례로 확인한다. 다른 기기를 쓸 때 `localhost`는 그 기기 자신을 가리키므로 HTTPS 테스트 도메인 또는 안전한 개발 터널과 해당 `APP_ORIGIN`·OAuth 허용 URL이 필요하다.
+브라우저에서 회원가입 → 교사로 Google 회원가입 → 지도 만들기 → ‘더보기’의 새 초대 코드 생성 → 다른 브라우저 프로필 또는 다른 기기에서 초대 링크 열기 → 닉네임 입장을 차례로 확인한다. 학생으로 Google 회원가입은 학생 유형이 저장되고 지도 만들기 권한이 없는지 확인한다. 기존 계정은 가입 버튼을 다시 눌러도 유형이 바뀌지 않는다. 다른 기기를 쓸 때 `localhost`는 그 기기 자신을 가리키므로 HTTPS 테스트 도메인 또는 안전한 개발 터널과 해당 `APP_ORIGIN`·OAuth 허용 URL이 필요하다.
 
 운영 배포에서는 신뢰하는 프록시가 클라이언트가 보낸 값을 제거한 뒤 설정하는 IP 헤더명을 `TRUSTED_CLIENT_IP_HEADER`에 지정한다. 이 값이 없으면 운영 환경의 초대 입장 API는 503으로 닫힌다. DB 연결은 TLS를 요구하고, 운영 전에는 Supabase DB 인증서를 사용한 호스트 검증도 설정한다. [Supabase 연결 보안](https://supabase.com/docs/guides/database/connecting-to-postgres)
 

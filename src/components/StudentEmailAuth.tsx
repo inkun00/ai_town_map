@@ -25,8 +25,8 @@ export function StudentEmailAuth({mode,returnTo,confirmed=false,confirmationErro
   const [notice,setNotice]=useState(confirmed?"이메일 인증을 마쳤어요. 학생 이메일과 비밀번호로 로그인해 주세요.":"");
   const [needsConfirmation,setNeedsConfirmation]=useState(confirmationError),[cooldownUntil,setCooldownUntil]=useState(0),[remaining,setRemaining]=useState(0);
   const submitting=useRef(false),active=useRef(false),request=useRef<AbortController|null>(null);
-  const signupReturnTo=`/account/setup?returnTo=${encodeURIComponent(returnTo)}`;
-  const googleHref=`/api/v1/auth/google?returnTo=${encodeURIComponent(signup?signupReturnTo:returnTo)}`;
+  const googleHref=`/api/v1/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
+  const googleSignupHref=(role:"teacher"|"student")=>`/api/v1/auth/google?role=${role}&returnTo=${encodeURIComponent(returnTo)}`;
   const otherHref=`/account/${signup?"login":"register"}?returnTo=${encodeURIComponent(returnTo)}`;
 
   useEffect(()=>{active.current=true;return()=>{active.current=false;request.current?.abort();};},[]);
@@ -76,8 +76,8 @@ export function StudentEmailAuth({mode,returnTo,confirmed=false,confirmationErro
 
   return <GameShell title={signup?"회원가입":"로그인"} back="/" sectionLabel="회원 계정">
     <div className="account-auth">
-      <header className="account-auth__intro"><span className="quest-tag"><GameIcon name="backpack" size={22}/> 나의 탐험 계정</span><h1>{signup?"탐험대원이 되어 봐요!":"다시 탐험을 시작해요!"}</h1><p>{signup?"Google 계정으로 가입하거나, 학생 이메일로 가입해 주세요.":"Google 계정 또는 학생 이메일로 로그인해 주세요."}</p></header>
-      <section className="account-auth__google" aria-label="Google 계정으로 시작"><a className="button button--light button--full" href={googleHref}>{signup?"Google로 회원가입":"Google로 로그인"}</a><p>{signup?"교사·학생·일반회원은 Google 가입 후 회원 유형을 선택해요.":"Google로 가입한 교사·학생·일반회원은 위 버튼을 눌러 주세요."}</p></section>
+      <header className="account-auth__intro"><span className="quest-tag"><GameIcon name="backpack" size={22}/> 나의 탐험 계정</span><h1>{signup?"탐험대원이 되어 봐요!":"다시 탐험을 시작해요!"}</h1><p>{signup?"교사 또는 학생을 선택해 Google로 가입해 주세요. 학생은 일반 이메일로도 가입할 수 있어요.":"Google 계정 또는 학생 이메일로 로그인해 주세요."}</p></header>
+      <section className="account-auth__google" aria-label="Google 계정으로 시작">{signup?<><div className="account-auth__rolechoices"><a className="account-auth__rolechoice account-auth__rolechoice--teacher" aria-label="교사로 Google 회원가입" href={googleSignupHref("teacher")}><span className="account-auth__role-emoji" aria-hidden="true">👩‍🏫</span><span><strong>교사로 Google 회원가입</strong><small>지도 만들기 · 탐험게임 운영</small></span><span aria-hidden="true">›</span></a><a className="account-auth__rolechoice account-auth__rolechoice--student" aria-label="학생으로 Google 회원가입" href={googleSignupHref("student")}><span className="account-auth__role-emoji" aria-hidden="true">🎒</span><span><strong>학생으로 Google 회원가입</strong><small>지도 참여 · 관찰 기록 · 미션 수행</small></span><span aria-hidden="true">›</span></a></div><p>회원 유형은 가입할 때 한 번 선택해요. 이미 가입한 계정의 유형은 바뀌지 않아요.</p></>:<><a className="button button--light button--full" href={googleHref}>Google로 로그인</a><p>Google로 가입한 교사·학생·일반회원은 위 버튼을 눌러 주세요.</p></>}</section>
       <div className="account-auth__separator"><span>또는 학생 이메일로</span></div>
       <section className="account-auth__email" aria-labelledby={`${id}-email-heading`}>
         <h2 id={`${id}-email-heading`}>{signup?"학생 이메일 회원가입":"학생 이메일로 로그인"}</h2>

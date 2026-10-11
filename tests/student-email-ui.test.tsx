@@ -24,9 +24,13 @@ beforeEach(()=>{
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.useRealTimers();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 describe("student email account screens",()=>{
-  it("offers Google and student email choices while preserving encoded signup setup and return routes",async()=>{
-    await render();const google=container.querySelector<HTMLAnchorElement>('a[href^="/api/v1/auth/google"]')!;const query=new URL(google.href).searchParams;expect(query.get("returnTo")).toBe("/account/setup?returnTo=%2F%3Fmap%3Dabc");expect(container.textContent).toContain("학생 회원으로 등록돼요");expect(container.querySelectorAll("input[type=password]")).toHaveLength(2);expect(container.querySelectorAll("main")).toHaveLength(1);
+  it("offers distinct teacher/student Google signup choices alongside student email and preserves the original destination",async()=>{
+    await render();const google=[...container.querySelectorAll<HTMLAnchorElement>('a[href^="/api/v1/auth/google"]')];expect(google).toHaveLength(2);expect(google.map(link=>link.getAttribute("aria-label"))).toEqual(["교사로 Google 회원가입","학생으로 Google 회원가입"]);expect(google.map(link=>new URL(link.href).searchParams.get("role"))).toEqual(["teacher","student"]);for(const link of google)expect(new URL(link.href).searchParams.get("returnTo")).toBe(props.returnTo);expect(container.textContent).toContain("지도 만들기 · 탐험게임 운영");expect(container.textContent).toContain("지도 참여 · 관찰 기록 · 미션 수행");expect(container.textContent).toContain("학생 회원으로 등록돼요");expect(container.querySelectorAll("input[type=password]")).toHaveLength(2);expect(container.querySelectorAll("main")).toHaveLength(1);
     const login=container.querySelector<HTMLAnchorElement>('a[href^="/account/login"]')!;expect(new URL(login.href).searchParams.get("returnTo")).toBe(props.returnTo);expect(authSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps Google login as one role-neutral link for all existing account types",async()=>{
+    props.mode="login";await render();const google=[...container.querySelectorAll<HTMLAnchorElement>('a[href^="/api/v1/auth/google"]')];expect(google).toHaveLength(1);expect(google[0].textContent).toBe("Google로 로그인");const query=new URL(google[0].href).searchParams;expect(query.get("returnTo")).toBe(props.returnTo);expect(query.has("role")).toBe(false);expect(container.textContent).toContain("교사·학생·일반회원");expect(container.querySelectorAll("input[type=password]")).toHaveLength(1);expect(authSpy).not.toHaveBeenCalled();
   });
 
   it("checks email, password length, and repeated password before signup",async()=>{

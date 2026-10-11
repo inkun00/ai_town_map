@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerConfig } from "../env";
 import { ApiError } from "../http";
 
-type OAuthState = { requestId: string; returnTo: string; storage: Record<string, string> };
+export type GoogleRegistrationRole = "teacher" | "student";
+type OAuthState = { requestId: string; returnTo: string; storage: Record<string, string>; registrationRole?: GoogleRegistrationRole };
 
 function cookieName() { return getServerConfig().appOrigin.startsWith("https://") ? "__Host-moa_oauth" : "moa_dev_oauth"; }
 function signature(payload: string) { return createHmac("sha256", getServerConfig().invitePepper).update(payload).digest(); }
@@ -17,14 +18,16 @@ function seal(value: OAuthState): string {
 
 function unseal(raw: string | undefined): OAuthState | null {
   if (!raw) return null;
-  const [payload, mac] = raw.split(".");
-  if (!payload || !mac) return null;
+  const [payload, mac, extra] = raw.split(".");
+  if (!payload || !mac || extra !== undefined) return null;
   const actual = Buffer.from(mac, "base64url");
   const expected = signature(payload);
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as OAuthState;
-    return typeof parsed.requestId === "string" && typeof parsed.returnTo === "string" && parsed.storage && typeof parsed.storage === "object" ? parsed : null;
+    return typeof parsed.requestId === "string" && typeof parsed.returnTo === "string" && parsed.storage && typeof parsed.storage === "object" && !Array.isArray(parsed.storage)
+      && Object.values(parsed.storage).every(value => typeof value === "string")
+      && (parsed.registrationRole === undefined || parsed.registrationRole === "teacher" || parsed.registrationRole === "student") ? parsed : null;
   } catch { return null; }
 }
 
@@ -46,7 +49,8 @@ function oauthClient(storage: Record<string, string>) {
   });
 }
 
-export async function beginGoogleOAuth(returnTo: string) {
+export async function beginGoogleOAuth(returnTo: string, registrationRole?: GoogleRegistrationRole) {
+  if (registrationRole !== undefined && registrationRole !== "teacher" && registrationRole !== "student") throw new ApiError(422, "REGISTRATION_ROLE_INVALID", "교사 또는 학생을 선택해 주세요.");
   const config = getServerConfig();
   const requestId = randomBytes(24).toString("base64url");
   const storage: Record<string, string> = {};
@@ -54,7 +58,7 @@ export async function beginGoogleOAuth(returnTo: string) {
   const redirectTo = `${config.appOrigin}/api/v1/auth/callback?request=${requestId}`;
   const { data, error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo, skipBrowserRedirect: true } });
   if (error || !data.url) throw new ApiError(503, "OAUTH_UNAVAILABLE", "Google 로그인을 시작할 수 없습니다.");
-  return { url: data.url, cookie: seal({ requestId, returnTo, storage }) };
+  return { url: data.url, cookie: seal({ requestId, returnTo, storage, registrationRole }) };
 }
 
 export async function finishGoogleOAuth(request: NextRequest) {
@@ -68,7 +72,7 @@ export async function finishGoogleOAuth(request: NextRequest) {
   if (error || !data.session?.access_token) throw new ApiError(400, "OAUTH_EXCHANGE_FAILED", "Google 로그인을 다시 시도해 주세요.");
   const verified = await supabase.auth.getUser(data.session.access_token);
   if (verified.error || !verified.data.user?.id) throw new ApiError(400, "OAUTH_USER_INVALID", "계정을 확인할 수 없습니다.");
-  return { authUserId: verified.data.user.id, returnTo: state.returnTo };
+  return { authUserId: verified.data.user.id, returnTo: state.returnTo, registrationRole: state.registrationRole };
 }
 
 export function setOAuthCookie(response: NextResponse, value: string) {
