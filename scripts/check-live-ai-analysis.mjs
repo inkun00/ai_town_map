@@ -1,0 +1,203 @@
+// Opt-in HTTP checks with synthetic fixtures. A model request requires RUN_LIVE_GEMINI=1.
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { loadEnvFile } from "node:process";
+import { createInterface } from "node:readline/promises";
+import nextEnv from "@next/env";
+import pg from "pg";
+import sharp from "sharp";
+import { liveTestTarget } from "./live-test-target.mjs";
+
+const actors = [];
+const summary = { ok: false, checks: 0, aiConfigured: null, providerCallSkipped: true, providerRequests: 0, aiModel: null, aiElapsedMs: null, sectionCounts: null, cleaned: false };
+let admin, connected = false, target;
+class CheckFailure extends Error {}
+const hash = value => createHash("sha256").update(value).digest();
+const token = () => randomBytes(32).toString("base64url");
+function check(condition, label) {
+  if (!condition) throw new CheckFailure(label);
+  summary.checks++;
+}
+function expect(result, status, label, code) {
+  check(result.status === status && (!code || result.code === code), `${label}: expected ${status}${code ? ` ${code}` : ""}; received ${result.status}${/^[A-Z_]+$/.test(result.code ?? "") ? ` ${result.code}` : ""}`);
+  return result.data;
+}
+async function actor(role) {
+  const principal = randomUUID(), session = token(), csrf = token();
+  const value = { principal, csrf, cookie: `${target.sessionName}=${session}; ${target.csrfName}=${csrf}` };
+  actors.push(value);
+  await admin.query("INSERT INTO app.principals(id,kind,auth_user_id,account_role) VALUES($1,'account',$2,$3)", [principal, randomUUID(), role]);
+  await admin.query("INSERT INTO app_private.sessions(principal_id,token_hash,csrf_hash,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')", [principal, hash(session), hash(csrf)]);
+  return value;
+}
+async function api(path, who, { method = "GET", body, key, headers = {}, timeoutMs = 30000 } = {}) {
+  const response = await fetch(new URL(path, target.base), {
+    method, redirect: "error", signal: AbortSignal.timeout(timeoutMs),
+    headers: {
+      ...(who ? { Cookie: who.cookie } : {}), ...(method !== "GET" ? { Origin: target.base } : {}),
+      ...(who && method !== "GET" ? { "X-CSRF-Token": who.csrf } : {}),
+      ...(body ? { "Content-Type": "application/json" } : {}), ...(key ? { "Idempotency-Key": key } : {}), ...headers,
+    },
+    ...(body ? { body: Buffer.isBuffer(body) ? body : JSON.stringify(body) } : {}),
+  });
+  let payload;
+  try { payload = await response.json(); } catch { payload = null; }
+  return { status: response.status, data: payload?.data, code: payload?.error?.code, cache: response.headers.get("cache-control") };
+}
+async function createMap(owner, title) {
+  return expect(await api("/api/v1/maps", owner, { method: "POST", key: randomUUID(), body: {
+    themeKey: "ecology", themeVersion: 2, title, locationLabel: "가상 조사 지역", activityContext: "school",
+    visibility: "public", proposalsEnabled: false, moderation: "immediate",
+  } }), 201, "create synthetic map");
+}
+async function point(mapId, author) {
+  const theme = expect(await api(`/api/v1/maps/${mapId}/configuration`, author), 200, "load point configuration").theme;
+  return expect(await api(`/api/v1/maps/${mapId}/observations`, author, { method: "POST", key: randomUUID(), body: {
+    configRevision: 1, title: "가상 학교 나무", body: "합성 검사 자료입니다. 실제 학생이나 조사 장소와 관계없습니다.",
+    locationLabel: "가상 장소", locationSource: "manual", location: { lat: 37.5665, lng: 126.978 },
+    categoryKey: theme.categories[0].key, emojiKey: theme.categories[0].emojiOptions[0].key, ratingKey: null,
+    answers: Object.fromEntries(theme.questions.filter(question => question.required).map(question => [question.key, [question.type === "text" ? "합성 관찰" : question.type === "boolean" ? "yes" : question.options[0].key]])),
+  } }), 201, "create synthetic published point");
+}
+async function syntheticParkPhoto() {
+  // A small illustration of a tree and bench, with no people, text or identifying details.
+  const illustration = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320">
+    <rect width="480" height="320" fill="#d9f0ff"/><rect y="225" width="480" height="95" fill="#98c86e"/>
+    <ellipse cx="145" cy="264" rx="106" ry="18" fill="#6da554"/>
+    <rect x="136" y="128" width="22" height="119" rx="3" fill="#89552f"/>
+    <circle cx="113" cy="111" r="54" fill="#438d43"/><circle cx="171" cy="106" r="62" fill="#559f46"/>
+    <circle cx="149" cy="62" r="48" fill="#68ae4d"/>
+    <rect x="282" y="182" width="140" height="13" rx="3" fill="#aa7144"/>
+    <rect x="282" y="202" width="140" height="13" rx="3" fill="#aa7144"/>
+    <rect x="276" y="227" width="152" height="14" rx="3" fill="#8d5d39"/>
+    <rect x="293" y="240" width="10" height="29" fill="#5f655f"/><rect x="401" y="240" width="10" height="29" fill="#5f655f"/>
+  </svg>`);
+  return sharp(illustration).png().toBuffer();
+}
+async function cleanup() {
+  if (!actors.length) { summary.cleaned = true; return; }
+  if (!connected) return;
+  const principalIds = actors.map(value => value.principal);
+  await admin.query("BEGIN");
+  try {
+    await admin.query("SET CONSTRAINTS ALL DEFERRED");
+    // Every owner ID was generated by this process; user maps cannot match this predicate.
+    const mapIds = (await admin.query("SELECT id FROM app.maps WHERE owner_principal_id=ANY($1::uuid[])", [principalIds])).rows.map(row => row.id);
+    for (const table of ["app.student_analysis_reports", "app.proposal_versions", "app.proposals", "app.audit_events", "app.reports", "app.comments", "app.observation_photos", "app.observations", "app.map_config_revisions", "app.question_versions", "app.questions", "app.rating_options", "app.rating_schemes", "app.emoji_options", "app.categories", "app_private.invites", "app.map_members"]) {
+      await admin.query(`DELETE FROM ${table} WHERE map_id=ANY($1::uuid[])`, [mapIds]);
+    }
+    await admin.query("DELETE FROM app.maps WHERE id=ANY($1::uuid[]) AND owner_principal_id=ANY($2::uuid[])", [mapIds, principalIds]);
+    await admin.query("DELETE FROM app_private.idempotency_keys WHERE principal_id=ANY($1::uuid[])", [principalIds]);
+    await admin.query("DELETE FROM app_private.sessions WHERE principal_id=ANY($1::uuid[])", [principalIds]);
+    if (process.env.INVITE_CODE_PEPPER) {
+      const hashes = [...principalIds.map(id => `ai-suggestions:principal:${id}`), ...mapIds.map(id => `ai-suggestions:map:${id}`)].map(scope => createHmac("sha256", process.env.INVITE_CODE_PEPPER).update(scope).digest());
+      await admin.query("DELETE FROM app_private.invite_attempts WHERE actor_hash=ANY($1::bytea[])", [hashes]);
+    }
+    await admin.query("DELETE FROM app.principals WHERE id=ANY($1::uuid[])", [principalIds]);
+    await admin.query("COMMIT");
+    const remaining = await admin.query("SELECT (SELECT count(*) FROM app.principals WHERE id=ANY($1::uuid[]))::int AS principals,(SELECT count(*) FROM app.maps WHERE id=ANY($2::uuid[]))::int AS maps", [principalIds, mapIds]);
+    summary.cleaned = remaining.rows[0].principals === 0 && remaining.rows[0].maps === 0;
+    if (!summary.cleaned) throw new CheckFailure("synthetic cleanup verification failed");
+  } catch (error) { await admin.query("ROLLBACK"); throw error; }
+}
+
+try {
+  if (process.env.RUN_LIVE_AI_ANALYSIS !== "1") throw new CheckFailure("Set RUN_LIVE_AI_ANALYSIS=1 to opt in");
+  nextEnv.loadEnvConfig(process.cwd(), false, { info() {}, error() {} });
+  if (existsSync(".env.migrate.local")) loadEnvFile(".env.migrate.local");
+  if (!process.env.DATABASE_ADMIN_URL) throw new CheckFailure("DATABASE_ADMIN_URL is required in ignored local environment configuration");
+  target = liveTestTarget();
+  admin = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
+  await admin.connect(); connected = true;
+  check((await admin.query("SELECT to_regclass('app.student_analysis_reports') AS reports")).rows[0].reports !== null, "apply migration 010 before running this check");
+  const owner = await actor("teacher"), first = await actor("student"), second = await actor("student");
+  const map = await createMap(owner, "AI 분석 합성 검사 지도"), otherMap = await createMap(owner, "AI 근거 합성 검사 지도");
+  const base = `/api/v1/maps/${map.id}`, reportPath = `${base}/student-analysis`;
+  await admin.query("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'가상 학생 하나')", [map.id, first.principal]);
+  const record = await point(map.id, first), foreign = await point(otherMap.id, owner);
+  check(record.status === "published" && foreign.status === "published", "synthetic points must be published");
+  const body = {
+    expectedVersion: 0, title: "학생이 작성한 합성 분석", analysis: "  제가 근거 기록을 확인하고 직접 작성한 분석입니다.\n공백도 보존합니다. ",
+    proposal: "직접 관찰한 근거를 바탕으로 그늘과 쉴 공간을 늘리는 것을 제안합니다.",
+    reasoning: "AI 제안은 참고 자료이며 이 글은 학생이 직접 판단해 작성한 합성 글입니다.",
+    followUp: "다음 탐험에서 관찰 기록을 다시 확인합니다.", evidenceIds: [record.id], status: "draft",
+  };
+  expect(await api(reportPath, null), 401, "anonymous own-report reading denied");
+  expect(await api(reportPath, second), 403, "nonmember own-report reading denied");
+  expect(await api(reportPath, second, { method: "PUT", body }), 403, "nonmember report write denied");
+  check(expect(await api(reportPath, first), 200, "initial own report") === null, "initial report must be empty");
+  expect(await api(reportPath, first, { method: "PUT", body, headers: { "X-CSRF-Token": "invalid" } }), 403, "invalid CSRF write denied");
+  expect(await api(reportPath, first, { method: "PUT", body, headers: { Origin: "https://example.invalid" } }), 403, "cross-origin write denied");
+  const draftResponse = await api(reportPath, first, { method: "PUT", body });
+  const draft = expect(draftResponse, 200, "save own draft");
+  check(draft.version === 1 && draft.status === "draft" && draft.analysis === body.analysis && draft.evidenceIds[0] === record.id, "draft must preserve student input");
+  check(draftResponse.cache === "private, no-store", "student writing must not be cached publicly");
+  check(expect(await api(reportPath, owner), 200, "teacher own report") === null, "teacher must not receive student writing");
+  expect(await api(reportPath, first, { method: "PUT", body: { ...body, title: "이전 화면의 내용" } }), 409, "stale report write denied", "VERSION_CHANGED");
+  expect(await api(reportPath, first, { method: "PUT", body: { ...body, expectedVersion: 1, evidenceIds: [foreign.id] } }), 409, "other-map evidence denied", "EVIDENCE_UNAVAILABLE");
+  expect(await api(reportPath, first, { method: "PUT", body: { ...body, expectedVersion: 1, status: "final", reasoning: "" } }), 422, "incomplete final writing denied");
+  const final = expect(await api(reportPath, first, { method: "PUT", body: { ...body, expectedVersion: 1, status: "final" } }), 200, "save final student writing");
+  check(final.version === 2 && final.status === "final" && final.analysis === body.analysis, "final writing must preserve input and increment version");
+  await admin.query("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'가상 학생 둘')", [map.id, second.principal]);
+  check(expect(await api(reportPath, second), 200, "other member own report") === null, "other member must not receive first student's writing");
+  const secondReport = expect(await api(reportPath, second, { method: "PUT", body: { ...body, title: "두 번째 학생의 글" } }), 200, "save independent second report");
+  check(secondReport.version === 1 && secondReport.id !== final.id, "student reports must be independent");
+  const reloaded = expect(await api(reportPath, first), 200, "reload first student's final writing");
+  check(reloaded.id === final.id && reloaded.title === body.title && reloaded.version === 2, "another student's save must not alter the first report");
+  const publicStats = expect(await api(`${base}/analysis`, null), 200, "public statistics after private writing");
+  check(publicStats.stats.total === 1 && publicStats.dataRevision === final.dataRevision, "private writing must not change shared source data");
+  const availability = expect(await api(`${base}/ai-suggestions`, first), 200, "AI availability status");
+  check(typeof availability.ready === "boolean", "AI availability shape");
+  summary.aiConfigured = availability.ready;
+  if (process.env.RUN_LIVE_GEMINI === "1") {
+    check(availability.ready, "explicit Gemini test requires a configured service");
+    expect(await api(`${base}/observations/${record.id}/photo`, first, { method: "POST", body: await syntheticParkPhoto(), headers: { "Content-Type": "image/png" } }), 201, "upload synthetic park illustration");
+    const started = Date.now();
+    summary.providerCallSkipped = false;
+    summary.providerRequests = 1;
+    let generated;
+    try {
+      generated = expect(await api(`${base}/ai-suggestions`, first, { method: "POST", body: { filter: {}, photoIds: [record.id], photosConfirmed: true }, timeoutMs: 55000 }), 200, "single Gemini suggestion request");
+    } finally { summary.aiElapsedMs = Date.now() - started; }
+    const keys = ["discoveries", "groups", "perspectives", "questions", "improvements", "photoClues"];
+    check(generated.sections && Object.keys(generated.sections).length === keys.length, "all six AI suggestion sections must exist");
+    summary.sectionCounts = {};
+    for (const key of keys) {
+      const cards = generated.sections[key];
+      check(Array.isArray(cards) && cards.length > 0 && cards.length <= 6, `${key}: bounded nonempty suggestion cards`);
+      summary.sectionCounts[key] = cards.length;
+      for (const card of cards) {
+        check(typeof card.title === "string" && card.title.length > 0 && typeof card.suggestion === "string" && card.suggestion.length > 0 && typeof card.checkQuestion === "string" && card.checkQuestion.length > 0, `${key}: suggestion and student verification question`);
+        check(Array.isArray(card.evidenceIds) && card.evidenceIds.length === 1 && card.evidenceIds[0] === record.id, `${key}: only synthetic source evidence is referenced`);
+        check(key === "photoClues" ? card.photoId === record.id : card.photoId === undefined, `${key}: photo references must match selected synthetic photo`);
+      }
+    }
+    check(typeof generated.model === "string" && /^gemini-[A-Za-z0-9._-]{1,100}$/.test(generated.model), "reported Gemini model name");
+    summary.aiModel = generated.model;
+    check(generated.totalRecords === 1 && generated.analyzedRecords === 1 && generated.photoIds.length === 1 && generated.photoIds[0] === record.id, "AI source counts and chosen photo must match fixture");
+    check(JSON.stringify(expect(await api(reportPath, first), 200, "student writing after AI generation")) === JSON.stringify(final), "AI must not overwrite student's manually written report");
+    check(expect(await api(reportPath, owner), 200, "blank teacher report after AI generation") === null, "AI must not create a final report automatically");
+    check(JSON.stringify(expect(await api(reportPath, second), 200, "other student's report after AI generation")) === JSON.stringify(secondReport), "AI must not modify another student's report");
+  } else if (!availability.ready) {
+    // Configuration is checked before provider invocation; only unavailable deployments are exercised.
+    expect(await api(`${base}/ai-suggestions`, first, { method: "POST", body: { filter: {}, photoIds: [], photosConfirmed: false } }), 503, "unconfigured AI returns setup status");
+  }
+  summary.ok = true;
+  if (process.env.AI_BROWSER_CHECK === "1") {
+    // This is a public synthetic map URL, never a cookie or a login credential.
+    console.log(`${target.base}/?map=${map.id}`);
+    const input = createInterface({ input: process.stdin });
+    try { await input.question(""); }
+    finally { input.close(); }
+  }
+} catch (error) {
+  // Do not print connection strings, cookie tokens, provider keys or database error details.
+  summary.error = error instanceof CheckFailure ? error.message : `Check failed (${error instanceof Error ? error.name : "unknown error"})`;
+} finally {
+  try { await cleanup(); }
+  catch (error) { summary.ok = false; summary.cleanupError = error instanceof CheckFailure ? error.message : "Synthetic fixture cleanup failed"; }
+  try { if (admin) await admin.end(); }
+  catch { summary.ok = false; summary.cleanupError = "Database connection close failed"; }
+  console.log(JSON.stringify(summary));
+  if (!summary.ok) process.exitCode = 1;
+}
