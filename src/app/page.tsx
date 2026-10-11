@@ -4,13 +4,15 @@ import MapOwnerDelete from "@/components/MapOwnerDelete";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import questScene from "@/assets/adventure/neighborhood-quest.webp";
+import explorerFox from "@/assets/adventure/explorer-fox.webp";
 import type {AnalysisData} from "@/components/AnalysisControls";
 import {aggregateRecords,type ObservationFilter} from "@/domain/analysis";
 import {preparePhoto,uploadPreparedPhoto,UploadError} from "@/lib/photo-upload";
 import {draftKey,readDrafts,saveDraft,clearDrafts,type SavedRecordDraft} from "@/lib/record-draft";
 import {pointRating,pointDescription} from "@/domain/point-presentation";
 import {MapDirectory, type DirectoryScope} from "@/components/MapDirectory";
+import {HomeJoinDialog} from "@/components/HomeJoinDialog";
+import {accountRoleLabels} from "@/domain/account";
 import {MapSharingSettings} from "@/components/MapSharingSettings";
 import {MapParticipationJoin} from "@/components/MapParticipationJoin";
 import type {LiveMap} from "@/lib/map-directory";
@@ -164,6 +166,8 @@ export default function HomePage() {
   const bagReturnScreen = useRef<"home" | "workspace">("home");
   const initialNavigationApplied = useRef(false);
   const [directoryScope, setDirectoryScope] = useState<DirectoryScope>("public");
+  const [homeJoinOpen, setHomeJoinOpen] = useState(false);
+  const [homeThemeFilter, setHomeThemeFilter] = useState("");
   const [maps, setMaps] = useState<MapWithSettings[]>(initialMaps);
   const [points, setPoints] = useState<DemoPoint[]>(initialPoints);
   const [activeMapId, setActiveMapId] = useState(initialMaps[0].id);
@@ -398,7 +402,7 @@ export default function HomePage() {
     setDirectoryScope("mine");
     window.requestAnimationFrame(() => {
       const scroller = document.querySelector<HTMLElement>(".home-scroll");
-      const directory = document.getElementById(liveMode ? "map-directory" : "my-maps");
+      const directory = document.getElementById("map-directory");
       if (scroller && directory) scroller.scrollTo({ top: scroller.scrollTop + directory.getBoundingClientRect().top - scroller.getBoundingClientRect().top, behavior: "smooth" });
     });
   }
@@ -552,29 +556,42 @@ export default function HomePage() {
 
   if(liveMode===null)return <main className="boot-screen"><div className="brand"><GameIcon name="compass" size={34}/> 모두의 지도</div>{bootError?<><p role="alert">{bootError}</p><button type="button" className="button button--primary" onClick={()=>{setBootError("");setBootAttempt(value=>value+1);}}>다시 연결</button></>:<p role="status">지도를 불러오고 있어요…</p>}</main>;
 
+  const canCreateFromHome = !liveMode || (liveSession?.kind === "account" && liveSession.accountRole === "teacher" && liveSession.canCreateMap);
+  const homeRoleLabel = !liveMode ? "체험 모드" : liveSession?.accountRole ? accountRoleLabels[liveSession.accountRole] : liveSession?.kind === "guest" ? "참여 중" : liveSession?.kind === "account" ? "가입 완료하기" : "둘러보기";
+
   return <div className="site-shell">
-    <main className="app-frame">
+    <main className={`app-frame${screen === "home" ? " app-frame--home" : ""}`}>
       {screen === "home" && <>
-        <header className="home-header"><div className="brand"><span className="brand__mark"><GameIcon name="compass"/></span><span>모두의 지도<small>우리 동네 탐험대</small></span></div><button className="round-icon adventure-bag" type="button" aria-label="탐험가방 열기" onClick={openBag}><GameIcon name="backpack"/></button></header>
+        <header className="home-header home-header--compact"><div className="brand"><span className="brand__mark"><GameIcon name="compass"/></span><span>모두의 지도<small>우리 동네 탐험대</small></span></div><span className="home-role">{homeRoleLabel}</span></header>
         <div className="home-scroll">
-          <section className="hero adventure-hero"><div className="hero__scene"><Image src={questScene} sizes="(min-width: 460px) 420px, calc(100vw - 36px)" alt="지도를 들고 동네의 공원과 길을 탐험하는 여우" loading="eager" fetchPriority="high"/><span className="scene-badge">🧭 익숙한 동네, 새로운 발견</span></div><div className="hero__launch"><button className="button button--primary button--full" type="button" disabled={!!liveMode&&!!liveSession?.accountRole&&!liveSession.canCreateMap} onClick={openCreate}><GameIcon name="map" size={25}/> 새 탐험지도 만들기 <Icon name="chevron" size={18}/></button><a className="adventure-invite" href="/join"><GameIcon name="key" size={19}/> 초대 코드로 친구들과 합류하기</a></div></section>
-          {liveMode && <div className="auth-banner"><div><strong>{liveSession?.kind === "account" ? "탐험 준비 완료!" : liveSession?.kind === "guest" ? "친구들과 탐험에 참여 중!" : "나만의 탐험지도를 만들어봐요"}</strong><small>{liveSession?.kind === "account"?(liveSession.accountRole==="teacher"?"교사 회원 · 지도를 만들고 탐험을 운영할 수 있어요.":liveSession.accountRole?"참여 회원 · 공개 지도를 둘러보고 기록에 참여할 수 있어요.":"회원 유형을 선택하면 가입이 완료됩니다."):"지도는 누구나 보고, 전체공개는 닉네임으로 기록에 참여해요!"}</small></div><div>{liveSession?.kind === "account" ? <>{!liveSession.accountRole&&<a href="/account/setup?returnTo=%2F">회원 유형 선택</a>}<button type="button" onClick={() => void logout()}>로그아웃</button></> : !liveSession ? <a href="/api/v1/auth/google?returnTo=%2F">Google 로그인</a> : null}</div></div>}
-          {liveMode ? <MapDirectory key={bootAttempt} scope={directoryScope} onScopeChange={setDirectoryScope} signedIn={!!liveSession} onOpen={map => { setMaps(items => [asDemoMap(map), ...items.filter(item => item.id !== map.id)]); openMap(map.id); }} /> : <>
-          <section className="home-section"><div className="section-heading"><div><span className="eyebrow">EXPLORE</span><h2>어떤 지도를 볼까요?</h2></div></div><label className="search-field"><Icon name="search" size={19} /><span className="sr-only">지도 검색</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="지도 이름, 지역, 주제로 찾아요" /></label><div className="map-cards">{visibleMaps.map((map) => <button key={map.id} type="button" className="map-card" onClick={() => openMap(map.id)}><span className={`map-card__art map-card__art--${map.accent}`}><span>{map.coverEmoji}</span><i /><b /></span><span className="map-card__body"><ThemePill themeKey={map.themeKey} /><strong>{map.title}</strong><small>{map.description}</small><span className="map-card__meta"><span><Icon name="pin" size={14} />{map.location}</span><span>{liveMode?"기록 살펴보기":`${points.filter((point) => point.mapId === map.id).length}개의 발견`}</span></span></span><span className="map-card__arrow"><Icon name="chevron" size={19} /></span></button>)}</div>{visibleMaps.length === 0 && <EmptyState emoji="🔎" title="지도를 찾지 못했어요">다른 이름이나 지역으로 검색해 보세요.</EmptyState>}</section>
-          <section className="home-section" id="my-maps"><div className="section-heading"><div><span className="eyebrow">MY MAPS</span><h2>{liveMode ? "내가 참여한 지도" : "내가 만든 지도"}</h2></div></div><div className="my-map-list">{maps.filter((map) => map.isMine).map((map) => <button type="button" key={map.id} onClick={() => openMap(map.id)}><span className="my-map-list__emoji">{map.coverEmoji}</span><span><strong>{map.title}</strong><small>{map.visibility === "invite_only" ? "일부공개 · 인증 후 기록" : "전체공개 · 누구나 기록"} · {themeByKey[map.themeKey].label}</small></span><Icon name="chevron" size={18} /></button>)}</div></section></>}
-          <section className="home-section home-actions" aria-label="더 많은 탐험"><a href="/games" className="button button--full game-entry"><GameIcon name="flag" size={25}/> 탐험게임 · 미션을 찾아 떠나자! <Icon name="chevron" size={18}/></a><a href="/maps/merge" className="button button--light button--full"><GameIcon name="map" size={25}/> 지도 합치기 <Icon name="chevron" size={18}/></a></section>
+          <section className="home-arrival" aria-label="탐험 참여"><div className="home-guide"><Image src={explorerFox} sizes="56px" alt="" loading="eager"/><p>지도를 고르고<br/><strong>발견한 장소를 기록해요.</strong></p></div><button className="button button--primary home-join-trigger" type="button" onClick={()=>setHomeJoinOpen(true)}><GameIcon name="key" size={24}/> 코드로 참여하기 <Icon name="chevron" size={18}/></button></section>
+          {liveMode ? <MapDirectory key={bootAttempt} scope={directoryScope} onScopeChange={setDirectoryScope} signedIn={!!liveSession} onCreate={canCreateFromHome ? openCreate : undefined} onOpen={map => { setMaps(items => [asDemoMap(map), ...items.filter(item => item.id !== map.id)]); openMap(map.id); }} /> : <section id="map-directory" className="home-directory" aria-labelledby="home-directory-heading">
+            <div className="home-directory__heading"><h2 id="home-directory-heading">탐험 지도</h2><button className="home-directory__create" type="button" aria-label="지도 만들기" onClick={openCreate}>＋ 지도 만들기</button></div>
+            <div className="directory-tabs home-directory__tabs" role="tablist" aria-label="탐험 지도 종류">{(["public","mine"] as const).map(scope=><button key={scope} id={`directory-tab-${scope}`} role="tab" aria-selected={directoryScope===scope} aria-controls="directory-panel-demo" tabIndex={directoryScope===scope?0:-1} type="button" onClick={()=>setDirectoryScope(scope)} onKeyDown={event=>{
+              if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+              event.preventDefault();
+              const next=event.key==="Home"?"public":event.key==="End"?"mine":scope==="public"?"mine":"public";
+              setDirectoryScope(next);
+              document.getElementById(`directory-tab-${next}`)?.focus();
+            }}>{scope==="public"?"전체 지도":"참여한 지도"}</button>)}</div>
+            <div className="directory-filters home-directory__filters"><label className="search-field home-directory__search"><Icon name="search" size={19}/><span className="sr-only">지도 검색</span><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="지도 이름·지역 검색"/></label><label className="directory-theme home-directory__theme">탐험 주제<select aria-label="주제" value={homeThemeFilter} onChange={event=>setHomeThemeFilter(event.target.value)}><option value="">모든 주제</option>{themes.map(theme=><option key={theme.key} value={theme.key}>{theme.label}</option>)}</select></label></div>
+            <div className="home-directory__panels"><div id="directory-panel-demo" role="tabpanel" aria-labelledby={`directory-tab-${directoryScope}`} className="home-directory__panel"><div className="directory-scroll home-directory__scroll" role="region" aria-label="탐험 지도 목록" tabIndex={0}><div className="my-map-list home-directory__maps">{visibleMaps.filter(map=>(directoryScope==="public"||map.isMine)&&(!homeThemeFilter||map.themeKey===homeThemeFilter)).map(map=><button key={map.id} type="button" className="home-directory__map" onClick={()=>openMap(map.id)}><span className={`my-map-list__emoji adventure-theme--${map.themeKey}`} aria-hidden="true">{map.coverEmoji}</span><span className="home-directory__map-info"><strong>{map.title}</strong><small>{themeByKey[map.themeKey].label} · {map.location}</small><small>{points.filter(point=>point.mapId===map.id).length}개의 발견</small></span><span className="map-entry-arrow" aria-hidden="true">›</span></button>)}</div></div></div></div>
+          </section>}
+          <section className="home-section home-actions" aria-label="더 많은 탐험"><a href="/games" className="home-shortcut"><GameIcon name="flag" size={27}/><span><strong>탐험게임</strong><small>미션 찾기</small></span><Icon name="chevron" size={18}/></a><a href="/maps/merge" className="home-shortcut"><GameIcon name="map" size={27}/><span><strong>지도 합치기</strong><small>기록 모으기</small></span><Icon name="chevron" size={18}/></a></section>
         </div>
-        <nav className="bottom-nav" aria-label="홈 탐색"><button className="bottom-nav__item bottom-nav__item--active" type="button" onClick={()=>document.querySelector(".home-scroll")?.scrollTo({top:0,behavior:"smooth"})}><span className="nav-equipment"><GameIcon name="compass"/></span><span>탐험 지도</span></button><button className="bottom-nav__item" type="button" aria-label="지도 만들기" onClick={openCreate}><span className="nav-equipment"><GameIcon name="flag"/></span><span>지도 만들기</span></button><button className="bottom-nav__item" type="button" onClick={openBag}><span className="nav-equipment"><GameIcon name="backpack"/></span><span>탐험가방</span></button></nav>
+        <nav className="bottom-nav home-navigation" aria-label="홈 탐색"><button className="bottom-nav__item bottom-nav__item--active" type="button" aria-current="page" onClick={()=>document.getElementById("map-directory")?.scrollIntoView({block:"nearest",behavior:"smooth"})}><span className="nav-equipment"><GameIcon name="compass"/></span><span>탐험 지도</span></button><a className="bottom-nav__item" href="/games"><span className="nav-equipment"><GameIcon name="flag"/></span><span>탐험게임</span></a><button className="bottom-nav__item" type="button" onClick={openBag}><span className="nav-equipment"><GameIcon name="backpack"/></span><span>탐험가방</span></button></nav>
+        <HomeJoinDialog open={homeJoinOpen} onClose={()=>setHomeJoinOpen(false)}/>
       </>}
 
       {screen === "bag" && <>
         <header className="screen-header"><button className="round-icon" type="button" aria-label={bagReturnScreen.current === "workspace" ? "지도로 돌아가기" : "홈으로 돌아가기"} onClick={() => setScreen(bagReturnScreen.current)}><Icon name="arrow" /></button><div><span className="screen-header__overline">🎒 나의 탐험 도구</span><strong>탐험가방</strong></div></header>
         <div className="content-scroll exploration-bag-scroll">
+          {liveMode && <section className="home-account-panel" aria-label="내 계정"><div><strong>{liveSession?.kind === "account" ? `${homeRoleLabel} 계정` : liveSession?.kind === "guest" ? "닉네임으로 참여 중" : "지도를 자유롭게 둘러보세요"}</strong><p>{liveSession?.kind === "account" ? liveSession.accountRole === "teacher" ? "지도를 만들고 탐험게임을 운영할 수 있어요." : liveSession.accountRole ? "참여한 지도에 발견한 장소를 기록할 수 있어요." : "회원 유형을 선택하면 가입이 완료됩니다." : "지도 만들기는 교사 회원으로 로그인해 주세요."}</p></div><div className="home-account-panel__actions">{liveSession?.kind === "account" ? <>{!liveSession.accountRole&&<a href="/account/setup?returnTo=%2F">회원 유형 선택</a>}<button type="button" onClick={()=>void logout()}>로그아웃</button></> : <a href="/api/v1/auth/google?returnTo=%2F">Google 로그인</a>}</div></section>}
           <section className="content-heading"><span className="eyebrow">🎒 탐험가방</span><h1>나의 탐험을 챙겨요</h1><p>참여한 탐험을 찾아보고 삭제한 지도를 복구할 수 있어요.</p></section>
           <section className="exploration-bag-shortcuts"><button className="button button--light button--full" type="button" onClick={showMyExplorations}><GameIcon name="map" size={25}/> 내가 참여한 탐험 보기 <Icon name="chevron" size={18}/></button></section>
-          {liveMode && liveSession?.kind === "account" && liveSession.csrfToken ? <DeletedMaps csrfToken={liveSession.csrfToken} onNotice={notify} onRestored={() => setBootAttempt(value => value + 1)}/> : <section className="exploration-bag-empty"><EmptyState emoji="🗂️" title="삭제한 지도는 로그인 후 볼 수 있어요">지도를 만든 계정으로 로그인하면 복구할 수 있는 지도가 여기에 보여요.</EmptyState>{liveMode && <a className="button button--light button--full" href="/api/v1/auth/google?returnTo=%2F">Google 로그인</a>}</section>}
+          {liveMode && liveSession?.kind === "account" && liveSession.csrfToken ? <DeletedMaps csrfToken={liveSession.csrfToken} onNotice={notify} onRestored={() => setBootAttempt(value => value + 1)}/> : <section className="exploration-bag-empty"><EmptyState emoji="🗂️" title="삭제한 지도는 로그인 후 볼 수 있어요">지도를 만든 계정으로 로그인하면 복구할 수 있는 지도가 여기에 보여요.</EmptyState></section>}
         </div>
-        <nav className="bottom-nav" aria-label="탐험가방 탐색"><button className="bottom-nav__item" type="button" onClick={() => setScreen("home")}><span className="nav-equipment"><GameIcon name="compass"/></span><span>탐험 지도</span></button><button className="bottom-nav__item" type="button" aria-label="지도 만들기" onClick={openCreate}><span className="nav-equipment"><GameIcon name="flag"/></span><span>지도 만들기</span></button><button className="bottom-nav__item bottom-nav__item--active" type="button" aria-current="page"><span className="nav-equipment"><GameIcon name="backpack"/></span><span>탐험가방</span></button></nav>
+        <nav className="bottom-nav home-navigation" aria-label="탐험가방 탐색"><button className="bottom-nav__item" type="button" onClick={() => setScreen("home")}><span className="nav-equipment"><GameIcon name="compass"/></span><span>탐험 지도</span></button><a className="bottom-nav__item" href="/games"><span className="nav-equipment"><GameIcon name="flag"/></span><span>탐험게임</span></a><button className="bottom-nav__item bottom-nav__item--active" type="button" aria-current="page"><span className="nav-equipment"><GameIcon name="backpack"/></span><span>탐험가방</span></button></nav>
       </>}
 
       {screen === "create" && <>

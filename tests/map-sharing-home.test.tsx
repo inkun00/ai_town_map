@@ -21,11 +21,11 @@ let root:Root;
 const fetchSpy=vi.fn();
 function response(data:unknown){return {ok:true,json:async()=>({data})};}
 function text(node:Element){const clone=node.cloneNode(true) as Element;clone.querySelectorAll("[aria-hidden='true']").forEach(el=>el.remove());return clone.textContent?.trim();}
-function button(label:string){const found=[...container.querySelectorAll<HTMLButtonElement>("button")].find(el=>el.getAttribute("aria-label")===label||text(el)===label);if(!found)throw new Error(`Missing button ${label}`);return found;}
-async function click(label:string){await act(async()=>button(label).click());}
+function button(label:string,scope:ParentNode=container){const found=[...scope.querySelectorAll<HTMLButtonElement>("button")].find(el=>el.getAttribute("aria-label")===label||text(el)===label);if(!found)throw new Error(`Missing button ${label}`);return found;}
+async function click(label:string,scope:ParentNode=container){await act(async()=>button(label,scope).click());}
 async function fill(input:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,value);input.dispatchEvent(new Event("input",{bubbles:true}));});}
 async function mount(direct=false){window.history.replaceState(null,"",direct?`/?map=${map.id}`:"/");await act(async()=>root.render(<HomePage/>));}
-async function finalStep(){await mount();await click("지도 만들기");await act(async()=>container.querySelector<HTMLButtonElement>(".theme-card.adventure-theme--ecology")!.click());await click("다음으로");await fill(container.querySelector<HTMLInputElement>("input[placeholder='예: 우리 동네 모두의 길']")!,"새 공유 지도");await fill(container.querySelector<HTMLInputElement>("input[placeholder='예: 군산시 수송동']")!,"우리 동네");await click("다음으로");await click("다음으로");expect(container.querySelector("input[type='password']")).toBeNull();await click("다음으로");}
+async function finalStep(){await mount();await click("지도 만들기",container.querySelector("#map-directory")!);await act(async()=>container.querySelector<HTMLButtonElement>(".theme-card.adventure-theme--ecology")!.click());await click("다음으로");await fill(container.querySelector<HTMLInputElement>("input[placeholder='예: 우리 동네 모두의 길']")!,"새 공유 지도");await fill(container.querySelector<HTMLInputElement>("input[placeholder='예: 군산시 수송동']")!,"우리 동네");await click("다음으로");await click("다음으로");expect(container.querySelector("input[type='password']")).toBeNull();await click("다음으로");}
 function creation(){return fetchSpy.mock.calls.find(([url,init])=>url==="/api/v1/maps"&&init?.method==="POST");}
 
 beforeEach(()=>{

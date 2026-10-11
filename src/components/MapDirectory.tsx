@@ -6,7 +6,14 @@ import { MapPager, mapListUrl, type LiveMap, type PageState } from "@/lib/map-di
 
 const symbols = { ecology: "🌳", safety: "🚸", universal_design: "♿", weather_life: "☀️", custom: "✨" };
 export type DirectoryScope = "public" | "mine";
-const scopeTitles = { public: "함께 떠날 탐험 지도", mine: "내가 참여한 탐험" };
+const scopeTitles = { public: "전체 지도", mine: "참여한 지도" };
+
+function contributionLabel(map: LiveMap) {
+  if (map.status === "archived") return "보관 중 · 보기만 가능";
+  if (map.participation === "closed") return "등록 마감";
+  if (map.participation === "admin_only") return "관리자만 기록";
+  return map.visibility === "invite_only" ? "인증 후 기록 가능" : "누구나 기록 가능";
+}
 
 function DirectorySection({ scope, active, query, themeKey, onOpen }: {
   scope: DirectoryScope; active: boolean; query: string; themeKey: string; onOpen: (map: LiveMap) => void;
@@ -27,13 +34,13 @@ function DirectorySection({ scope, active, query, themeKey, onOpen }: {
     return () => current.dispose();
   }, [scope, query, themeKey]);
 
-  const title = scope === "public" ? "공개 지도" : "내가 참여한 지도";
-  return <div id={`directory-panel-${scope}`} role="tabpanel" aria-labelledby={`directory-tab-${scope}`} hidden={!active}>
-    <div className="directory-scroll" role="region" aria-label={`${scopeTitles[scope]} 목록`} tabIndex={0}>
-    <div className="my-map-list" aria-busy={page.busy}>
-      {page.items.map(map => <button type="button" key={map.id} onClick={() => onOpen(map)}>
+  const title = scopeTitles[scope];
+  return <div className="home-directory__panel" id={`directory-panel-${scope}`} role="tabpanel" aria-labelledby={`directory-tab-${scope}`} hidden={!active}>
+    <div className="directory-scroll home-directory__scroll" role="region" aria-label={`${scopeTitles[scope]} 목록`} tabIndex={0}>
+    <div className="my-map-list home-directory__maps" aria-busy={page.busy}>
+      {page.items.map(map => <button className="home-directory__map" type="button" key={map.id} onClick={() => onOpen(map)}>
         <span className={`my-map-list__emoji adventure-theme--${map.themeKey}`} aria-hidden="true">{symbols[map.themeKey]}</span>
-        <span><strong>{map.title}</strong><small>{themeByKey[map.themeKey].label} · {map.location}</small><small>{map.status === "archived" ? "보관 중 · " : ""}{map.visibility === "invite_only" ? "일부공개 · 인증 후 기록" : "전체공개 · 누구나 기록"}</small></span>
+        <span className="home-directory__map-info"><strong>{map.title}</strong><small>{themeByKey[map.themeKey].label} · {map.location}</small><small className="home-directory__permission" data-registration={map.status === "archived" ? "archived" : map.participation}>{contributionLabel(map)}</small></span>
         <span className="map-entry-arrow" aria-hidden="true">›</span>
       </button>)}
     </div>
@@ -44,19 +51,14 @@ function DirectorySection({ scope, active, query, themeKey, onOpen }: {
   </div>;
 }
 
-export function MapDirectory({ signedIn, scope, onScopeChange, onOpen }: { signedIn: boolean; scope: DirectoryScope; onScopeChange: (scope: DirectoryScope) => void; onOpen: (map: LiveMap) => void }) {
+export function MapDirectory({ signedIn, scope, onScopeChange, onOpen, onCreate }: { signedIn: boolean; scope: DirectoryScope; onScopeChange: (scope: DirectoryScope) => void; onOpen: (map: LiveMap) => void; onCreate?: () => void }) {
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
   const [theme, setTheme] = useState("");
   useEffect(() => { const timer = setTimeout(() => setQuery(input.trim()), 300); return () => clearTimeout(timer); }, [input]);
-  return <div id="map-directory">
-    <section className="home-section directory-filters" aria-label="지도 검색 조건">
-      <label className="search-field"><span aria-hidden="true">🔎</span><span className="sr-only">지도 검색</span><input maxLength={100} value={input} onChange={event => setInput(event.target.value)} placeholder="어디로 탐험을 떠날까요?" /></label>
-      <label className="directory-theme">탐험 주제<select aria-label="주제" value={theme} onChange={event => setTheme(event.target.value)}><option value="">모든 주제</option>{themes.map(item => <option key={item.key} value={item.key}>{symbols[item.key]} {item.label}</option>)}</select></label>
-      <p className="directory-status">지도 이름이나 지역으로 탐험할 곳을 찾아요.</p>
-    </section>
-    <section className="home-section map-directory-section" aria-label="탐험 지도 목록">
-      <div className="directory-tabs" role="tablist" aria-label="탐험 지도 종류">
+  return <section id="map-directory" className="home-directory" aria-labelledby="home-directory-heading">
+    <div className="home-directory__heading"><h2 id="home-directory-heading">탐험 지도</h2>{onCreate && <button className="home-directory__create" type="button" aria-label="지도 만들기" onClick={onCreate}><span aria-hidden="true">＋</span> 지도 만들기</button>}</div>
+      <div className="directory-tabs home-directory__tabs" role="tablist" aria-label="탐험 지도 종류">
         {(["public", "mine"] as const).map(item => <button key={item} type="button" id={`directory-tab-${item}`} role="tab" aria-selected={scope === item} aria-controls={`directory-panel-${item}`} tabIndex={scope === item ? 0 : -1} onClick={() => onScopeChange(item)} onKeyDown={event => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
@@ -65,9 +67,13 @@ export function MapDirectory({ signedIn, scope, onScopeChange, onOpen }: { signe
           document.getElementById(`directory-tab-${next}`)?.focus();
         }}>{scopeTitles[item]}</button>)}
       </div>
-      <div className="section-heading"><div><span className="eyebrow">{scope === "public" ? "🧭 새로운 탐험을 찾아서" : "🎒 나의 탐험 일지"}</span><h2>{scopeTitles[scope]}</h2></div><span className="section-stamp" aria-hidden="true">{scope === "public" ? "MAP" : "MY"}</span></div>
+    <div className="directory-filters home-directory__filters" role="group" aria-label="지도 검색 조건">
+      <label className="search-field home-directory__search"><span aria-hidden="true">🔎</span><span className="sr-only">지도 검색</span><input maxLength={100} value={input} onChange={event => setInput(event.target.value)} placeholder="지도 이름·지역 검색" /></label>
+      <label className="directory-theme home-directory__theme"><span className="sr-only">탐험 주제</span><select aria-label="주제" value={theme} onChange={event => setTheme(event.target.value)}><option value="">모든 주제</option>{themes.map(item => <option key={item.key} value={item.key}>{symbols[item.key]} {item.label}</option>)}</select></label>
+    </div>
+    <div className="map-directory-section home-directory__panels" aria-label="탐험 지도 목록">
       <DirectorySection key={`public:${query}:${theme}`} scope="public" active={scope === "public"} query={query} themeKey={theme} onOpen={onOpen} />
-      {signedIn ? <DirectorySection key={`mine:${query}:${theme}`} scope="mine" active={scope === "mine"} query={query} themeKey={theme} onOpen={onOpen} /> : <div id="directory-panel-mine" role="tabpanel" aria-labelledby="directory-tab-mine" hidden={scope !== "mine"}><div className="directory-scroll" role="region" aria-label="내가 참여한 탐험 목록" tabIndex={0}><p>로그인하거나 <a href="/join">초대 코드로 참여</a>해 주세요.</p></div></div>}
-    </section>
-  </div>;
+      {signedIn ? <DirectorySection key={`mine:${query}:${theme}`} scope="mine" active={scope === "mine"} query={query} themeKey={theme} onOpen={onOpen} /> : <div className="home-directory__panel" id="directory-panel-mine" role="tabpanel" aria-labelledby="directory-tab-mine" hidden={scope !== "mine"}><div className="directory-scroll home-directory__scroll home-directory__empty" role="region" aria-label="참여한 지도 목록" tabIndex={0}><p>전체공개 지도에서 닉네임을 정해 기록에 참여하면 여기에 보여요.</p><p>일부공개 지도는 비밀번호나 교사 인증코드로 참여해요.</p><button className="home-directory__browse" type="button" onClick={() => onScopeChange("public")}>전체 지도 보기</button><a href="/join">지도 인증코드로 참여</a></div></div>}
+    </div>
+  </section>;
 }

@@ -1,0 +1,71 @@
+/* Home-only layout: keep the map workspace's observation colors and controls intact. */
+.home-header--compact { height: calc(64px + env(safe-area-inset-top)); padding: calc(10px + env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid var(--line); }
+.home-header--compact .brand { font-size: 20px; }
+.home-header--compact .brand__mark { width: 36px; height: 36px; box-shadow: 0 2px 0 var(--game-edge); }
+.home-header--compact .brand small { font-size: 11px; }
+.home-role { flex: none; padding: 7px 9px; border-radius: 10px; background: #edf3e7; color: #365e55; font-size: 12px; font-weight: 700; }
+.app-frame--home .home-scroll { display: flex; flex-direction: column; gap: 14px; padding: 12px 16px 16px; background-image: none; }
+.home-arrival { flex: none; display: grid; gap: 8px; }
+.home-guide { display: flex; align-items: center; gap: 12px; min-height: 56px; }
+.home-guide img { flex: none; width: 56px; height: 56px; object-fit: contain; }
+.home-guide p { margin: 0; color: #526b63; font-size: 14px; line-height: 1.5; }
+.home-guide strong { color: var(--ink); font-weight: 700; }
+.home-join-trigger.button { width: 100%; min-height: 48px; padding: 10px 14px; border-width: 1.5px; border-radius: 14px; box-shadow: 0 2px 0 var(--game-edge); font-size: 16px; }
+.home-join-trigger>svg:last-child { margin-left: auto; }
+.home-directory { display: flex; flex: none; flex-direction: column; gap: 8px; min-width: 0; scroll-margin: 8px; }
+.home-directory__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.home-directory__heading h2 { margin: 0; font-size: 21px; line-height: 1.4; letter-spacing: -.04em; }
+.home-directory__create { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; min-height: 48px; padding: 8px 10px; background: #edf3e7; color: #245c50; border: 1px solid #b9cbb9; border-radius: 12px; font-size: 14px; font-weight: 700; }
+.home-directory__create:hover { background: #dfebd8; }
+.home-directory .home-directory__tabs { margin: 0; padding: 3px; gap: 4px; border: 1px solid #c8d3c2; border-radius: 13px; background: #edf3e7; }
+.home-directory__tabs button { min-height: 48px; padding: 8px; font-size: 15px; border: 0; }
+.home-directory__tabs button[aria-selected="true"] { background: #fffdf4; color: #205e53; box-shadow: 0 1px 3px #253d4c1c; }
+.home-directory .home-directory__filters { display: grid; gap: 8px; padding: 0; }
+.home-directory .home-directory__search { min-height: 48px; height: auto; padding: 0 12px; margin: 0; box-shadow: none; border: 1px solid #bac8bc; border-radius: 12px; }
+.home-directory__search input { min-height: 46px; font-size: 16px; }
+.home-directory .home-directory__theme { min-height: 48px; margin: 0; gap: 10px; color: #48605b; font-size: 14px; }
+.home-directory__theme select { min-height: 48px; padding: 8px 12px; background: #fff; border: 1px solid #bac8bc; font-size: 16px; }
+.home-directory .home-directory__panels { padding: 0; min-width: 0; }
+.home-directory__panel { min-width: 0; }
+.home-directory .home-directory__scroll { height: 240px; padding: 2px 5px 5px 2px; overscroll-behavior-y: auto; scrollbar-gutter: stable; border-radius: 12px; }
+.home-directory .home-directory__maps { gap: 8px; }
+.home-directory .home-directory__map { min-height: 94px; padding: 10px; gap: 10px; border: 1px solid #c2d1c1; border-radius: 14px; box-shadow: none; background: #fffef8; }
+.home-directory__map .my-map-list__emoji { width: 44px; height: 48px; border: 0; border-radius: 12px; transform: none; box-shadow: none; font-size: 26px; }
+.home-directory__map-info { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.home-directory__map-info strong { font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; }
+.home-directory__map-info small { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.home-directory__map-info .home-directory__permission { color: #356d58; font-size: 13px; }
+.home-directory__permission[data-registration="closed"], .home-directory__permission[data-registration="archived"] { color: #697169; }
+.home-directory__map .map-entry-arrow { width: 22px; height: 30px; border: 0; background: transparent; }
+.home-directory .directory-status { margin: 10px 0 0; font-size: 13px; line-height: 1.5; }
+.home-directory__empty { padding: 18px 14px !important; border: 1px dashed #c2d1c1; background: #f1f5e9; }
+.home-directory__empty p { font-size: 14px; line-height: 1.6; }
+.home-directory__empty a { display: inline-flex; align-items: center; min-height: 48px; padding: 8px; margin-left: 4px; color: #245c50; font-size: 14px; }
+.home-directory__browse { min-height: 48px; padding: 8px 14px; border: 1px solid #b9cbb9; border-radius: 12px; background: #fffef8; color: #245c50; font-size: 14px; font-weight: 700; }
+.app-frame--home .home-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0; }
+.home-shortcut { display: flex; align-items: center; gap: 8px; min-height: 72px; padding: 10px; border: 1px solid #c2d1c1; border-radius: 14px; background: #edf3e7; color: var(--ink); text-decoration: none; }
+.home-shortcut>svg { flex: none; }
+.home-shortcut>span { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.home-shortcut strong { font-size: 15px; line-height: 1.4; }
+.home-shortcut small { font-size: 12px; line-height: 1.5; color: #536b62; }
+.home-shortcut>svg:last-child { width: 14px; }
+.home-shortcut:hover { background: #e1edd9; border-color: #6f9f85; }
+.home-navigation { height: calc(72px + env(safe-area-inset-bottom)); padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid #bcccba; background: #fff9e7; box-shadow: none; }
+.home-navigation .bottom-nav__item { min-height: 60px; gap: 3px; font-size: 13px; text-decoration: none; background: transparent; }
+.home-navigation .nav-equipment { width: 34px; height: 34px; border: 0; background: transparent; box-shadow: none; transform: none; }
+.home-navigation .bottom-nav__item--active .nav-equipment { background: #f7d574; border: 0; box-shadow: none; transform: none; }
+.home-account-panel { margin-top: 16px; padding: 16px; background: #edf3e7; border: 1px solid #c2d1c1; border-radius: 16px; }
+.home-account-panel strong { font-size: 16px; }
+.home-account-panel p { margin: 8px 0 12px; font-size: 14px; line-height: 1.6; color: #526b63; }
+.home-account-panel__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.home-account-panel__actions a, .home-account-panel__actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 10px 14px; border: 1px solid #bac8bc; border-radius: 12px; background: #fffef8; color: #245c50; font-size: 14px; font-weight: 700; text-decoration: none; }
+@media (max-width: 359px) {
+  .app-frame--home .home-scroll { padding-left: 12px; padding-right: 12px; }
+  .home-header--compact { padding-left: 12px; padding-right: 12px; }
+  .home-header--compact .brand { gap: 7px; font-size: 18px; }
+  .home-role { font-size: 11px; padding: 6px; }
+  .home-shortcut { gap: 6px; padding: 9px 7px; }
+  .home-shortcut>svg:first-child { width: 23px; }
+  .home-shortcut>svg:last-child { display: none; }
+  .home-shortcut strong { font-size: 14px; }
+}
