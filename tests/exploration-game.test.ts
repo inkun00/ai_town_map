@@ -16,7 +16,7 @@ import {registrationSchema} from "../src/domain/account";
 import {createMap,createMapSchema} from "../src/server/services/maps";
 import {deleteMap,restoreMap} from "../src/server/services/operations";
 const session=(id:string,kind:AppSession["kind"]="account"):AppSession=>({id:randomUUID(),principalId:id,kind,csrfHash:Buffer.alloc(32),expiresAt:new Date(Date.now()+86400000)});
-beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql", "007_account_roles_game_deletion.sql","008_map_participation_passwords.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));},30000);
+beforeAll(async()=>{db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql", "007_account_roles_game_deletion.sql","008_map_participation_passwords.sql","009_student_identifiers.sql"])await db.exec(await readFile(`db/migrations/${name}`,"utf8"));},30000);
 afterAll(async()=>{await db.close();});
 describe("registration, teacher-only creation and owner deletion",()=>{
  it("registers an account once, rejects guest roles and ignores forged session roles",async()=>{

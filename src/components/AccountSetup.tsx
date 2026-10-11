@@ -33,7 +33,7 @@ export default function AccountSetup({returnTo}:{returnTo:string}){
       <GameMessage error={error||sessionError||(csrfMissing?"현재 참여 정보를 확인하지 못했어요. 페이지를 새로고침한 뒤 다시 시도해 주세요.":"")}/>
       {!ready&&!sessionError?<p role="status">회원 정보를 확인하고 있어요…</p>:ready&&session?.kind!=="account"?<div className="account-setup-entry">
         {signupRoles.map(item=><a key={item} className={`account-auth__rolechoice account-auth__rolechoice--${item}`} aria-label={`${accountRoleLabels[item]}${item==="teacher"?"로":"으로"} Google 회원가입`} href={`/api/v1/auth/google?role=${item}&returnTo=${encodeURIComponent(returnTo)}`}><span className="account-auth__role-emoji" aria-hidden="true">{item==="teacher"?"👩‍🏫":"🎒"}</span><span><strong>{accountRoleLabels[item]}{item==="teacher"?"로":"으로"} Google 회원가입</strong><small>{roleDescriptions[item]}</small></span><span aria-hidden="true">›</span></a>)}
-        <a className="button button--light" href={`/account/register?returnTo=${encodeURIComponent(returnTo)}`}>학생 이메일로 가입</a>
+        <a className="button button--light" href={`/account/register?returnTo=${encodeURIComponent(returnTo)}`}>학생 아이디로 가입</a>
       </div>:ready&&session?.accountRole?<><p className="game-tip">{accountRoleLabels[session.accountRole]}{session.accountRole==="teacher"?"로":"으로"} 가입되어 있어요. 가입한 회원 유형은 이 화면에서 변경할 수 없습니다.</p><a className="button button--primary" href={returnTo}>돌아가기</a></>:ready&&session?.kind==="account"?<form onSubmit={submit}>
         <fieldset disabled={busy||!canRegister}>
           <legend>회원 유형</legend>

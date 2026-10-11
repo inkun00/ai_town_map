@@ -37,7 +37,7 @@ const session = (id: string, kind: AppSession["kind"] = "account"): AppSession =
 beforeAll(async () => {
   db = new PGlite();
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for (const name of ["001_core.sql", "002_observations.sql", "003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql"]) await db.exec(await readFile(`db/migrations/${name}`, "utf8"));
+  for (const name of ["001_core.sql", "002_observations.sql", "003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql","009_student_identifiers.sql"]) await db.exec(await readFile(`db/migrations/${name}`, "utf8"));
   for (const source of ["docs/contracts/theme-presets-v1.json", "docs/contracts/theme-presets.json"]) {
     const themes = JSON.parse(await readFile(source, "utf8")), theme = themes.templates.find((item: { key: string }) => item.key === "custom");
     await execute("INSERT INTO app.theme_templates(theme_key,version,definition) VALUES($1,$2,$3)", [theme.key, theme.version, JSON.stringify(theme)]);

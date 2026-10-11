@@ -15,7 +15,7 @@
 모든 요청에서 `세션 → principal 상태 → 지도 존재·상태 → membership → 기능 설정 → 콘텐츠 상태·작성자 → 입력값` 순서로 검사한다. 서버가 읽은 membership을 기준으로 하고 body의 actor/role/mapId를 신뢰하지 않는다.
 
 - `owner`: maps.owner_principal_id와 현재 계정 principal 일치.
-- `admin`: active membership.role=admin이며 Google 계정 principal.
+- `admin`: active membership.role=admin이며 account principal.
 - `participant`: active membership, account 또는 guest.
 - `visitor`: 세션이 없거나 해당 지도의 membership이 없는 사람. Google 로그인만으로 참여 권한을 얻지 않는다.
 - 해당 지도에서 blocked/left인 identity는 초대로 자동 복구하지 않는다. 차단된 사용자의 공개 지도 읽기는 방문자와 동일하며 쓰기는 금지한다. 로그아웃으로 공개 읽기를 막을 수 있다고 주장하지 않는다.
@@ -120,9 +120,10 @@ canReadAttachment(actor, map, membership, parentObservation)
 ## 2026-10-02 회원 유형과 지도 삭제
 
 - Google 회원가입에서는 교사(`teacher`)와 학생(`student`)을 구분해 선택한다. 선택 유형은 서명된 OAuth 쿠키에 보관하고 Google 계정 확인 후 신규 계정이나 아직 유형을 설정하지 않은 계정의 `principals.account_role`에 저장한다. 일반 Google 로그인으로 처음 들어온 계정은 교사·학생 선택 화면을 안내한다. 기존 교사·학생·일반회원(`member`)의 유형은 가입 버튼이나 콜백 쿼리로 변경하지 않는다. 게스트에는 회원 유형을 부여할 수 없다.
-- 학생 이메일 가입은 회원 유형을 입력받지 않고 서버에서 `student`로 예약한다. Supabase가 실제 이메일 identity를 반환한 신규 가입만 예약하며, 중복 가입의 빈 identities 응답으로 가상 계정을 만들지 않는다. 확인 전 역할 예약은 이메일 소유권 확인을 뜻하지 않으며, 새 교사 이메일이 학생으로 먼저 예약되면 이후 Google 가입에서도 학생 유형이 유지될 수 있다. 기존 교사·일반회원 역할은 덮어쓰지 않는다.
-- 이메일 로그인은 Supabase 비밀번호 인증 뒤 서버 `getUser`로 확인된 이메일 identity와 `email_confirmed_at`, 앱 계정 활성 상태와 학생 역할을 검사한다. 확인되지 않은 이메일, 차단 계정, 교사·일반회원의 학생 이메일 로그인은 앱 세션을 발급하지 않는다. 학생에게는 지도 생성 권한을 주지 않는다.
-- 확인 메일 콜백은 공급자 토큰·code를 다음 화면에 전달하거나 앱 세션을 만들지 않는다. 이메일 인증 요청은 동일 origin·JSON·요청 제한을 적용하고, 기존 닉네임/계정 세션이 있다면 CSRF도 확인한다. 비밀번호·공급자 토큰은 URL, 브라우저 저장소, 응답에 포함하지 않는다.
+- 학생 아이디 가입은 이메일 형식만 검사하고 실제 메일함·확인 메일을 요구하지 않는다. `/api/v1/auth/student`는 회원 유형을 입력받지 않으며 별도의 `auth_source=student_id` 계정과 앱 세션을 즉시 만든다. DB 제약으로 `account_role=student`, `auth_user_id=NULL`을 강제한다. 같은 문자열의 Google·인증 이메일 계정과 연결하거나 기존 계정의 역할을 덮어쓰지 않는다.
+- 학생 아이디는 공백 제거·소문자로 정규화해 중복을 거부한다. 비밀번호는 무작위 32바이트 salt와 비동기 scrypt(N=32768,r=8,p=3)로 해시하여 RLS가 설정된 서버 전용 `app_private.student_credentials`에 저장한다. 로그인 시 해시와 계정의 활성 상태·인증 출처·학생 유형을 검사한다. 인증 실패 시 기존 세션을 유지한다. 요청은 IP별로 제한하고 로그인 실패는 IP와 아이디 조합별로 제한한다.
+- 기존 이메일 인증 학생은 별도 이메일 로그인 경로를 사용한다. 이 경로는 Supabase 비밀번호 인증 뒤 서버 `getUser`로 확인된 이메일 identity와 `email_confirmed_at`, 앱 계정 활성 상태와 학생 역할을 검사한다. 확인되지 않은 이메일, 차단 계정, 교사·일반회원에는 앱 세션을 발급하지 않는다. 학생에게는 지도 생성 권한을 주지 않는다.
+- 확인 메일 콜백은 공급자 토큰·code를 다음 화면에 전달하거나 앱 세션을 만들지 않는다. 학생 아이디·이메일 인증 요청은 동일 origin·JSON·요청 제한을 적용하고, 기존 닉네임/계정 세션이 있다면 CSRF도 확인한다. 비밀번호·공급자 토큰은 URL, 브라우저 저장소, 응답에 포함하지 않는다.
 - 회원가입은 회원 본인이 유형을 선택하는 방식이며 별도의 교사 자격 검증 절차는 추가하지 않았다. 역할 설정 API는 CSRF·세션·활성 계정을 검사하고, 이미 가입된 역할의 임의 변경을 거부한다.
 - 일반 지도·탐험게임맵 생성은 서버가 읽은 `teacher` 유형만 허용한다. 게임맵 제작·방 생성에는 원본 지도 관리 권한도 필요하다. 클라이언트가 보낸 역할이나 지도별 admin 역할만으로 생성 제한을 우회할 수 없다.
 - 일반 지도 삭제는 `owner_principal_id`, 게임맵 삭제는 `created_by`와 현재 principal이 같은 사람만 가능하다. 지도별 관리자로 위임된 다른 교사는 삭제할 수 없다. 기존 계정도 자신의 지도 삭제·복구는 가능하다.

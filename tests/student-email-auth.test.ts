@@ -40,7 +40,7 @@ const count = async (table: string) => (await execute(`SELECT count(*)::int AS c
 
 beforeAll(async () => {
   db = new PGlite(); await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for (const name of ["001_core.sql", "002_observations.sql", "003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql"]) await db.exec(await readFile(`db/migrations/${name}`, "utf8"));
+  for (const name of ["001_core.sql", "002_observations.sql", "003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql","009_student_identifiers.sql"]) await db.exec(await readFile(`db/migrations/${name}`, "utf8"));
 }, 30000);
 afterAll(async () => db.close());
 beforeEach(() => {
