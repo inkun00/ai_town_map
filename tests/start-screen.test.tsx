@@ -46,9 +46,9 @@ describe("anonymous start screen and preserved entry routes",()=>{
   it("shows only login, registration, and account-free entry after session lookup",async()=>{
     await mount();
     expect([...container.querySelectorAll("a,button")].map(readableText)).toEqual(["로그인","회원가입","계정 없이 시작"]);
-    expect(container.querySelector("a[href='/api/v1/auth/google?returnTo=%2F']")).not.toBeNull();
+    expect(container.querySelector("a[href='/account/login?returnTo=%2F']")).not.toBeNull();
     const signup=[...container.querySelectorAll<HTMLAnchorElement>("a")].find(item=>readableText(item)==="회원가입");
-    expect(signup?.getAttribute("href")).toBe(`/api/v1/auth/google?returnTo=${encodeURIComponent("/account/setup?returnTo=%2F")}`);
+    expect(signup?.getAttribute("href")).toBe("/account/register?returnTo=%2F");
     expect(container.querySelector("img")?.getAttribute("src")).toContain("neighborhood-quest");
     expect(container.querySelector("#map-directory,nav[aria-label='홈 탐색']")).toBeNull();
     expect(sessionStorage.getItem(startChoice)).toBeNull();expect(sessionWrites()).toHaveLength(0);

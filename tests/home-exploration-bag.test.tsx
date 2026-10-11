@@ -137,8 +137,8 @@ describe("home actions and exploration bag navigation",()=>{
       expect(account.querySelector("a[href^='/api/v1/auth/google']")).toBeNull();
       expect(!!account.querySelector("a[href='/account/setup?returnTo=%2F']")).toBe(current.accountRole===null);
     }else{
-      expect(account.querySelector("a[href^='/api/v1/auth/google']")).not.toBeNull();
-      expect(container.querySelectorAll("a[href^='/api/v1/auth/google']")).toHaveLength(1);
+      expect(account.querySelector("a[href='/account/login?returnTo=%2F']")).not.toBeNull();
+      expect(container.querySelectorAll("a[href='/account/login?returnTo=%2F']")).toHaveLength(1);
     }
   });
 
@@ -196,7 +196,7 @@ describe("home actions and exploration bag navigation",()=>{
     for(const current of [null,{...teacher,kind:"guest" as const,accountRole:null,canCreateMap:false,csrfToken:null}]){
       session=current;await mount();await click("탐험가방",homeDock());
       expect(bagHeader()).toBe("탐험가방");expect(container.querySelector("[aria-label='삭제한 지도']")).toBeNull();expect(deletedGets()).toHaveLength(0);
-      expect(container.textContent).toContain("삭제한 지도는 로그인 후 볼 수 있어요");expect(container.querySelector("a[href^='/api/v1/auth/google']")).not.toBeNull();
+      expect(container.textContent).toContain("삭제한 지도는 로그인 후 볼 수 있어요");expect(container.querySelector("a[href='/account/login?returnTo=%2F']")).not.toBeNull();
       await act(async()=>root.unmount());root=createRoot(container);
     }
   });

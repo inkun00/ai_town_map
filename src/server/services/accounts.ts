@@ -16,9 +16,20 @@ export async function requireTeacher(client:PoolClient,session:AppSession){
 export async function registerAccount(session:AppSession,role:AccountRole){
   return withTransaction(async client=>{
     const r=await client.query<{account_role:AccountRole|null}>("SELECT account_role FROM app.principals WHERE id=$1 AND kind='account' AND status='active' FOR UPDATE",[session.principalId]);
-    const p=r.rows[0];if(!p||session.kind!=="account")throw new ApiError(403,"ACCOUNT_REQUIRED","회원가입에는 Google 로그인이 필요합니다.");
+    const p=r.rows[0];if(!p||session.kind!=="account")throw new ApiError(403,"ACCOUNT_REQUIRED","회원가입에는 계정 로그인이 필요합니다.");
     if(p.account_role&&p.account_role!==role)throw new ApiError(409,"ROLE_ALREADY_SET","가입할 때 선택한 회원 유형은 이 화면에서 변경할 수 없습니다.");
     if(!p.account_role)await client.query("UPDATE app.principals SET account_role=$2 WHERE id=$1",[session.principalId,role]);
     return {accountRole:role,canCreateMap:role==="teacher"};
   });
+}
+
+/** Reserve the student role before any session/OAuth account setup can select another role. */
+export async function studentEmailPrincipal(client:PoolClient,authUserId:string){
+  const result=await client.query<{id:string;status:string;account_role:AccountRole}>(`INSERT INTO app.principals(kind,auth_user_id,account_role)
+    VALUES('account',$1,'student') ON CONFLICT(auth_user_id) DO UPDATE
+    SET account_role=coalesce(app.principals.account_role,'student') RETURNING id,status,account_role`,[authUserId]);
+  const principal=result.rows[0];
+  if(principal.status!=="active")throw new ApiError(403,"ACCOUNT_BLOCKED","이 계정은 사용할 수 없습니다.");
+  if(principal.account_role!=="student")throw new ApiError(403,"STUDENT_EMAIL_ONLY","이메일 가입과 로그인은 학생용입니다. 기존 교사·일반회원 계정은 Google 로그인을 이용해 주세요.");
+  return principal;
 }

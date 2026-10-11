@@ -9,6 +9,15 @@ export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const origin = getServerConfig().appOrigin;
+  if(request.nextUrl.searchParams.get("email_confirm")==="1"){
+    const failed=request.nextUrl.searchParams.has("error")||request.nextUrl.searchParams.has("error_code");
+    // The email link only confirms the Supabase email. Login requires password verification afterwards.
+    // An explicit empty fragment prevents the browser from inheriting any provider tokens from the source URL.
+    const response=NextResponse.redirect(new URL(`/account/login?${failed?"emailError=1":"confirmed=1"}#`,origin));
+    response.headers.set("Cache-Control","no-store");
+    response.headers.set("Referrer-Policy","no-referrer");
+    return response;
+  }
   try {
     const { authUserId, returnTo } = await finishGoogleOAuth(request);
     const old = await getSession(request);
