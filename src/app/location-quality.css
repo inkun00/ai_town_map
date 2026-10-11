@@ -1,0 +1,56 @@
+.map-location-messages {
+  position:absolute;
+  left:12px;
+  right:12px;
+  bottom:32px;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-height:calc(100% - 100px);
+  pointer-events:none;
+}
+.map-location-messages--viewing { bottom:82px; max-height:calc(100% - 160px); }
+.map-location-messages > .kakao-map-error {
+  position:static;
+  flex:0 1 auto;
+  min-height:44px;
+  margin:0;
+  overflow:auto;
+  pointer-events:auto;
+}
+.map-location-quality {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:3px 9px;
+  padding:8px 11px;
+  border:1px solid #bdcfdd;
+  border-radius:10px;
+  background:#fffef5f2;
+  box-shadow:0 2px 6px #253d4c20;
+  color:#244659;
+  font-size:11px;
+  line-height:1.5;
+  pointer-events:none;
+}
+.map-location-messages > .map-location-quality { flex:none; }
+.map-location-messages > .gps-confirm {
+  position:static;
+  display:flex;
+  flex:0 1 auto;
+  flex-direction:column;
+  min-height:0;
+  margin:0;
+  pointer-events:auto;
+}
+.map-location-messages > .gps-confirm > span { min-height:30px; overflow:auto; }
+.map-location-messages > .gps-confirm > button { flex:none; }
+.map-location-quality strong { font-size:11px; }
+.map-location-quality small { flex-basis:100%; color:#785519; font-size:11px; }
+.map-current-location { max-width:calc(100% - 28px); }
+.map-location-quality--picker { font-size:12px; }
+@media (max-width:360px) {
+  .map-location-quality { gap:1px 7px; padding:7px 9px; }
+  .map-current-location { padding:9px 11px; font-size:11px; }
+}

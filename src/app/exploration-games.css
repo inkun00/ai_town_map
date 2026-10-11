@@ -3,3 +3,4 @@
 @media(prefers-reduced-motion:reduce){.game-shell *{scroll-behavior:auto!important}}
 
 #game-room-map{scroll-margin-top:160px}
+.game-location-quality{padding:9px 12px;border:1px solid #a5bfb2;border-radius:12px;background:#fffef7;line-height:1.6}.game-location-quality small{display:block;margin-top:4px}.game-location-quality--poor{border-color:#d3af66;background:#fff5d7}

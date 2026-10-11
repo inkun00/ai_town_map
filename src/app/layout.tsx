@@ -9,6 +9,7 @@ import "./home.css";
 import "./home-join.css";
 import "./start-screen.css";
 import "./account-auth.css";
+import "./location-quality.css";
 
 export const metadata: Metadata = {
   title: "모두의 지도 · 우리 동네 탐험대",

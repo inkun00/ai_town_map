@@ -2,8 +2,8 @@
 import {useEffect,useState,type ReactNode} from "react";
 import {GameIcon} from "@/components/AdventureArt";
 export type GameSession={kind:"account"|"guest";accountRole:import("@/domain/account").AccountRole|null;canCreateMap:boolean;csrfToken:string|null};
-export async function gameRequest<T>(url:string,csrf:string|null=null,body?:unknown,method:"POST"|"DELETE"="POST"):Promise<T>{
-  const response=await fetch(url,{cache:"no-store",...(body===undefined?{}:{method,headers:{"Content-Type":"application/json",...(csrf?{"X-CSRF-Token":csrf}:{})},body:JSON.stringify(body)})});
+export async function gameRequest<T>(url:string,csrf:string|null=null,body?:unknown,method:"POST"|"DELETE"="POST",signal?:AbortSignal):Promise<T>{
+  const response=await fetch(url,{cache:"no-store",...(signal?{signal}:{}),...(body===undefined?{}:{method,headers:{"Content-Type":"application/json",...(csrf?{"X-CSRF-Token":csrf}:{})},body:JSON.stringify(body)})});
   const payload=await response.json();if(!response.ok)throw new Error(payload.error?.message??"요청을 처리하지 못했어요.");return payload.data as T;
 }
 export function useGameSession(){const [session,setSession]=useState<GameSession|null>(null),[ready,setReady]=useState(false),[error,setError]=useState("");useEffect(()=>{let active=true;void gameRequest<GameSession|null>("/api/v1/session").then(s=>{if(active){setSession(s);setReady(true);}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[]);return {session,ready,error};}
