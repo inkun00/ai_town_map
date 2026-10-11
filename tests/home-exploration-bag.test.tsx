@@ -33,7 +33,11 @@ function button(label:string,scope:ParentNode=container){
 }
 async function click(label:string,scope:ParentNode=container){await act(async()=>{button(label,scope).click();});}
 async function flush(){await act(async()=>{await Promise.resolve();});}
-async function mount(url="/"){window.history.replaceState(null,"",url);await act(async()=>{root.render(<HomePage/>);});await flush();}
+async function mount(url="/"){
+  window.history.replaceState(null,"",url);await act(async()=>{root.render(<HomePage/>);});await flush();
+  const guestStart=[...container.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.getAttribute("aria-label")==="계정 없이 시작"||readableText(item)==="계정 없이 시작");
+  if(guestStart)await act(async()=>guestStart.click());
+}
 async function fill(input:HTMLInputElement,value:string){await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,value);input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("change",{bubbles:true}));});}
 function deletedGets(){return fetchSpy.mock.calls.filter(([url,init])=>String(url).startsWith("/api/v1/maps?")&&String(url).includes("scope=deleted")&&(!init?.method||init.method==="GET"));}
 function bagHeader(){return container.querySelector(".screen-header strong")?.textContent;}
@@ -161,12 +165,14 @@ describe("home actions and exploration bag navigation",()=>{
   it("logs an account out from its bag using CSRF and clears only stored record drafts",async()=>{
     const assign=vi.spyOn(window.location,"assign").mockImplementation(()=>{});
     sessionStorage.setItem("moa:record:v1:account:teacher:stored-record","draft");
+    sessionStorage.setItem("moa:start:guest","1");
     sessionStorage.setItem("other-preference","keep");
     await mount();expect(container.textContent).not.toContain("로그아웃");
     await click("탐험가방",homeDock());await click("로그아웃",container.querySelector(".home-account-panel")!);await flush();
     const logoutRequest=fetchSpy.mock.calls.find(([url,init])=>url==="/api/v1/session"&&init?.method==="DELETE")!;
     expect(logoutRequest[1].headers).toMatchObject({"X-CSRF-Token":"test-csrf"});
     expect(sessionStorage.getItem("moa:record:v1:account:teacher:stored-record")).toBeNull();
+    expect(sessionStorage.getItem("moa:start:guest")).toBeNull();
     expect(sessionStorage.getItem("other-preference")).toBe("keep");expect(assign).toHaveBeenCalledWith("/");
   });
 

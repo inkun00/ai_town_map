@@ -1,0 +1,22 @@
+.app-frame--start { background: #fff9e7; }
+.start-screen { display: flex; flex-direction: column; min-height: 0; height: 100%; overflow-y: auto; }
+.start-screen__scene { position: relative; flex: 1 0 230px; min-height: 230px; overflow: hidden; }
+.start-screen__scene>img { object-fit: cover; object-position: right center; }
+.start-screen__scene::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, #fff9e796 0%, transparent 25%, transparent 80%, #fff9e7 100%); pointer-events: none; }
+.start-screen__brand { position: absolute; z-index: 1; top: calc(24px + env(safe-area-inset-top)); left: 24px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid #fff9e7a8; border-radius: 18px; background: #fffdf4e8; color: var(--ink); box-shadow: 0 3px 12px #253d4c12; }
+.start-screen__brand>span { display: grid; place-items: center; width: 46px; height: 46px; border: 2px solid var(--game-edge); border-radius: 16px; background: #f7d574; transform: rotate(-6deg); }
+.start-screen__brand h1 { margin: 0; font-size: 26px; line-height: 1.25; letter-spacing: -.04em; }
+.start-screen__brand p { margin: 4px 0 0; color: #38695f; font-size: 13px; font-weight: 700; }
+.start-screen__actions { flex: none; display: grid; gap: 12px; padding: 14px 24px calc(24px + env(safe-area-inset-bottom)); background: #fff9e7; }
+.start-screen__button { display: flex; align-items: center; justify-content: center; min-height: 56px; padding: 12px 16px; border: 2px solid var(--game-edge); border-radius: 16px; color: var(--ink); text-decoration: none; font-size: 18px; font-weight: 800; line-height: 1.5; box-shadow: 0 4px 0 var(--game-edge); cursor: pointer; }
+.start-screen__button--login { background: #fad25d; }
+.start-screen__button--signup { background: #e3efdb; }
+.start-screen__button--guest { background: #fffdf4; border-color: #b9cbb9; box-shadow: none; color: #38695f; }
+.start-screen__button:hover { filter: brightness(.97); }
+.start-screen__button:focus-visible { outline: 3px solid #0d6eaa; outline-offset: 4px; }
+.start-screen__error { margin: 0; color: #a33124; font-size: 14px; line-height: 1.5; }
+@media (max-width: 359px) {
+  .start-screen__brand { top: calc(20px + env(safe-area-inset-top)); left: 16px; gap: 10px; padding: 10px 12px; }
+  .start-screen__brand h1 { font-size: 23px; }
+  .start-screen__actions { padding-left: 16px; padding-right: 16px; }
+}

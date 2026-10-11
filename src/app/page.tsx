@@ -12,6 +12,7 @@ import {draftKey,readDrafts,saveDraft,clearDrafts,type SavedRecordDraft} from "@
 import {pointRating,pointDescription} from "@/domain/point-presentation";
 import {MapDirectory, type DirectoryScope} from "@/components/MapDirectory";
 import {HomeJoinDialog} from "@/components/HomeJoinDialog";
+import {StartScreen} from "@/components/StartScreen";
 import {accountRoleLabels} from "@/domain/account";
 import {MapSharingSettings} from "@/components/MapSharingSettings";
 import {MapParticipationJoin} from "@/components/MapParticipationJoin";
@@ -84,6 +85,7 @@ type Draft = {
 };
 
 const makeDraft = (): Draft => ({ title: "", body: "", categoryKey: "", emojiKey: "", ratingKey: "", location: "", idea: "", imageName: "", link: "", answers: {} });
+const guestStartKey="moa:start:guest";
 const themeSymbol: Record<ThemeKey, string> = { universal_design: "♿", safety: "🚸", ecology: "🌳", weather_life: "☀️", custom: "✨" };
 const themeDescription: Record<ThemeKey, string> = {
   universal_design: "누구에게나 편리한 길과 시설",
@@ -168,6 +170,8 @@ export default function HomePage() {
   const [directoryScope, setDirectoryScope] = useState<DirectoryScope>("public");
   const [homeJoinOpen, setHomeJoinOpen] = useState(false);
   const [homeThemeFilter, setHomeThemeFilter] = useState("");
+  const [guestStarted,setGuestStarted]=useState(false);
+  const [authError,setAuthError]=useState(false);
   const [maps, setMaps] = useState<MapWithSettings[]>(initialMaps);
   const [points, setPoints] = useState<DemoPoint[]>(initialPoints);
   const [activeMapId, setActiveMapId] = useState(initialMaps[0].id);
@@ -247,6 +251,11 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
+    if(!initialNavigationApplied.current){
+      const failedAuth=new URLSearchParams(window.location.search).get("authError")==="1";
+      setAuthError(failedAuth);
+      try{setGuestStarted(!failedAuth&&sessionStorage.getItem(guestStartKey)==="1");}catch{/* Starting without storage still works for this visit. */}
+    }
     void (async () => {
       try {
         const statusResponse = await fetch("/api/v1/status", { cache: "no-store" });
@@ -549,12 +558,18 @@ export default function HomePage() {
     try {
       const response = await fetch("/api/v1/session", { method: "DELETE", headers: { "X-CSRF-Token": liveSession.csrfToken } });
       if (!response.ok) throw new Error("로그아웃하지 못했습니다.");
-      try{clearDrafts(sessionStorage);}catch{/* Storage may be unavailable. */}
+      try{clearDrafts(sessionStorage);sessionStorage.removeItem(guestStartKey);}catch{/* Storage may be unavailable. */}
       window.location.assign("/");
     } catch { notify("로그아웃하지 못했습니다."); }
   }
 
   if(liveMode===null)return <main className="boot-screen"><div className="brand"><GameIcon name="compass" size={34}/> 모두의 지도</div>{bootError?<><p role="alert">{bootError}</p><button type="button" className="button button--primary" onClick={()=>{setBootError("");setBootAttempt(value=>value+1);}}>다시 연결</button></>:<p role="status">지도를 불러오고 있어요…</p>}</main>;
+
+  if(screen==="home"&&!liveSession&&!guestStarted)return <div className="site-shell"><main className="app-frame app-frame--start"><StartScreen authError={authError} onGuestStart={()=>{
+    try{sessionStorage.setItem(guestStartKey,"1");}catch{/* Guest browsing does not require persistent storage. */}
+    if(authError){window.history.replaceState(null,"","/");setAuthError(false);}
+    setGuestStarted(true);
+  }}/></main></div>;
 
   const canCreateFromHome = !liveMode || (liveSession?.kind === "account" && liveSession.accountRole === "teacher" && liveSession.canCreateMap);
   const homeRoleLabel = !liveMode ? "체험 모드" : liveSession?.accountRole ? accountRoleLabels[liveSession.accountRole] : liveSession?.kind === "guest" ? "참여 중" : liveSession?.kind === "account" ? "가입 완료하기" : "둘러보기";
