@@ -5,7 +5,6 @@ import { loadEnvFile } from "node:process";
 import { createInterface } from "node:readline/promises";
 import nextEnv from "@next/env";
 import pg from "pg";
-import sharp from "sharp";
 import { liveTestTarget } from "./live-test-target.mjs";
 
 const actors = [];
@@ -58,21 +57,6 @@ async function point(mapId, author) {
     categoryKey: theme.categories[0].key, emojiKey: theme.categories[0].emojiOptions[0].key, ratingKey: null,
     answers: Object.fromEntries(theme.questions.filter(question => question.required).map(question => [question.key, [question.type === "text" ? "합성 관찰" : question.type === "boolean" ? "yes" : question.options[0].key]])),
   } }), 201, "create synthetic published point");
-}
-async function syntheticParkPhoto() {
-  // A small illustration of a tree and bench, with no people, text or identifying details.
-  const illustration = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="480" height="320" viewBox="0 0 480 320">
-    <rect width="480" height="320" fill="#d9f0ff"/><rect y="225" width="480" height="95" fill="#98c86e"/>
-    <ellipse cx="145" cy="264" rx="106" ry="18" fill="#6da554"/>
-    <rect x="136" y="128" width="22" height="119" rx="3" fill="#89552f"/>
-    <circle cx="113" cy="111" r="54" fill="#438d43"/><circle cx="171" cy="106" r="62" fill="#559f46"/>
-    <circle cx="149" cy="62" r="48" fill="#68ae4d"/>
-    <rect x="282" y="182" width="140" height="13" rx="3" fill="#aa7144"/>
-    <rect x="282" y="202" width="140" height="13" rx="3" fill="#aa7144"/>
-    <rect x="276" y="227" width="152" height="14" rx="3" fill="#8d5d39"/>
-    <rect x="293" y="240" width="10" height="29" fill="#5f655f"/><rect x="401" y="240" width="10" height="29" fill="#5f655f"/>
-  </svg>`);
-  return sharp(illustration).png().toBuffer();
 }
 async function cleanup() {
   if (!actors.length) { summary.cleaned = true; return; }
@@ -153,16 +137,16 @@ try {
   summary.aiConfigured = availability.ready;
   if (process.env.RUN_LIVE_GEMINI === "1") {
     check(availability.ready, "explicit Gemini test requires a configured service");
-    expect(await api(`${base}/observations/${record.id}/photo`, first, { method: "POST", body: await syntheticParkPhoto(), headers: { "Content-Type": "image/png" } }), 201, "upload synthetic park illustration");
     const started = Date.now();
     summary.providerCallSkipped = false;
     summary.providerRequests = 1;
     let generated;
     try {
-      generated = expect(await api(`${base}/ai-suggestions`, first, { method: "POST", body: { filter: {}, photoIds: [record.id], photosConfirmed: true }, timeoutMs: 55000 }), 200, "single Gemini suggestion request");
+      generated = expect(await api(`${base}/ai-suggestions`, first, { method: "POST", body: { filter: {} }, timeoutMs: 55000 }), 200, "single text-only Gemini suggestion request");
     } finally { summary.aiElapsedMs = Date.now() - started; }
-    const keys = ["discoveries", "groups", "perspectives", "questions", "improvements", "photoClues"];
-    check(generated.sections && Object.keys(generated.sections).length === keys.length, "all six AI suggestion sections must exist");
+    const keys = ["discoveries", "groups", "perspectives", "questions", "improvements"];
+    check(generated.sections && Object.keys(generated.sections).length === keys.length, "all five text-only AI suggestion sections must exist");
+    check(!("photoClues" in generated.sections) && !("photoIds" in generated) && !("photosConfirmed" in generated), "AI response must not contain photo analysis fields");
     summary.sectionCounts = {};
     for (const key of keys) {
       const cards = generated.sections[key];
@@ -171,18 +155,18 @@ try {
       for (const card of cards) {
         check(typeof card.title === "string" && card.title.length > 0 && typeof card.suggestion === "string" && card.suggestion.length > 0 && typeof card.checkQuestion === "string" && card.checkQuestion.length > 0, `${key}: suggestion and student verification question`);
         check(Array.isArray(card.evidenceIds) && card.evidenceIds.length === 1 && card.evidenceIds[0] === record.id, `${key}: only synthetic source evidence is referenced`);
-        check(key === "photoClues" ? card.photoId === record.id : card.photoId === undefined, `${key}: photo references must match selected synthetic photo`);
+        check(!("photoId" in card), `${key}: text-only suggestion cards must not contain photo references`);
       }
     }
     check(typeof generated.model === "string" && /^gemini-[A-Za-z0-9._-]{1,100}$/.test(generated.model), "reported Gemini model name");
     summary.aiModel = generated.model;
-    check(generated.totalRecords === 1 && generated.analyzedRecords === 1 && generated.photoIds.length === 1 && generated.photoIds[0] === record.id, "AI source counts and chosen photo must match fixture");
+    check(generated.totalRecords === 1 && generated.analyzedRecords === 1, "AI text source counts must match fixture");
     check(JSON.stringify(expect(await api(reportPath, first), 200, "student writing after AI generation")) === JSON.stringify(final), "AI must not overwrite student's manually written report");
     check(expect(await api(reportPath, owner), 200, "blank teacher report after AI generation") === null, "AI must not create a final report automatically");
     check(JSON.stringify(expect(await api(reportPath, second), 200, "other student's report after AI generation")) === JSON.stringify(secondReport), "AI must not modify another student's report");
   } else if (!availability.ready) {
     // Configuration is checked before provider invocation; only unavailable deployments are exercised.
-    expect(await api(`${base}/ai-suggestions`, first, { method: "POST", body: { filter: {}, photoIds: [], photosConfirmed: false } }), 503, "unconfigured AI returns setup status");
+    expect(await api(`${base}/ai-suggestions`, first, { method: "POST", body: { filter: {} } }), 503, "unconfigured AI returns setup status");
   }
   summary.ok = true;
   if (process.env.AI_BROWSER_CHECK === "1") {

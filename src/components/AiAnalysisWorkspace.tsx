@@ -17,7 +17,7 @@ const writingOf = (report:StudentAnalysisReport|null):Writing => report ? {
   followUp:report.followUp,evidenceIds:[...report.evidenceIds],status:report.status,
 } : emptyWriting();
 const serialize = (value:Writing) => JSON.stringify(value);
-const sectionIcons:Record<AiSectionKey,string> = {discoveries:"🔎",groups:"🧩",perspectives:"👥",questions:"🧭",improvements:"💡",photoClues:"📷"};
+const sectionIcons:Record<AiSectionKey,string> = {discoveries:"🔎",groups:"🧩",perspectives:"👥",questions:"🧭",improvements:"💡"};
 const fieldInfo = [
   {key:"title",label:"내 글의 제목",hint:"예: 우리 학교 앞길을 더 편리하게 만드는 방법",limit:200},
   {key:"analysis",label:"내가 분석한 내용",hint:"기록에서 무엇을 발견했나요? 비슷한 점, 다른 점과 조사하지 못한 부분도 적어보세요.",limit:10000},
@@ -53,7 +53,7 @@ export function AiAnalysisWorkspace({mapId,theme,points,filter,dataRevision,csrf
   const [availability,setAvailability]=useState<AiAvailability|null>(null),[availabilityError,setAvailabilityError]=useState("");
   const [result,setResult]=useState<AiSuggestions|null>(null),[aiBusy,setAiBusy]=useState(false),[aiError,setAiError]=useState("");
   const resultRef=useRef(result);resultRef.current=result;
-  const [stale,setStale]=useState(false),[photos,setPhotos]=useState<string[]>([]),[photosConfirmed,setPhotosConfirmed]=useState(false);
+  const [stale,setStale]=useState(false);
   const [judgments,setJudgments]=useState<Record<string,Judgment>>({});
   const [form,setForm]=useState<Writing>(emptyWriting),[baseline,setBaseline]=useState(()=>serialize(emptyWriting()));
   const formRef=useRef(form);formRef.current=form;
@@ -68,7 +68,6 @@ export function AiAnalysisWorkspace({mapId,theme,points,filter,dataRevision,csrf
   const contextRef=useRef(context);contextRef.current=context;
   const base=`/api/v1/maps/${mapId}`;
   const published=points.filter(point=>!point.status||point.status==="published");
-  const photoPoints=published.filter(point=>!!point.photoUrl);
   const dirty=loaded&&serialize(form)!==baseline;
   const canWrite=isMember&&active&&!!csrfToken;
 
@@ -114,18 +113,18 @@ export function AiAnalysisWorkspace({mapId,theme,points,filter,dataRevision,csrf
   useEffect(()=>{if(isMember)void loadAvailability();else{availabilityAbort.current?.abort();setAvailability(null);setAvailabilityError("");}},[isMember,csrfToken,loadAvailability]);
   useEffect(()=>{
     aiSequence.current++;aiAbort.current?.abort();aiBusyRef.current=false;setAiBusy(false);setAiError("");setJudgments({});
-    if(resultRef.current)setStale(true);setResult(null);setPhotos([]);setPhotosConfirmed(false);
+    if(resultRef.current)setStale(true);setResult(null);
   },[context]);
 
   async function generate() {
-    if(aiBusyRef.current||!canWrite||!dataReady||!availability?.ready||!published.length||(photos.length>0&&!photosConfirmed))return;
+    if(aiBusyRef.current||!canWrite||!dataReady||!availability?.ready||!published.length)return;
     const sequence=++aiSequence.current,requestContext=context;
     aiAbort.current?.abort();const controller=new AbortController();aiAbort.current=controller;
     aiBusyRef.current=true;setAiBusy(true);setAiError("");
     try {
       const next=await api<AiSuggestions>(`${base}/ai-suggestions`,{
         method:"POST",signal:controller.signal,headers:{"Content-Type":"application/json","X-CSRF-Token":csrfToken??""},
-        body:JSON.stringify({filter,photoIds:photos,photosConfirmed:photos.length>0&&photosConfirmed}),
+        body:JSON.stringify({filter}),
       });
       if(!mounted.current||controller.signal.aborted||sequence!==aiSequence.current||contextRef.current!==requestContext)return;
       aiSuggestionSectionsSchema.parse(next.sections);
@@ -190,18 +189,17 @@ export function AiAnalysisWorkspace({mapId,theme,points,filter,dataRevision,csrf
       <div role="tabpanel" id={`${id}-suggestions-panel`} aria-labelledby={`${id}-suggestions-tab`} hidden={tab!=="suggestions"}>
         <p className="ai-workspace__notice"><strong>AI 내용은 결론이나 정답이 아닌 참고 제안이에요.</strong> 원본 기록과 실제 상황을 확인하고, 마지막 분석과 개선 글은 내가 직접 작성해요. 제안은 내 글에 자동으로 들어가지 않아요.</p>
         <p className="ai-workspace__scope">{theme.label} · {filterLabel(filter,theme)}</p>
-        <p className="help-text">현재 조건의 최신 기록 최대 50건을 살펴봐요. 사진도 이 기록 안에서 골라주세요. 더 오래된 기록은 날짜 조건을 바꿔서 살펴볼 수 있어요.</p>
+        <p className="help-text">사용자가 작성한 텍스트와 선택한 평가·응답을 바탕으로 현재 조건의 최신 기록 최대 50건을 살펴봐요. 더 오래된 기록은 날짜 조건을 바꿔서 살펴볼 수 있어요.</p>
         {!active&&<p className="ai-workspace__notice">활동이 종료된 지도에서는 새로운 AI 제안을 만들거나 글을 저장할 수 없어요. 저장한 글은 확인할 수 있어요.</p>}
         {availabilityError&&<div className="ai-workspace__error" role="alert"><p>{availabilityError}</p><button type="button" onClick={()=>void loadAvailability()}>연결 상태 다시 확인</button></div>}
         {!availability&&!availabilityError&&<p role="status">AI 연결 상태를 확인하고 있어요…</p>}
         {availability&&!availability.ready&&<p className="ai-workspace__notice" role="status"><strong>AI 연결 준비 중</strong><br/>{availability.reason} 나의 글은 직접 작성하고 저장할 수 있어요.</p>}
-        {photoPoints.length>0&&<details className="ai-workspace__photos"><summary>📷 사진 단서도 살펴보기 · 선택 사항</summary><p className="help-text">선택한 사진만 Gemini에 함께 전달해요. 얼굴·이름·차량번호 등 개인정보가 없는 사진을 최대 3장 골라주세요. 지도 화면과 외부 링크는 보내지 않아요.</p><div className="ai-workspace__photo-grid">{photoPoints.map(point=><label key={point.id}><input type="checkbox" aria-label={`${point.title} 사진 선택`} checked={photos.includes(point.id)} disabled={aiBusy||(!photos.includes(point.id)&&photos.length>=3)} onChange={event=>{setPhotos(current=>event.target.checked?[...current,point.id]:current.filter(value=>value!==point.id));setPhotosConfirmed(false);}}/><img src={point.photoUrl!} alt={`${point.title}의 등록 사진`} loading="lazy"/><span>{point.title}</span></label>)}</div>{photos.length>0&&<label className="ai-workspace__confirm"><input type="checkbox" checked={photosConfirmed} disabled={aiBusy} onChange={event=>setPhotosConfirmed(event.target.checked)}/><span>선택한 {photos.length}장에 개인정보가 없는지 확인했고, AI 분석에 보내는 것에 동의해요.</span></label>}</details>}
         {aiError&&<p className="ai-workspace__error" role="alert">{aiError}</p>}
         {stale&&<p className="ai-workspace__notice" role="status">지도 기록이나 분석 조건이 바뀌어 이전 AI 제안을 숨겼어요. 현재 조건으로 다시 받아주세요.</p>}
         {!dataReady&&<p role="status">현재 조건의 기록을 불러오고 있어요…</p>}
         {dataReady&&!published.length&&<p className="help-text">현재 조건에 맞는 게시 기록이 없어요. 조건을 바꾸거나 관찰 기록을 먼저 모아주세요.</p>}
-        <button type="button" className="button button--primary button--full" disabled={aiBusy||!canWrite||!dataReady||!availability?.ready||!published.length||(photos.length>0&&!photosConfirmed)} onClick={()=>void generate()}>{aiBusy?"AI가 참고 제안을 준비하고 있어요…":result?"현재 기록으로 제안 다시 받기":"AI 참고 제안 받기"}</button>
-        {result?<><p className="ai-workspace__scope" role="status">현재 조건의 {result.totalRecords}건 중 {result.analyzedRecords}건을 참고했어요. 등록된 기록의 제안이며 동네 전체의 결론이 아니에요.</p><div className="ai-workspace__sections">{aiSectionKeys.map(section=><details key={section} className="ai-workspace__section" open={section==="discoveries"}><summary><span aria-hidden="true">{sectionIcons[section]}</span>{aiSectionLabels[section]}<span>{result.sections[section].length}개</span></summary>{result.sections[section].length?result.sections[section].map((card,index)=>{const cardKey=`${section}-${index}`;return <article className="ai-workspace__card" key={cardKey}><span className="ai-workspace__badge">AI의 참고 제안</span><h3>{card.title}</h3><p>{card.suggestion}</p><div className="ai-workspace__sources"><strong>근거 확인</strong>{card.evidenceIds.map(pointId=><button key={pointId} type="button" onClick={()=>onShowPoint(pointId)}>{points.find(point=>point.id===pointId)?.title??"원본 기록 보기"} ↗</button>)}</div><p className="ai-workspace__question"><strong>직접 확인할 질문</strong><br/>{card.checkQuestion}</p><fieldset className="ai-workspace__judgment"><legend>이 제안에 대한 내 생각 <small>선택 사항 · 아직 최종 글이 아니에요</small></legend>{([{key:"agree",label:"동의해요"},{key:"different",label:"다르게 생각해요"},{key:"need_check",label:"더 확인할래요"}] as const).map(choice=><label key={choice.key}><input type="radio" name={`${id}-${cardKey}`} value={choice.key} checked={judgments[cardKey]===choice.key} onChange={()=>setJudgments(current=>({...current,[cardKey]:choice.key}))}/>{choice.label}</label>)}</fieldset></article>}):<p className="help-text">사진을 선택하면 사진에서 관찰할 단서와 다시 확인할 질문을 제안해요. 사진만으로 정확한 크기·종류·위험 여부를 확정할 수는 없어요.</p>}</details>)}</div><p className="help-text">제안 카드에 표시한 내 생각은 이번 화면에서만 유지돼요. 중요한 판단과 이유는 나의 최종 글에 직접 적어주세요.</p><button type="button" className="button button--light button--full" onClick={()=>setTab("writing")}>제안을 참고해 내 글 직접 쓰기</button></>:<div className="ai-workspace__feature-list" aria-label="AI가 제안하는 내용">{aiSectionKeys.map(section=><span key={section}>{sectionIcons[section]} {aiSectionLabels[section]}</span>)}</div>}
+        <button type="button" className="button button--primary button--full" disabled={aiBusy||!canWrite||!dataReady||!availability?.ready||!published.length} onClick={()=>void generate()}>{aiBusy?"AI가 참고 제안을 준비하고 있어요…":result?"현재 기록으로 제안 다시 받기":"AI 참고 제안 받기"}</button>
+        {result?<><p className="ai-workspace__scope" role="status">현재 조건의 {result.totalRecords}건 중 {result.analyzedRecords}건을 참고했어요. 등록된 기록의 제안이며 동네 전체의 결론이 아니에요.</p><div className="ai-workspace__sections">{aiSectionKeys.map(section=><details key={section} className="ai-workspace__section" open={section==="discoveries"}><summary><span aria-hidden="true">{sectionIcons[section]}</span>{aiSectionLabels[section]}<span>{result.sections[section].length}개</span></summary>{result.sections[section].map((card,index)=>{const cardKey=`${section}-${index}`;return <article className="ai-workspace__card" key={cardKey}><span className="ai-workspace__badge">AI의 참고 제안</span><h3>{card.title}</h3><p>{card.suggestion}</p><div className="ai-workspace__sources"><strong>근거 확인</strong>{card.evidenceIds.map(pointId=><button key={pointId} type="button" onClick={()=>onShowPoint(pointId)}>{points.find(point=>point.id===pointId)?.title??"원본 기록 보기"} ↗</button>)}</div><p className="ai-workspace__question"><strong>직접 확인할 질문</strong><br/>{card.checkQuestion}</p><fieldset className="ai-workspace__judgment"><legend>이 제안에 대한 내 생각 <small>선택 사항 · 아직 최종 글이 아니에요</small></legend>{([{key:"agree",label:"동의해요"},{key:"different",label:"다르게 생각해요"},{key:"need_check",label:"더 확인할래요"}] as const).map(choice=><label key={choice.key}><input type="radio" name={`${id}-${cardKey}`} value={choice.key} checked={judgments[cardKey]===choice.key} onChange={()=>setJudgments(current=>({...current,[cardKey]:choice.key}))}/>{choice.label}</label>)}</fieldset></article>})}</details>)}</div><p className="help-text">제안 카드에 표시한 내 생각은 이번 화면에서만 유지돼요. 중요한 판단과 이유는 나의 최종 글에 직접 적어주세요.</p><button type="button" className="button button--light button--full" onClick={()=>setTab("writing")}>제안을 참고해 내 글 직접 쓰기</button></>:<div className="ai-workspace__feature-list" aria-label="AI가 제안하는 내용">{aiSectionKeys.map(section=><span key={section}>{sectionIcons[section]} {aiSectionLabels[section]}</span>)}</div>}
       </div>
       <div role="tabpanel" id={`${id}-writing-panel`} aria-labelledby={`${id}-writing-tab`} hidden={tab!=="writing"}>
         <p className="ai-workspace__notice"><strong>나의 판단과 나의 말로 작성해요.</strong> AI 제안과 원본 기록을 참고할 수 있지만, 아래 글은 내가 직접 작성해야 해요. 저장한 글은 나에게만 보이고 전체 지도와 다른 사람의 기록을 바꾸지 않아요.</p>

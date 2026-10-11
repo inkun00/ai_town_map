@@ -3,12 +3,13 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
-import sharp from "sharp";
 import type { AppSession } from "../src/server/auth/session";
 import { aiSectionKeys, type AiSuggestionSections } from "../src/domain/ai-analysis";
 
 let db: PGlite, queue: Promise<unknown> = Promise.resolve(), transactionOpen = false;
+const sourceQueries: string[] = [];
 const execute = async (sql: string, values: unknown[] = []) => {
+  sourceQueries.push(sql);
   const result = await db.query(sql, values);
   return { ...result, rowCount: result.rows.length || result.affectedRows || 0, rows: result.rows.map(row => Object.fromEntries(Object.entries(row as Record<string, unknown>).map(([key, value]) => [key, value instanceof Uint8Array ? Buffer.from(value) : ["version", "data_revision"].includes(key) ? String(value) : value]))) };
 };
@@ -27,7 +28,7 @@ vi.mock("../src/server/db", () => ({
 vi.mock("../src/server/env", () => ({ getServerConfig: () => ({ appOrigin: "http://localhost:3001", invitePepper: "ai-tests-independent-limit-scope-not-a-real-secret" }) }));
 
 import { createMap, createMapSchema } from "../src/server/services/maps";
-import { createObservation, observationSchema, savePhoto } from "../src/server/services/observations";
+import { createObservation, observationSchema } from "../src/server/services/observations";
 import { issueSession } from "../src/server/auth/session";
 import { withTransaction } from "../src/server/db";
 import { createAiSuggestions, getAiAvailability, reserveAiAttempt } from "../src/server/services/ai-suggestions";
@@ -37,9 +38,9 @@ import { GET, POST } from "../src/app/api/v1/maps/[mapId]/ai-suggestions/route";
 type Prompt = { records: { id: string; answers: { question: string; answers: string[] }[] }[]; analyzedRecords: number; totalRecords: number };
 let owner: AppSession, mapId: string, pointId: string, issued: Awaited<ReturnType<typeof issueSession>>;
 const provider = vi.fn<typeof fetch>();
-const input = () => ({ filter: {}, photoIds: [], photosConfirmed: false });
-function sections(id: string, photoId?: string): AiSuggestionSections {
-  return Object.fromEntries(aiSectionKeys.map(key => [key, key === "photoClues" ? (photoId ? [{ title: "사진 단서", suggestion: "사진 속 계단을 다시 확인해 볼까요?", evidenceIds: [photoId], photoId, checkQuestion: "계단 옆 다른 입구도 있나요?" }] : []) : [{ title: "살펴볼 제안", suggestion: "근거를 확인하고 생각을 정리해 볼 수 있어요.", evidenceIds: [id], checkQuestion: "현장에서 무엇을 더 확인할까요?" }]])) as AiSuggestionSections;
+const input = () => ({ filter: {} });
+function sections(id: string): AiSuggestionSections {
+  return Object.fromEntries(aiSectionKeys.map(key => [key, [{ title: "살펴볼 제안", suggestion: "근거를 확인하고 생각을 정리해 볼 수 있어요.", evidenceIds: [id], checkQuestion: "현장에서 무엇을 더 확인할까요?" }]])) as AiSuggestionSections;
 }
 function response(data: unknown, finishReason = "STOP") {
   return new Response(JSON.stringify({ candidates: [{ finishReason, content: { parts: [{ text: JSON.stringify(data) }] } }] }), { headers: { "content-type": "application/json" } });
@@ -122,8 +123,10 @@ describe("bounded source evidence and privacy", () => {
     const result = await POST(request(input()), context());
     expect(result.status).toBe(200);
     const data = (await result.json()).data;
-    expect(data).toMatchObject({ totalRecords: 1, analyzedRecords: 1, model: "gemini-test-model", photoIds: [] });
+    expect(data).toMatchObject({ totalRecords: 1, analyzedRecords: 1, model: "gemini-test-model" });
+    expect(data).not.toHaveProperty("photoIds");
     expect(Object.keys(data.sections)).toEqual([...aiSectionKeys]);
+    expect(Object.keys(data.sections)).toEqual(["discoveries", "groups", "perspectives", "questions", "improvements"]);
     const [url, options] = provider.mock.calls[0];
     expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-test-model:generateContent");
     expect(url).not.toContain("fake-provider-key"); expect(options?.headers).toMatchObject({ "x-goog-api-key": "fake-provider-key" });
@@ -132,6 +135,8 @@ describe("bounded source evidence and privacy", () => {
     expect(body.generationConfig).toMatchObject({ responseFormat: { text: { mimeType: "APPLICATION_JSON" } }, maxOutputTokens: 8192 });
     const schema = body.generationConfig.responseFormat.text.schema;
     expect(schema.required).toEqual([...aiSectionKeys]);
+    expect(schema.properties).not.toHaveProperty("photoClues");
+    expect(schema.properties.discoveries.items.properties).not.toHaveProperty("photoId");
     expect(body.generationConfig.responseJsonSchema).toBeUndefined();
     expect(body.generationConfig.responseMimeType).toBeUndefined();
     expect(schema.properties.discoveries).not.toHaveProperty("minItems");
@@ -164,27 +169,37 @@ describe("bounded source evidence and privacy", () => {
     expect(result.totalRecords).toBe(51); expect(result.analyzedRecords).toBe(50); expect(promptFrom().records).toHaveLength(50);
   });
 
-  it("rejects missing or duplicate photo consent and does not transmit an unsolicited photo", async () => {
-    expect((await POST(request({ ...input(), photoIds: [pointId] }), context())).status).toBe(422);
-    await expect(createAiSuggestions(mapId, owner, { ...input(), photoIds: [pointId, pointId], photosConfirmed: true })).rejects.toMatchObject({ code: "AI_PHOTO_DUPLICATE" });
-    await expect(createAiSuggestions(mapId, owner, { ...input(), photoIds: [randomUUID()], photosConfirmed: true })).rejects.toMatchObject({ code: "AI_PHOTO_UNAVAILABLE" });
+  it.each([
+    ["old empty photo selection", { photoIds: [] }],
+    ["old photo selection", { photoIds: ["00000000-0000-4000-8000-000000000001"] }],
+    ["old false consent", { photosConfirmed: false }],
+    ["old true consent", { photosConfirmed: true }],
+    ["inline image", { inlineData: { mimeType: "image/webp", data: "aW1hZ2U=" } }],
+    ["remote image", { fileData: { fileUri: "https://image.example.test/private.webp", mimeType: "image/webp" } }],
+  ])("rejects removed image request fields before contacting Gemini: %s", async (_label, removedFields) => {
+    const body = { ...input(), ...removedFields };
+    expect((await POST(request(body), context())).status).toBe(422);
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it("resizes only a selected published photograph, strips metadata and binds photo clues to its observation", async () => {
-    const bytes = await sharp({ create: { width: 1500, height: 1000, channels: 3, background: "green" } }).jpeg().toBuffer();
-    await savePhoto(mapId, pointId, owner, bytes);
-    provider.mockImplementation(async (_url, options) => {
-      expect(transactionOpen).toBe(false);
-      const body = JSON.parse(String(options?.body)), parts = body.contents[0].parts;
-      expect(parts).toHaveLength(3); expect(parts[1].text).toContain(pointId);
-      expect(parts[2].inlineData.mimeType).toBe("image/webp");
-      const sent = Buffer.from(parts[2].inlineData.data, "base64"), metadata = await sharp(sent).metadata();
-      expect(metadata.width).toBeLessThanOrEqual(768); expect(metadata.height).toBeLessThanOrEqual(768); expect(metadata.exif).toBeUndefined(); expect(sent.length).toBeLessThanOrEqual(250 * 1024);
-      return response(sections(pointId, pointId));
-    });
-    const result = await createAiSuggestions(mapId, owner, { ...input(), photoIds: [pointId], photosConfirmed: true });
-    expect(result.photoIds).toEqual([pointId]); expect(result.sections.photoClues[0].photoId).toBe(pointId);
+  it("analyzes attached records as text without reading or sending image content or image URLs", async () => {
+    const privateImageBytes = Buffer.from("PRIVATE_IMAGE_BYTES_NEVER_READ");
+    await execute("INSERT INTO app.observation_photos(map_id,observation_id,uploaded_by,content,mime) VALUES($1,$2,$3,$4,'image/webp')", [mapId, pointId, owner.principalId, privateImageBytes]);
+    sourceQueries.length = 0;
+    const result = await createAiSuggestions(mapId, owner, input());
+    expect(result.sections.discoveries[0].evidenceIds).toEqual([pointId]);
+    expect(result).not.toHaveProperty("photoIds");
+    expect(provider).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String(provider.mock.calls[0][1]?.body));
+    expect(body.contents).toEqual([{ role: "user", parts: [{ text: expect.any(String) }] }]);
+    const transmitted = JSON.stringify(body);
+    for (const forbidden of ["inlineData", "fileData", "photoUrl", "photoId", "photoClues", "image/webp", "PRIVATE_IMAGE_BYTES_NEVER_READ", privateImageBytes.toString("base64"), `/api/v1/maps/${mapId}/observations/${pointId}/photo`]) expect(transmitted).not.toContain(forbidden);
+    expect(promptFrom().records[0]).toMatchObject({ id: pointId, title: "공원 입구 관찰", observation: expect.stringContaining("출입구 계단을 기록했어요.") });
+    for (const sql of sourceQueries) {
+      // Shared record statistics may join photograph IDs, but AI must never load the binary column.
+      expect(sql).not.toMatch(/\b(?:p\.)?content\b/i);
+      expect(sql).not.toMatch(/SELECT\s+(?:p\.\*|\*)\s+FROM\s+app\.observation_photos/i);
+    }
   });
 
   it("does not analyze hidden records even for the map owner", async () => {
@@ -193,29 +208,15 @@ describe("bounded source evidence and privacy", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
-  it("requires a photo clue when a consented photo was included", async () => {
-    const bytes = await sharp({ create: { width: 12, height: 12, channels: 3, background: "green" } }).webp().toBuffer();
-    await savePhoto(mapId, pointId, owner, bytes);
-    await expect(createAiSuggestions(mapId, owner, { ...input(), photoIds: [pointId], photosConfirmed: true })).rejects.toMatchObject({ code: "AI_RESPONSE_INCOMPLETE" });
-  });
-
-  it("rejects photos older than the latest 50 rather than claiming to analyze records it did not send", async () => {
-    const bytes = await sharp({ create: { width: 12, height: 12, channels: 3, background: "green" } }).webp().toBuffer();
-    await savePhoto(mapId, pointId, owner, bytes);
-    await execute("UPDATE app.observations SET created_at='2020-01-01' WHERE id=$1", [pointId]);
-    await execute(`INSERT INTO app.observations(map_id,author_member_id,title,body,location_label,location_source,lat,lng,category_id,emoji_option_id,rating_option_id,answers,status,config_revision)
-      SELECT map_id,author_member_id,title,body,location_label,location_source,lat,lng,category_id,emoji_option_id,rating_option_id,answers,status,config_revision FROM app.observations CROSS JOIN generate_series(1,50) WHERE id=$1`, [pointId]);
-    await expect(createAiSuggestions(mapId, owner, { ...input(), photoIds: [pointId], photosConfirmed: true })).rejects.toMatchObject({ code: "AI_PHOTO_UNAVAILABLE" });
-    expect(provider).not.toHaveBeenCalled();
-  });
 });
 
 describe("provider evidence validation and stale results", () => {
-  it.each(["unknown-id", "duplicate-evidence", "unselected-photo", "extra-metadata", "missing-section", "empty-section", "oversized-section", "oversized-text"])("rejects an invalid provider result: %s", async kind => {
+  it.each(["unknown-id", "duplicate-evidence", "photo-section", "photo-card", "extra-metadata", "missing-section", "empty-section", "oversized-section", "oversized-text"])("rejects an invalid provider result: %s", async kind => {
     const data: Record<string, unknown> = sections(pointId);
     if (kind === "unknown-id") (data.discoveries as { evidenceIds: string[] }[])[0].evidenceIds = [randomUUID()];
     if (kind === "duplicate-evidence") (data.discoveries as { evidenceIds: string[] }[])[0].evidenceIds = [pointId, pointId];
-    if (kind === "unselected-photo") data.photoClues = sections(pointId, pointId).photoClues;
+    if (kind === "photo-section") data.photoClues = [{ ...sections(pointId).discoveries[0], photoId: pointId }];
+    if (kind === "photo-card") data.discoveries = [{ ...sections(pointId).discoveries[0], photoId: pointId }];
     if (kind === "extra-metadata") data.totalRecords = 99999;
     if (kind === "missing-section") delete data.improvements;
     if (kind === "empty-section") data.groups = [];
@@ -280,7 +281,7 @@ describe("provider evidence validation and stale results", () => {
 
   it("cancels provider work when the caller leaves, without a second request", async () => {
     provider.mockImplementation(async (_url, options) => new Promise((_resolve, reject) => options?.signal?.addEventListener("abort", () => reject(new DOMException("cancelled", "AbortError")), { once: true })));
-    const controller = new AbortController(), pending = generateGeminiSuggestions({ key: "fake", model: "gemini-test-model" }, {}, [], controller.signal);
+    const controller = new AbortController(), pending = generateGeminiSuggestions({ key: "fake", model: "gemini-test-model" }, {}, controller.signal);
     controller.abort();
     await expect(pending).rejects.toMatchObject({ code: "AI_REQUEST_CANCELLED", status: 499 });
     expect(provider).toHaveBeenCalledTimes(1);
@@ -290,7 +291,7 @@ describe("provider evidence validation and stale results", () => {
     vi.useFakeTimers();
     try {
       provider.mockImplementation(async (_url, options) => new Promise((_resolve, reject) => options?.signal?.addEventListener("abort", () => reject(new DOMException("timeout", "AbortError")), { once: true })));
-      const pending = generateGeminiSuggestions({ key: "fake", model: "gemini-test-model" }, {}, []);
+      const pending = generateGeminiSuggestions({ key: "fake", model: "gemini-test-model" }, {});
       const checked = expect(pending).rejects.toMatchObject({ code: "AI_REQUEST_CANCELLED", status: 504 });
       await vi.advanceTimersByTimeAsync(45_000); await checked;
       expect(provider).toHaveBeenCalledTimes(1);

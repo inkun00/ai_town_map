@@ -10,7 +10,7 @@ const mapId="26cf2dd4-b811-4e69-9c06-04186e244f1f";
 const ids=["356bd0be-a02b-411b-bb6b-e0317f074101","356bd0be-a02b-411b-bb6b-e0317f074102","356bd0be-a02b-411b-bb6b-e0317f074103","356bd0be-a02b-411b-bb6b-e0317f074104"];
 const points:DemoPoint[]=ids.map((id,index)=>({id,mapId,title:`관찰 기록 ${index+1}`,body:"직접 관찰한 내용",categoryKey:"plants",emojiKey:"plants-1",ratingKey:null,x:50,y:50,author:"학생",date:"2026. 10. 11.",status:"published",photoUrl:`/photos/${id}`}));
 const card={title:"AI가 제안한 관점",suggestion:"그늘과 쉼터의 관계를 살펴보면 어떨까요?",evidenceIds:[ids[0]],checkQuestion:"다른 시간에도 그늘이 있나요?"};
-const suggestions:AiSuggestions={sections:{discoveries:[card],groups:[card],perspectives:[card],questions:[card],improvements:[card],photoClues:[]},dataRevision:"revision-1",generatedAt:"2026-10-11T01:00:00Z",totalRecords:4,analyzedRecords:4,filterFingerprint:"fingerprint",photoIds:[],model:"configured-model"};
+const suggestions:AiSuggestions={sections:{discoveries:[card],groups:[card],perspectives:[card],questions:[card],improvements:[card]},dataRevision:"revision-1",generatedAt:"2026-10-11T01:00:00Z",totalRecords:4,analyzedRecords:4,filterFingerprint:"fingerprint",model:"configured-model"};
 const savedReport:StudentAnalysisReport={id:"bb51aaf9-cdbe-4d2c-810d-454a94483770",version:1,updatedAt:"2026-10-11T02:00:00Z",dataRevision:"revision-1",title:"저장된 내 글",analysis:"나의 분석",proposal:"나의 개선 방법",reasoning:"기록을 읽고 판단한 이유",followUp:"다른 시간에 다시 관찰",evidenceIds:[ids[0]],status:"draft"};
 const fetchMock=vi.fn(),notice=vi.fn(),showPoint=vi.fn(),dirty=vi.fn(),busy=vi.fn();
 let host:HTMLDivElement,root:Root,props:AiAnalysisWorkspaceProps;
@@ -34,24 +34,24 @@ beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);vi.stubGlobal("fe
 afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 describe("AI reference suggestions and independently authored final writing",()=>{
-  it("shows all six features and keeps manual writing available when AI is not configured",async()=>{
+  it("shows all five text features and keeps manual writing available when AI is not configured",async()=>{
     fetchMock.mockImplementation((url,options)=>url.endsWith("/ai-suggestions")?Promise.resolve(response({ready:false,reason:"모델과 서버 키를 설정해 주세요.",model:null})):defaultFetch(url,options));
-    await render({},true);expect(host.textContent).toContain("결론이나 정답이 아닌 참고 제안");expect(host.textContent).toContain("AI 연결 준비 중");expect(button("AI 참고 제안 받기").disabled).toBe(true);expect(host.querySelectorAll(".ai-workspace__feature-list span")).toHaveLength(6);
+    await render({},true);expect(host.textContent).toContain("결론이나 정답이 아닌 참고 제안");expect(host.textContent).toContain("AI 연결 준비 중");expect(button("AI 참고 제안 받기").disabled).toBe(true);expect(host.querySelectorAll(".ai-workspace__feature-list span")).toHaveLength(5);
     await writingTab();for(const label of ["내 글의 제목","내가 분석한 내용","내가 제안하는 개선 방법","이렇게 판단한 이유","다음에 더 확인할 것"])expect(field(label).value).toBe("");
     await write("내 글의 제목","스스로 정리한 생태 분석");await click("초안 저장");expect(puts()).toHaveLength(1);expect(JSON.parse(puts()[0][1].body)).toMatchObject({title:"스스로 정리한 생태 분석",analysis:"",proposal:"",status:"draft",expectedVersion:0});expect(dirty).toHaveBeenLastCalledWith(false);expect(host.textContent).toContain("나에게만 보이고");
   });
 
   it("sends only selected data criteria, keeps AI cards separate, and opens original evidence",async()=>{
-    await render();await click("AI 참고 제안 받기");expect(posts()).toHaveLength(1);expect(posts()[0][1].headers["X-CSRF-Token"]).toBe("csrf-test");expect(JSON.parse(posts()[0][1].body)).toEqual({filter:{},photoIds:[],photosConfirmed:false});
+    await render();await click("AI 참고 제안 받기");expect(posts()).toHaveLength(1);expect(posts()[0][1].headers["X-CSRF-Token"]).toBe("csrf-test");expect(JSON.parse(posts()[0][1].body)).toEqual({filter:{}});
     expect(host.querySelectorAll(".ai-workspace__section")).toHaveLength(aiSectionKeys.length);await click("관찰 기록 1 ↗");expect(showPoint).toHaveBeenCalledWith(ids[0]);
     await act(async()=>host.querySelector<HTMLInputElement>(".ai-workspace__judgment input[value=agree]")!.click());await writingTab();expect(field("내가 분석한 내용").value).toBe("");expect(field("내가 제안하는 개선 방법").value).toBe("");expect(puts()).toHaveLength(0);
     await fillWriting();await click("내 최종 글 저장");const body=JSON.parse(puts()[0][1].body);expect(body.status).toBe("final");expect(body.evidenceIds).toEqual([ids[0]]);expect(body.analysis).toContain("앉아 쉬는 사람이");expect(JSON.stringify(body)).not.toContain(card.suggestion);expect(dirty).toHaveBeenLastCalledWith(false);
   });
 
-  it("requires explicit photo selection and confirmation with a three-photo limit",async()=>{
-    await render();await act(async()=>{for(const input of [...host.querySelectorAll<HTMLInputElement>(".ai-workspace__photo-grid input")].slice(0,3))input.click();});
-    expect(host.querySelectorAll<HTMLInputElement>(".ai-workspace__photo-grid input")[3].disabled).toBe(true);expect(button("AI 참고 제안 받기").disabled).toBe(true);expect(posts()).toHaveLength(0);
-    await act(async()=>host.querySelector<HTMLInputElement>(".ai-workspace__confirm input")!.click());await click("AI 참고 제안 받기");expect(JSON.parse(posts()[0][1].body)).toMatchObject({photoIds:ids.slice(0,3),photosConfirmed:true});
+  it("uses text-only analysis even when observations have photos",async()=>{
+    await render({filter:{category:"plants"}});expect(points.every(point=>point.photoUrl)).toBe(true);
+    expect(host.textContent).toContain("사용자가 작성한 텍스트와 선택한 평가·응답을 바탕으로");expect(host.textContent).not.toContain("사진 단서");expect(host.querySelector(".ai-workspace__photos")).toBeNull();expect(host.querySelector("img")).toBeNull();
+    await click("AI 참고 제안 받기");expect(posts()).toHaveLength(1);expect(JSON.parse(posts()[0][1].body)).toEqual({filter:{category:"plants"}});expect(host.querySelectorAll(".ai-workspace__section")).toHaveLength(5);expect(host.querySelector("img")).toBeNull();expect(JSON.stringify(posts()[0][1])).not.toContain("/photos/");
   });
 
   it("invalidates old suggestions on filter changes while preserving the author's writing and hidden evidence",async()=>{
