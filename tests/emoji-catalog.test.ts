@@ -41,6 +41,22 @@ async function fixture(){
   return {map,teacher,theme,input};
 }
 
+async function addStudent(map:string){
+  const principalId=randomUUID();
+  await execute("INSERT INTO app.principals(id,kind) VALUES($1,'guest')",[principalId]);
+  await execute("INSERT INTO app.map_members(map_id,principal_id,nickname) VALUES($1,$2,'다른 관찰 학생')",[map,principalId]);
+  return {id:randomUUID(),principalId,kind:"guest",csrfHash:Buffer.alloc(32),expiresAt:new Date(Date.now()+86400000)} satisfies AppSession;
+}
+
+async function changeConfiguration(f:Awaited<ReturnType<typeof fixture>>,change:(theme:typeof f.theme)=>void,revision?:number){
+  const current=(await execute("SELECT config_revision FROM app.maps WHERE id=$1",[f.map])).rows[0].config_revision as number;
+  const definition=(await execute("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=$2",[f.map,current])).rows[0].definition as typeof f.theme;
+  const next=structuredClone(definition);change(next);
+  const nextRevision=revision??current+1;
+  await execute("INSERT INTO app.map_config_revisions(map_id,revision,definition,created_by) VALUES($1,$2,$3,$4)",[f.map,nextRevision,JSON.stringify(next),f.teacher.principalId]);
+  await execute("UPDATE app.maps SET config_revision=$2 WHERE id=$1",[f.map,nextRevision]);
+}
+
 describe("전체 이모지 탐색",()=>{
   it("모든 9개 카테고리와 한글·영문·이모지 검색을 제공한다",()=>{
     expect(emojiCatalog).toHaveLength(3944);
@@ -61,6 +77,83 @@ describe("전체 이모지 탐색",()=>{
 });
 
 describe("기존 지도에서 전체 이모지 저장",()=>{
+  it("같은 설정을 읽은 두 학생이 새 이모지를 저장해도 다른 학생의 기록을 막지 않는다",async()=>{
+    const f=await fixture(),studentA=await addStudent(f.map),studentB=await addStudent(f.map);
+    const saved=await Promise.all([
+      createObservation(f.map,studentA,randomUUID(),f.input),
+      createObservation(f.map,studentB,randomUUID(),{...f.input,emojiKey:rocket.key}),
+    ]);
+    expect(saved.map(result=>result.observation.emojiKey)).toEqual([fox.key,rocket.key]);
+    expect((await execute("SELECT config_revision FROM app.observations WHERE map_id=$1 ORDER BY created_at",[f.map])).rows.map(row=>row.config_revision)).toEqual([2,3]);
+    expect((await execute("SELECT config_revision FROM app.maps WHERE id=$1",[f.map])).rows[0].config_revision).toBe(3);
+    expect((await execute("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=1",[f.map])).rows[0].definition).toEqual(f.theme);
+  });
+  it("두 학생이 같은 새 이모지를 저장하고 이전 요청을 반복해도 이모지와 각 기록은 한 번씩 저장된다",async()=>{
+    const f=await fixture(),studentA=await addStudent(f.map),studentB=await addStudent(f.map),keyA=randomUUID(),keyB=randomUUID();
+    const saved=await Promise.all([createObservation(f.map,studentA,keyA,f.input),createObservation(f.map,studentB,keyB,f.input)]);
+    expect(saved[0].observation.id).not.toBe(saved[1].observation.id);
+    expect(await createObservation(f.map,studentB,keyB,f.input)).toMatchObject({repeated:true,observation:{id:saved[1].observation.id}});
+    expect((await execute("SELECT id FROM app.observations WHERE map_id=$1",[f.map])).rows).toHaveLength(2);
+    expect((await execute("SELECT id FROM app.emoji_options WHERE map_id=$1 AND key=$2",[f.map,fox.key])).rows).toHaveLength(1);
+    expect((await execute("SELECT config_revision FROM app.maps WHERE id=$1",[f.map])).rows[0].config_revision).toBe(2);
+  });
+  it("다른 학생의 이모지 추가 뒤에도 기존 이모지의 기록을 최신 설정으로 저장한다",async()=>{
+    const f=await fixture(),student=await addStudent(f.map);
+    await createObservation(f.map,f.teacher,randomUUID(),f.input);
+    const saved=await createObservation(f.map,student,randomUUID(),{...f.input,emojiKey:"tree"});
+    expect(saved.observation.emojiKey).toBe("tree");
+    expect((await execute("SELECT config_revision FROM app.observations WHERE id=$1",[saved.observation.id])).rows[0].config_revision).toBe(2);
+  });
+  it("수정 중 다른 학생이 이모지를 추가해도 본문과 선택한 새 이모지를 저장한다",async()=>{
+    const f=await fixture(),studentA=await addStudent(f.map),studentB=await addStudent(f.map);
+    const saved=await createObservation(f.map,studentA,randomUUID(),{...f.input,emojiKey:"tree"});
+    await createObservation(f.map,studentB,randomUUID(),f.input);
+    const changed=await updateObservation(f.map,saved.observation.id,studentA,saved.observation.version,{...f.input,emojiKey:rocket.key,body:"나무 옆에서 로켓 모양의 조형물을 관찰했습니다."});
+    expect(changed).toMatchObject({emojiKey:rocket.key,body:"나무 옆에서 로켓 모양의 조형물을 관찰했습니다."});
+    expect((await execute("SELECT config_revision FROM app.observations WHERE id=$1",[saved.observation.id])).rows[0].config_revision).toBe(3);
+    expect((await execute("SELECT id FROM app.observations WHERE map_id=$1",[f.map])).rows).toHaveLength(2);
+  });
+  it.each([
+    ["질문의 의미",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.questions.push({key:"meaning",label:"새 필수 관찰 질문",type:"text",required:true,allowUnknown:false,allowNotApplicable:false});}],
+    ["종합 평가",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.rating={key:"new",label:"새 평가",options:[]};}],
+    ["기능",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.features.ideasEnabled=true;}],
+    ["분류 이름",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.categories[0].label="새 관찰 의미";}],
+    ["분류 삭제",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.categories=[];}],
+    ["기존 이모지 속성",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.categories[0].emojiOptions[0].label="다른 뜻";}],
+    ["기존 이모지 삭제",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.categories[0].emojiOptions.pop();delete theme.identifiers.emojiOptions[`test:${fox.key}`];}],
+    ["기존 이모지 순서",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.categories[0].emojiOptions.reverse();}],
+    ["기존 식별자",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.identifiers.emojiOptions["test:tree"]=randomUUID();}],
+    ["관계없는 식별자 추가",(theme:Awaited<ReturnType<typeof fixture>>["theme"])=>{theme.identifiers.emojiOptions["test:unrelated"]=randomUUID();}],
+  ])("%s가 변경되면 이전 설정의 신규 등록과 수정은 차단하고 아무것도 쓰지 않는다",async(_label,change)=>{
+    const f=await fixture();
+    const saved=await createObservation(f.map,f.teacher,randomUUID(),f.input);
+    await changeConfiguration(f,change);
+    const rowsBefore=(await execute("SELECT id,body,version,config_revision FROM app.observations WHERE map_id=$1",[f.map])).rows;
+    const oldInput={...f.input,configRevision:2,emojiKey:rocket.key};
+    await expect(createObservation(f.map,f.teacher,randomUUID(),oldInput)).rejects.toMatchObject({code:"CONFIG_CHANGED"});
+    await expect(updateObservation(f.map,saved.observation.id,f.teacher,saved.observation.version,oldInput)).rejects.toMatchObject({code:"CONFIG_CHANGED"});
+    expect((await execute("SELECT id,body,version,config_revision FROM app.observations WHERE map_id=$1",[f.map])).rows).toEqual(rowsBefore);
+    expect((await execute("SELECT id FROM app.emoji_options WHERE map_id=$1 AND key=$2",[f.map,rocket.key])).rows).toHaveLength(0);
+    expect((await execute("SELECT key FROM app_private.idempotency_keys WHERE principal_id=$1 AND route_scope=$2",[f.teacher.principalId,`observation:${f.map}`])).rows).toHaveLength(1);
+    expect((await execute("SELECT config_revision FROM app.maps WHERE id=$1",[f.map])).rows[0].config_revision).toBe(3);
+  });
+  it("없는 과거 설정과 미래 설정은 추측해서 받아들이지 않는다",async()=>{
+    const f=await fixture();
+    await expect(createObservation(f.map,f.teacher,randomUUID(),{...f.input,configRevision:2})).rejects.toMatchObject({code:"CONFIG_CHANGED"});
+    await changeConfiguration(f,()=>{},3);
+    await expect(createObservation(f.map,f.teacher,randomUUID(),{...f.input,configRevision:2})).rejects.toMatchObject({code:"CONFIG_CHANGED"});
+    expect((await execute("SELECT id FROM app.observations WHERE map_id=$1",[f.map])).rows).toHaveLength(0);
+    expect((await execute("SELECT id FROM app.emoji_options WHERE map_id=$1",[f.map])).rows).toHaveLength(1);
+  });
+  it("이전 설정을 허용해도 사용 중지 이모지와 위조 이모지는 신규 저장할 수 없다",async()=>{
+    const f=await fixture(),student=await addStudent(f.map);
+    await createObservation(f.map,f.teacher,randomUUID(),f.input);
+    await execute("UPDATE app.emoji_options SET active=false WHERE map_id=$1 AND key='tree'",[f.map]);
+    await expect(createObservation(f.map,student,randomUUID(),{...f.input,emojiKey:"tree"})).rejects.toMatchObject({code:"CONFIG_CHANGED"});
+    await expect(createObservation(f.map,student,randomUUID(),{...f.input,emojiKey:"emoji-forged"})).rejects.toMatchObject({code:"INVALID_EMOJI"});
+    expect((await execute("SELECT id FROM app.observations WHERE map_id=$1",[f.map])).rows).toHaveLength(1);
+    expect((await execute("SELECT config_revision FROM app.maps WHERE id=$1",[f.map])).rows[0].config_revision).toBe(2);
+  });
   it("참여자가 새 이모지를 등록하고 재시도해도 한 번만 저장한다",async()=>{
     const f=await fixture(),key=randomUUID();
     const saved=await createObservation(f.map,f.teacher,key,f.input);

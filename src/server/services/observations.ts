@@ -9,6 +9,7 @@ import { ApiError } from "@/server/http";
 import { canReadMap } from "@/server/policies/maps";
 import { audit } from "./community-access";
 import {registerObservationEmoji} from "./observation-emoji";
+import {observationConfiguration} from "./observation-configuration";
 
 const answerSchema = z.record(z.string().min(1).max(60), z.array(z.string().max(500)).max(10));
 export const observationSchema = z.strictObject({
@@ -90,10 +91,7 @@ export async function createObservation(mapId:string,session:AppSession,key:stri
     const idem=await client.query<{request_hash:Buffer;resource_id:string|null}>("SELECT request_hash,resource_id FROM app_private.idempotency_keys WHERE principal_id=$1 AND route_scope=$2 AND key=$3 FOR UPDATE",[session.principalId,`observation:${mapId}`,key]);
     if (!idem.rows[0].request_hash.equals(requestHash)) throw new ApiError(409,"IDEMPOTENCY_CONFLICT","같은 요청 키에 다른 기록이 사용됐습니다.");
     if (idem.rows[0].resource_id) { const existing=await client.query<ObservationRow>(`${rowSql} WHERE o.id=$1 AND o.map_id=$2`,[idem.rows[0].resource_id,mapId]); return {observation:dto(existing.rows[0],map.member_id),repeated:true}; }
-    if(input.configRevision!==map.config_revision) throw new ApiError(409,"CONFIG_CHANGED","지도 설정이 바뀌었습니다. 화면을 다시 열어 주세요.");
-    const config=await client.query<{definition:Theme}>("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=$2",[mapId,map.config_revision]);
-    const theme=config.rows[0]?.definition;
-    if(!theme) throw new ApiError(503,"THEME_UNAVAILABLE","지도 설정을 불러올 수 없습니다.");
+    const theme=await observationConfiguration(client,map,input.configRevision);
     const selectedTheme=await registerObservationEmoji(client,map,session.principalId,theme,input.categoryKey,input.emojiKey);
     validateInput(input,selectedTheme);
     const category=await client.query<{id:string}>("SELECT id FROM app.categories WHERE map_id=$1 AND key=$2 AND active=true",[mapId,input.categoryKey]);
@@ -119,10 +117,7 @@ export async function updateObservation(mapId:string,id:string,session:AppSessio
     const row=existing.rows[0];
     if(!row || row.author_member_id!==map.member_id || !["pending","published"].includes(row.status)) throw new ApiError(404,"NOT_FOUND","기록을 찾을 수 없습니다.");
     if(row.version!==version) throw new ApiError(412,"VERSION_CHANGED","다른 곳에서 기록이 수정됐습니다.");
-    if(input.configRevision!==map.config_revision) throw new ApiError(409,"CONFIG_CHANGED","지도 설정이 바뀌었습니다.");
-    const config=await client.query<{definition:Theme}>("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=$2",[mapId,map.config_revision]);
-    const theme=config.rows[0]?.definition;
-    if(!theme)throw new ApiError(503,"THEME_UNAVAILABLE","지도 설정을 불러올 수 없습니다.");
+    const theme=await observationConfiguration(client,map,input.configRevision);
     const selectedTheme=await registerObservationEmoji(client,map,session.principalId,theme,input.categoryKey,input.emojiKey);
     validateInput(input,selectedTheme);
     const category=await client.query<{id:string}>("SELECT id FROM app.categories WHERE map_id=$1 AND key=$2 AND active=true",[mapId,input.categoryKey]);
