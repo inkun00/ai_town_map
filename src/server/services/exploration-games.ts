@@ -9,9 +9,10 @@ import {issueSession,type AppSession} from "@/server/auth/session";
 import {communityMap,isAdmin,requireAdmin} from "./community-access";
 import {inviteAttemptActor} from "@/server/policies/invite-attempts";
 import {accountRole,requireTeacher} from "./accounts";
-import {arrivalFailure,evaluateMission,publicMission,rankedPlayers,missionSchema,coordinatesSchema,
+import {arrivalFailure,evaluateMission,publicMission,rankedPlayers,missionSchema,missionArrivalMode,coordinatesSchema,
   type MissionDefinition,type GameMission,type GameSummary,type GameSubmission,
-  type createGameSchema,type createRoomSchema,type joinGameSchema,type locationSchema,type submitMissionSchema} from "@/domain/exploration-game";
+  type createGameSchema,type createRoomSchema,type joinGameSchema,type locationSchema,type submitMissionSchema,type scanCheckpointSchema,type CheckpointArrival,type GameCheckpoint} from "@/domain/exploration-game";
+import {createCheckpointCode,readCheckpointCode,createCheckpointProof,validCheckpointProof} from "./game-checkpoints";
 
 type GameRow=QueryResultRow&{id:string;source_map_id:string;created_by:string;title:string;description:string;status:"active"|"archived";deleted_at:Date|null;version:string;location_label:string;point_count:string;mission_count:string};
 type RoomRow=QueryResultRow&{id:string;game_id:string;host_principal_id:string;title:string;status:"lobby"|"running"|"ended";duration_minutes:number;max_players:number;starts_at:Date|null;ends_at:Date|null;ended_at:Date|null;join_expires_at:Date;join_code:string;source_map_id:string;game_status:string;map_status:string;host_allowed:boolean;server_now:Date};
@@ -84,6 +85,16 @@ export async function getGame(id:string,session:AppSession|null){
     const all=await missions(client,id);
     const rooms=canManage?await client.query<{id:string;title:string;status:string;created_at:Date}>("SELECT id,title,status,created_at FROM app.game_rooms WHERE game_id=$1 AND host_principal_id=$2 ORDER BY created_at DESC LIMIT 20",[id,session!.principalId]):{rows:[]};
     return {...summary(row,canManage,session?.principalId??null),points:points.map(p=>({id:p.id,title:p.title,emoji:p.emoji,location:{lat:p.lat,lng:p.lng}})),missions:canManage?all:all.map(publicMission),rooms:rooms.rows.map(r=>({id:r.id,title:r.title,status:r.status,createdAt:r.created_at.toISOString()}))};
+  });
+}
+export async function getGameCheckpoints(id:string,session:AppSession):Promise<{items:GameCheckpoint[]}>{
+  return withTransaction(async client=>{
+    await gameAccess(client,id,session,true);
+    const all=await missions(client,id),points=new Map<string,GameCheckpoint>();
+    for(const mission of all)if(missionArrivalMode(mission)==="qr"&&!points.has(mission.pointId)){
+      points.set(mission.pointId,{pointId:mission.pointId,title:mission.pointTitle,emoji:mission.emoji,code:createCheckpointCode({gameId:id,pointId:mission.pointId})});
+    }
+    return {items:[...points.values()]};
   });
 }
 export async function changeGame(id:string,session:AppSession,input:z.infer<typeof changeGameSchema>){
@@ -203,7 +214,8 @@ export async function joinRoom(input:z.infer<typeof joinGameSchema>,existing:App
     return {roomId:r.id,session:existing?null:await issueSession(client,principal)};
   });
 }
-function submission(r:SubmissionRow):GameSubmission{return {id:r.id,playerId:r.player_id,missionId:r.mission_id,status:r.status,attempts:r.attempts,score:r.score,response:r.response,reason:r.reason,version:String(r.version),submittedAt:r.submitted_at.toISOString()};}
+function publicResponse(response:z.infer<typeof submitMissionSchema>["response"]):GameSubmission["response"]{const {checkpointProof,...safe}=response;void checkpointProof;return safe;}
+function submission(r:SubmissionRow):GameSubmission{return {id:r.id,playerId:r.player_id,missionId:r.mission_id,status:r.status,attempts:r.attempts,score:r.score,response:publicResponse(r.response),reason:r.reason,version:String(r.version),submittedAt:r.submitted_at.toISOString()};}
 export async function getRoom(id:string,session:AppSession){
   return withTransaction(async client=>{
     const {r,isHost,player}=await roomAccess(client,id,session,false);
@@ -230,6 +242,33 @@ export async function updateLocation(id:string,session:AppSession,input:z.infer<
     return {shared:true};
   });
 }
+export async function scanCheckpoint(id:string,session:AppSession,input:z.infer<typeof scanCheckpointSchema>):Promise<CheckpointArrival>{
+  return withTransaction(async client=>{
+    const {r,player}=await roomAccess(client,id,session);
+    if(!player)throw new ApiError(403,"PLAYER_REQUIRED","학생만 QR을 확인할 수 있습니다.");
+    if(r.status!=="running")throw new ApiError(409,r.status==="ended"?"ROOM_ENDED":"GAME_NOT_STARTED",r.status==="ended"?"게임이 끝나 QR을 확인할 수 없습니다.":"선생님이 게임을 시작하면 QR을 확인할 수 있어요.");
+    const checkpoint=readCheckpointCode(input.code);
+    if(!checkpoint||checkpoint.gameId!==r.game_id)throw new ApiError(422,"CHECKPOINT_INVALID","이 게임의 보물 QR인지 확인해 주세요.");
+    const {rows}=await client.query<{id:string;definition:GameMission}>("SELECT id,definition FROM app.game_room_missions WHERE room_id=$1 ORDER BY id",[id]);
+    const missionIds=rows.filter(m=>m.definition.pointId===checkpoint.pointId&&missionArrivalMode(m.definition)==="qr").map(m=>m.id);
+    if(!missionIds.length)throw new ApiError(422,"CHECKPOINT_INVALID","이 게임방에서 사용하는 보물 QR이 아닙니다.");
+    const proof=createCheckpointProof({gameId:r.game_id,roomId:id,playerId:player.id,pointId:checkpoint.pointId,expiresAt:r.ends_at!.getTime()});
+    return {pointId:checkpoint.pointId,missionIds,proof};
+  });
+}
+export async function getRoomCheckpoints(id:string,session:AppSession):Promise<{items:GameCheckpoint[]}>{
+  return withTransaction(async client=>{
+    const {r,isHost}=await roomAccess(client,id,session);
+    if(!isHost)throw new ApiError(403,"HOST_REQUIRED","이 게임방을 연 교사만 보물 QR을 준비할 수 있습니다.");
+    await requireTeacher(client,session);
+    const {rows}=await client.query<{definition:GameMission}>("SELECT definition FROM app.game_room_missions WHERE room_id=$1 ORDER BY id",[id]);
+    const points=new Map<string,GameCheckpoint>();
+    for(const {definition:mission} of rows)if(missionArrivalMode(mission)==="qr"&&!points.has(mission.pointId)){
+      points.set(mission.pointId,{pointId:mission.pointId,title:mission.pointTitle,emoji:mission.emoji,code:createCheckpointCode({gameId:r.game_id,pointId:mission.pointId})});
+    }
+    return {items:[...points.values()]};
+  });
+}
 export async function submitMission(id:string,session:AppSession,input:z.infer<typeof submitMissionSchema>){
   return withTransaction(async client=>{
     const {r,player}=await roomAccess(client,id,session);if(!player)throw new ApiError(403,"PLAYER_REQUIRED","학생만 미션을 제출할 수 있습니다.");
@@ -239,16 +278,20 @@ export async function submitMission(id:string,session:AppSession,input:z.infer<t
     if(r.status!=="running")throw new ApiError(409,r.status==="ended"?"ROOM_ENDED":"GAME_NOT_STARTED",r.status==="ended"?"제한시간이 끝났어요. 새 응답을 제출할 수 없습니다.":"선생님이 게임을 시작하면 제출할 수 있어요.");
     const found=await client.query<{definition:GameMission}>("SELECT definition FROM app.game_room_missions WHERE room_id=$1 AND id=$2",[id,input.missionId]);
     const mission=found.rows[0]?.definition;if(!mission)throw new ApiError(404,"NOT_FOUND","미션을 찾을 수 없습니다.");
-    if(!player.sharing)throw new ApiError(403,"LOCATION_SHARING_OFF","위치 공유를 켜 주세요.");
-    const arrival=arrivalFailure(player.observed_at?{lat:player.lat!,lng:player.lng!,accuracy:player.accuracy!,observedAt:player.observed_at}:null,mission,r.server_now);
-    if(arrival)throw new ApiError(422,"ARRIVAL_REQUIRED",arrival);
+    if(missionArrivalMode(mission)==="qr"){
+      if(!input.response.checkpointProof||!validCheckpointProof(input.response.checkpointProof,{gameId:r.game_id,roomId:id,playerId:player.id,pointId:mission.pointId,expiresAt:r.ends_at!.getTime()},r.server_now))throw new ApiError(422,"CHECKPOINT_REQUIRED","이 장소의 보물 QR을 먼저 스캔해 주세요.");
+    }else{
+      if(!player.sharing)throw new ApiError(403,"LOCATION_SHARING_OFF","위치 공유를 켜 주세요.");
+      const arrival=arrivalFailure(player.observed_at?{lat:player.lat!,lng:player.lng!,accuracy:player.accuracy!,observedAt:player.observed_at}:null,mission,r.server_now);
+      if(arrival)throw new ApiError(422,"ARRIVAL_REQUIRED",arrival);
+    }
     const previous=await client.query<SubmissionRow>("SELECT * FROM app.game_submissions WHERE player_id=$1 AND mission_id=$2 FOR UPDATE",[player.id,input.missionId]);
     const old=previous.rows[0];if(old&&(old.status==="approved"||old.status==="pending"))throw new ApiError(409,"ALREADY_SUBMITTED",old.status==="approved"?"이미 완료한 미션이에요.":"선생님의 검토를 기다리고 있어요.");
     if(old&&old.attempts>=mission.maxAttempts)throw new ApiError(409,"ATTEMPTS_EXHAUSTED","이 미션의 제출 기회를 모두 사용했어요.");
     let status:GameSubmission["status"];try{status=evaluateMission(mission as MissionDefinition,input.response);}catch(e){throw new ApiError(422,"ANSWER_REQUIRED",e instanceof Error?e.message:"응답을 확인해 주세요.");}
     const score=status==="approved"?mission.points:0;
     const {rows}=await client.query<SubmissionRow>(`INSERT INTO app.game_submissions(room_id,player_id,mission_id,status,response,score) VALUES($1,$2,$3,$4,$5,$6)
-      ON CONFLICT(player_id,mission_id) DO UPDATE SET status=EXCLUDED.status,response=EXCLUDED.response,score=EXCLUDED.score,attempts=app.game_submissions.attempts+1,reason=NULL,version=app.game_submissions.version+1,submitted_at=now() RETURNING *`,[id,player.id,input.missionId,status,JSON.stringify(input.response),score]);
+      ON CONFLICT(player_id,mission_id) DO UPDATE SET status=EXCLUDED.status,response=EXCLUDED.response,score=EXCLUDED.score,attempts=app.game_submissions.attempts+1,reason=NULL,version=app.game_submissions.version+1,submitted_at=now() RETURNING *`,[id,player.id,input.missionId,status,JSON.stringify(publicResponse(input.response)),score]);
     const result=submission(rows[0]);await client.query("INSERT INTO app.game_attempt_requests(room_id,player_id,mission_id,request_id,payload_hash,result) VALUES($1,$2,$3,$4,$5,$6)",[id,player.id,input.missionId,input.requestId,payloadHash,JSON.stringify(result)]);
     return result;
   });

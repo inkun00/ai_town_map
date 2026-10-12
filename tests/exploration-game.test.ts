@@ -3,14 +3,15 @@ import {PGlite} from "@electric-sql/pglite";
 import {readFile} from "node:fs/promises";
 import {randomUUID} from "node:crypto";
 import type {AppSession} from "../src/server/auth/session";
-import {arrivalFailure,evaluateMission,rankedPlayers,missionSchema,joinGameSchema,type GameDefinition} from "../src/domain/exploration-game";
+import {arrivalFailure,evaluateMission,rankedPlayers,missionSchema,missionArrivalMode,joinGameSchema,submitMissionSchema,type GameDefinition,type MissionKind,type MissionArrivalMode} from "../src/domain/exploration-game";
 let db:PGlite;let queue:Promise<unknown>=Promise.resolve();
 // Match pg's bytea Buffer and int8 string decoding when using PGlite.
 const execute=async(sql:string,values:unknown[]=[])=>{const r=await db.query(sql,values);return {...r,rows:r.rows.map(row=>Object.fromEntries(Object.entries(row as Record<string,unknown>).map(([key,value])=>[key,value instanceof Uint8Array?Buffer.from(value):key==="version"?String(value):value]))),rowCount:r.rows.length||r.affectedRows||0};};
 vi.mock("../src/server/db",()=>({query:async(sql:string,values:unknown[]=[])=> (await execute(sql,values)).rows,withTransaction:(action:(client:unknown)=>unknown)=>{const next=queue.then(async()=>{await db.exec("BEGIN");try{const result=await action({query:execute});await db.exec("COMMIT");return result;}catch(e){await db.exec("ROLLBACK");throw e;}});queue=next.catch(()=>{});return next;}}));
 vi.mock("../src/server/env",()=>({getServerConfig:()=>({invitePepper:"test-game-pepper-only",appOrigin:"http://localhost:3001"})}));
 vi.mock("../src/server/auth/session",()=>({issueSession:async()=>({sessionToken:"test-only",csrfToken:"test-only",expiresAt:new Date(Date.now()+86400000)})}));
-import {createGame,getGame,changeGame,createRoom,joinRoom,getRoom,roomAction,updateLocation,submitMission,listGames,deleteGame,restoreGame} from "../src/server/services/exploration-games";
+import {createGame,getGame,changeGame,createRoom,joinRoom,getRoom,roomAction,updateLocation,submitMission,listGames,deleteGame,restoreGame,getGameCheckpoints,getRoomCheckpoints,scanCheckpoint} from "../src/server/services/exploration-games";
+import {createCheckpointProof,validCheckpointProof,readCheckpointCode} from "../src/server/services/game-checkpoints";
 import {registerAccount} from "../src/server/services/accounts";
 import {registrationSchema} from "../src/domain/account";
 import {createMap,createMapSchema} from "../src/server/services/maps";
@@ -78,8 +79,8 @@ async function fixture(){
  for(const status of ["published","hidden"])await execute("INSERT INTO app.observations(map_id,author_member_id,title,body,location_label,location_source,lat,lng,category_id,emoji_option_id,status,config_revision) VALUES($1,$2,$3,'가상 관찰을 위한 예시 기록입니다.','가상 지점','manual',37.5,127,$4,$5,$6,1)",[map,member,status==="published"?"나무 포인트":"숨긴 포인트",category,emoji,status]);
  const teacher=session(owner);const input={sourceMapId:map,title:"가상 탐험게임",description:"",requestId:randomUUID()};const g=await createGame(teacher,input);const game=await getGame(g.id,teacher);return {teacher,map,input,game};
 }
-async function mission(f:Awaited<ReturnType<typeof fixture>>,kind:"quiz"|"observation"|"checklist"|"short_answer"="quiz",points=100){
- const current=await getGame(f.game.id,f.teacher);await changeGame(current.id,f.teacher,{action:"mission",version:current.version,mission:{pointId:current.points[0].id,title:"현장 미션",prompt:"현장에서 발견한 내용을 답해 주세요.",kind,points,radiusMeters:50,maxAttempts:2,options:kind==="quiz"?["첫 번째","두 번째"]:[],correctAnswers:kind==="quiz"?["1"]:kind==="short_answer"?["은행나무"]:[],checklist:kind==="checklist"?["주변 관찰","안내 확인"]:[]}});
+async function mission(f:Awaited<ReturnType<typeof fixture>>,kind:MissionKind="quiz",points=100,arrivalMode?:MissionArrivalMode){
+ const current=await getGame(f.game.id,f.teacher);await changeGame(current.id,f.teacher,{action:"mission",version:current.version,mission:{pointId:current.points[0].id,title:"현장 미션",prompt:"현장에서 발견한 내용을 답해 주세요.",kind,...(arrivalMode?{arrivalMode}:{}),points,radiusMeters:50,maxAttempts:2,options:kind==="quiz"?["첫 번째","두 번째"]:[],correctAnswers:kind==="quiz"?["1"]:kind==="short_answer"?["은행나무"]:[],checklist:kind==="checklist"?["주변 관찰","안내 확인"]:[]}});
 }
 async function opened(f:Awaited<ReturnType<typeof fixture>>){return createRoom(f.game.id,f.teacher,{title:"시험 방",durationMinutes:30,maxPlayers:2,requestId:randomUUID()});}
 async function player(room:string,teacher:AppSession,nickname="학생 하늘"){
@@ -104,6 +105,66 @@ describe("exploration missions and arrival",()=>{
   expect(arrivalFailure({...p,observedAt:new Date(now.getTime()+11000)},m,now)).toMatch(/최근/);
  });
  it("announces shared ranks without rewarding speed",()=>{expect(rankedPlayers([{id:"b",nickname:"나",score:100},{id:"a",nickname:"가",score:100},{id:"c",nickname:"다",score:50}]).map(p=>p.rank)).toEqual([1,1,3]);});
+ it("preserves legacy GPS missions and validates bounded QR arrival proofs",()=>{
+  expect(missionArrivalMode(definition)).toBe("gps");expect(missionArrivalMode({...definition,arrivalMode:"qr"})).toBe("qr");expect(missionArrivalMode({...definition,kind:"qr",arrivalMode:"gps"})).toBe("qr");
+  expect(evaluateMission({...definition,kind:"qr"},{})).toBe("approved");
+  expect(missionSchema.safeParse({...definition,arrivalMode:"manual"}).success).toBe(false);
+  expect(submitMissionSchema.safeParse({missionId:randomUUID(),requestId:randomUUID(),response:{checkpointProof:"a".repeat(1025)}}).success).toBe(false);
+ });
+});
+describe("QR treasure checkpoints",()=>{
+ it("issues stable codes only to teacher managers and excludes GPS-only points",async()=>{
+  const f=await fixture();expect((await getGameCheckpoints(f.game.id,f.teacher)).items).toHaveLength(0);await mission(f,"qr");
+  const first=await getGameCheckpoints(f.game.id,f.teacher);expect(first.items).toHaveLength(1);expect(await getGameCheckpoints(f.game.id,f.teacher)).toEqual(first);
+  expect(readCheckpointCode(first.items[0].code)).toEqual({gameId:f.game.id,pointId:f.game.points[0].id});
+  await expect(getGameCheckpoints(f.game.id,session(randomUUID(),"guest"))).rejects.toMatchObject({code:"TEACHER_REQUIRED"});
+  const strangerId=randomUUID();await execute("INSERT INTO app.principals(id,kind,auth_user_id,account_role) VALUES($1,'account',$2,'teacher')",[strangerId,randomUUID()]);
+  await expect(getGameCheckpoints(f.game.id,session(strangerId))).rejects.toMatchObject({code:"ADMIN_REQUIRED"});
+  expect(await getGame(f.game.id,null)).not.toHaveProperty("checkpoints");
+ });
+ it("scans and completes without GPS, clears secret proof from results, and awards once",async()=>{
+  const f=await fixture();await mission(f,"qr",75);const code=(await getGameCheckpoints(f.game.id,f.teacher)).items[0].code;const r=await opened(f),p=await player(r.id,f.teacher);
+  await expect(scanCheckpoint(r.id,p,{code})).rejects.toMatchObject({code:"GAME_NOT_STARTED"});await roomAction(r.id,f.teacher,{action:"start"});await roomAction(r.id,p,{action:"stop_sharing"});
+  const scanned=await scanCheckpoint(r.id,p,{code}),state=await getRoom(r.id,p);expect(scanned.missionIds).toEqual([state.missions[0].id]);expect(scanned.pointId).toBe(f.game.points[0].id);
+  await expect(submitMission(r.id,p,{missionId:scanned.missionIds[0],requestId:randomUUID(),response:{}})).rejects.toMatchObject({code:"CHECKPOINT_REQUIRED"});
+  const request={missionId:scanned.missionIds[0],requestId:randomUUID(),response:{checkpointProof:scanned.proof}},result=await submitMission(r.id,p,request);expect(result).toMatchObject({status:"approved",score:75,response:{}});
+  expect(await submitMission(r.id,p,request)).toEqual(result);expect((await getRoom(r.id,p)).me).toMatchObject({score:75,completed:1,sharing:false});
+  expect((await execute("SELECT response FROM app.game_submissions WHERE id=$1",[result.id])).rows[0]).toEqual({response:{}});
+  expect((await getRoom(r.id,p)).submissions[0].response).not.toHaveProperty("checkpointProof");
+  await expect(submitMission(r.id,p,{...request,requestId:randomUUID()})).rejects.toMatchObject({code:"ALREADY_SUBMITTED"});
+ });
+ it("rejects forged codes, cross-game codes, outsiders, hosts and other-player proofs",async()=>{
+  const f=await fixture();await mission(f,"qr");const code=(await getGameCheckpoints(f.game.id,f.teacher)).items[0].code;const r=await opened(f),p=await player(r.id,f.teacher),p2=await player(r.id,f.teacher,"학생 달");await roomAction(r.id,f.teacher,{action:"start"});
+  await expect(scanCheckpoint(r.id,session(randomUUID(),"guest"),{code})).rejects.toMatchObject({code:"ROOM_MEMBERSHIP_REQUIRED"});await expect(scanCheckpoint(r.id,f.teacher,{code})).rejects.toMatchObject({code:"PLAYER_REQUIRED"});
+  await expect(scanCheckpoint(r.id,p,{code:`${code.slice(0,-3)}AAA`})).rejects.toMatchObject({code:"CHECKPOINT_INVALID"});
+  const other=await fixture();await mission(other,"qr");const otherCode=(await getGameCheckpoints(other.game.id,other.teacher)).items[0].code;await expect(scanCheckpoint(r.id,p,{code:otherCode})).rejects.toMatchObject({code:"CHECKPOINT_INVALID"});
+  const scanned=await scanCheckpoint(r.id,p,{code});await expect(submitMission(r.id,p2,{missionId:scanned.missionIds[0],requestId:randomUUID(),response:{checkpointProof:scanned.proof}})).rejects.toMatchObject({code:"CHECKPOINT_REQUIRED"});
+  await expect(submitMission(r.id,p,{missionId:scanned.missionIds[0],requestId:randomUUID(),response:{checkpointProof:`${scanned.proof.slice(0,-3)}AAA`}})).rejects.toMatchObject({code:"CHECKPOINT_REQUIRED"});
+ });
+ it("binds proof to the room, point and expiry, and GPS missions still need a location",async()=>{
+  const f=await fixture();await mission(f,"qr");await mission(f,"quiz");const code=(await getGameCheckpoints(f.game.id,f.teacher)).items[0].code;const r=await opened(f),p=await player(r.id,f.teacher);await roomAction(r.id,f.teacher,{action:"start"});
+  const scanned=await scanCheckpoint(r.id,p,{code}),state=await getRoom(r.id,p),qr=state.missions.find(m=>m.kind==="qr")!,gps=state.missions.find(m=>m.kind==="quiz")!;
+  expect(scanned.missionIds).toEqual([qr.id]);await expect(submitMission(r.id,p,{missionId:gps.id,requestId:randomUUID(),response:{choice:1,checkpointProof:scanned.proof}})).rejects.toMatchObject({code:"ARRIVAL_REQUIRED"});
+  const scope={gameId:f.game.id,roomId:r.id,playerId:state.me!.id,pointId:qr.pointId,expiresAt:new Date(state.room.endsAt!).getTime()};
+  expect(validCheckpointProof(scanned.proof,scope,new Date())).toBe(true);expect(validCheckpointProof(scanned.proof,{...scope,roomId:randomUUID()},new Date())).toBe(false);expect(validCheckpointProof(scanned.proof,{...scope,pointId:randomUUID()},new Date())).toBe(false);expect(validCheckpointProof(scanned.proof,scope,new Date(scope.expiresAt))).toBe(false);
+  await expect(submitMission(r.id,p,{missionId:qr.id,requestId:randomUUID(),response:{checkpointProof:createCheckpointProof({...scope,pointId:randomUUID()})}})).rejects.toMatchObject({code:"CHECKPOINT_REQUIRED"});
+  const r2=await opened(f);await player(r2.id,f.teacher);await joinRoom({code:(await getRoom(r2.id,f.teacher)).room.joinCode!,nickname:"학생 하늘 둘",locationConsent:true},p);await roomAction(r2.id,f.teacher,{action:"start"});const qr2=(await getRoom(r2.id,p)).missions.find(m=>m.kind==="qr")!;
+  await expect(submitMission(r2.id,p,{missionId:qr2.id,requestId:randomUUID(),response:{checkpointProof:scanned.proof}})).rejects.toMatchObject({code:"CHECKPOINT_REQUIRED"});
+  await execute("UPDATE app.game_rooms SET ends_at=now()-interval '1 second' WHERE id=$1",[r.id]);await expect(scanCheckpoint(r.id,p,{code})).rejects.toMatchObject({code:"ROOM_ENDED"});await expect(submitMission(r.id,p,{missionId:qr.id,requestId:randomUUID(),response:{checkpointProof:scanned.proof}})).rejects.toMatchObject({code:"ROOM_ENDED"});
+ });
+ it("keeps QR observation and checklist scoring under teacher approval and respects frozen missions",async()=>{
+  const f=await fixture();await mission(f,"observation",125,"qr");await mission(f,"checklist",60,"qr");const code=(await getGameCheckpoints(f.game.id,f.teacher)).items[0].code;const r=await opened(f),p=await player(r.id,f.teacher);await roomAction(r.id,f.teacher,{action:"start"});
+  let g=await getGame(f.game.id,f.teacher);for(const m of g.missions){const {id,location,emoji,pointTitle,...definition}=m;void location;void emoji;void pointTitle;await changeGame(g.id,f.teacher,{action:"mission",version:g.version,id,mission:{...definition,arrivalMode:"gps",correctAnswers:[]}});g=await getGame(g.id,f.teacher);}
+  expect((await getGameCheckpoints(g.id,f.teacher)).items).toHaveLength(0);expect((await getRoomCheckpoints(r.id,f.teacher)).items[0].code).toBe(code);await expect(getRoomCheckpoints(r.id,p)).rejects.toMatchObject({code:"HOST_REQUIRED"});const scanned=await scanCheckpoint(r.id,p,{code});expect(scanned.missionIds).toHaveLength(2);
+  const state=await getRoom(r.id,p),observation=state.missions.find(m=>m.kind==="observation")!,checklist=state.missions.find(m=>m.kind==="checklist")!;
+  const pending=await submitMission(r.id,p,{missionId:observation.id,requestId:randomUUID(),response:{answer:"QR 장소에서 잎을 관찰했어요.",checkpointProof:scanned.proof}});expect(pending).toMatchObject({status:"pending",score:0,response:{answer:"QR 장소에서 잎을 관찰했어요."}});
+  const checks=await submitMission(r.id,p,{missionId:checklist.id,requestId:randomUUID(),response:{checks:[0,1],checkpointProof:scanned.proof}});expect(checks).toMatchObject({status:"pending",score:0});expect((await getRoom(r.id,p)).me!.score).toBe(0);
+  await roomAction(r.id,f.teacher,{action:"review",submissionId:pending.id,version:pending.version,decision:"approve",reason:"현장 관찰 확인"});expect((await getRoom(r.id,p)).me!.score).toBe(125);
+ });
+ it("does not accept a QR checkpoint newly enabled after the room was created",async()=>{
+  const f=await fixture();await mission(f);const r=await opened(f),p=await player(r.id,f.teacher);await roomAction(r.id,f.teacher,{action:"start"});await mission(f,"qr");const code=(await getGameCheckpoints(f.game.id,f.teacher)).items[0].code;
+  await expect(scanCheckpoint(r.id,p,{code})).rejects.toMatchObject({code:"CHECKPOINT_INVALID"});
+ });
 });
 describe("game database, access and score integrity",()=>{
  it("copies only published points, preserves source and makes retries idempotent",async()=>{

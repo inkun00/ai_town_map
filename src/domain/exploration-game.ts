@@ -1,12 +1,14 @@
 import * as z from "zod";
 
-export const missionKinds=["quiz","short_answer","observation","checklist"] as const;
+export const missionKinds=["quiz","short_answer","observation","checklist","qr"] as const;
 export type MissionKind=typeof missionKinds[number];
-export const missionLabels:Record<MissionKind,string>={quiz:"객관식 퀴즈",short_answer:"단답형 퀴즈",observation:"관찰·서술 응답",checklist:"현장 체크리스트"};
+export const missionLabels:Record<MissionKind,string>={quiz:"객관식 퀴즈",short_answer:"단답형 퀴즈",observation:"관찰·서술 응답",checklist:"현장 체크리스트",qr:"QR 보물찾기"};
+export type MissionArrivalMode="gps"|"qr";
+export function missionArrivalMode(mission:{kind:MissionKind;arrivalMode?:MissionArrivalMode}):MissionArrivalMode{return mission.kind==="qr"?"qr":mission.arrivalMode??"gps";}
 export const coordinatesSchema=z.strictObject({lat:z.number().finite().min(-90).max(90),lng:z.number().finite().min(-180).max(180)});
 export const missionSchema=z.strictObject({
   pointId:z.uuid(),title:z.string().trim().min(2).max(80),prompt:z.string().trim().min(2).max(1500),
-  kind:z.enum(missionKinds),points:z.number().int().min(1).max(1000).default(100),
+  kind:z.enum(missionKinds),arrivalMode:z.enum(["gps","qr"]).optional(),points:z.number().int().min(1).max(1000).default(100),
   radiusMeters:z.number().int().min(20).max(500).default(50),maxAttempts:z.number().int().min(1).max(10).default(3),
   options:z.array(z.string().trim().min(1).max(200)).max(6).default([]),
   correctAnswers:z.array(z.string().trim().min(1).max(200)).max(10).default([]),
@@ -27,11 +29,14 @@ export type GamePlayer={id:string;nickname:string;score:number;completed:number;
 export type SubmissionStatus="incorrect"|"pending"|"approved"|"rejected";
 export type GameSubmission={id:string;playerId:string;missionId:string;status:SubmissionStatus;attempts:number;score:number;response:{choice?:number;answer?:string;checks?:number[]};reason:string|null;version:string;submittedAt:string};
 export type RoomState={room:RoomSummary;missions:GameMission[];players:GamePlayer[];me:GamePlayer|null;submissions:GameSubmission[];pendingCount:number};
+export type GameCheckpoint={pointId:string;title:string;emoji:string;code:string};
+export type CheckpointArrival={pointId:string;missionIds:string[];proof:string};
 export const createGameSchema=z.strictObject({sourceMapId:z.uuid(),title:z.string().trim().min(2).max(80),description:z.string().trim().max(500).default(""),requestId:z.uuid()});
 export const createRoomSchema=z.strictObject({title:z.string().trim().min(2).max(80),durationMinutes:z.number().int().min(1).max(180),maxPlayers:z.number().int().min(1).max(200).default(40),requestId:z.uuid()});
 export const joinGameSchema=z.strictObject({code:z.string().trim().min(8).max(14),nickname:z.string().trim().min(2).max(20),locationConsent:z.literal(true)});
 export const locationSchema=z.strictObject({location:coordinatesSchema,accuracy:z.number().finite().min(0).max(10000),observedAt:z.iso.datetime({offset:true})});
-export const submitMissionSchema=z.strictObject({missionId:z.uuid(),requestId:z.uuid(),response:z.strictObject({choice:z.number().int().min(0).max(5).optional(),answer:z.string().trim().max(1500).optional(),checks:z.array(z.number().int().min(0).max(9)).max(10).optional()})});
+export const scanCheckpointSchema=z.strictObject({code:z.string().trim().min(1).max(1024)});
+export const submitMissionSchema=z.strictObject({missionId:z.uuid(),requestId:z.uuid(),response:z.strictObject({choice:z.number().int().min(0).max(5).optional(),answer:z.string().trim().max(1500).optional(),checks:z.array(z.number().int().min(0).max(9)).max(10).optional(),checkpointProof:z.string().trim().min(1).max(1024).optional()})});
 
 export function normalizeGameAnswer(value:string){return value.normalize("NFKC").trim().replace(/\s+/g,"").toLocaleLowerCase();}
 export function gameDistance(a:{lat:number;lng:number},b:{lat:number;lng:number}){
@@ -46,6 +51,8 @@ export function arrivalFailure(location:{lat:number;lng:number;accuracy:number;o
   return null;
 }
 export function evaluateMission(definition:MissionDefinition,response:z.infer<typeof submitMissionSchema>["response"]):SubmissionStatus{
+  // Arrival authentication is checked by the server before this evaluator runs.
+  if(definition.kind==="qr")return "approved";
   if(definition.kind==="quiz"){
     if(response.choice===undefined||response.choice>=definition.options.length)throw new Error("보기를 선택해 주세요.");
     return String(response.choice)===definition.correctAnswers[0]?"approved":"incorrect";
