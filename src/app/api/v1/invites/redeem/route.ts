@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getSession, requireCsrf, setSessionCookies } from "@/server/auth/session";
 import { failure, ok, readJson, requireSameOrigin } from "@/server/http";
-import { recordFailedInviteAttempt, recordInviteAttempt, redeemInvite, redeemSchema } from "@/server/services/invites";
+import { recordFailedInviteAttempt, recordParticipationAttempt, redeemInvite, redeemSchema } from "@/server/services/invites";
 
 export const runtime = "nodejs";
 
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     requireSameOrigin(request);
     const session = await getSession(request);
     if (session) requireCsrf(request, session);
-    await recordInviteAttempt(request);
+    await recordParticipationAttempt(request);
     const input = redeemSchema.parse(await readJson(request));
     const joined = await redeemInvite(input, session);
     const response = ok({ mapId: joined.mapId, repeated: joined.repeated });

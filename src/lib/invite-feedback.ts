@@ -2,7 +2,6 @@ export function inviteFeedback(code?: string, retryAfter?: string | null) {
   switch (code) {
     case "INVITE_EXPIRED": return "초대 기한이 지났어요. 개설자에게 새 초대 코드를 요청해 주세요.";
     case "INVITE_REVOKED": return "개설자가 사용을 중지한 초대예요. 새 초대 코드를 요청해 주세요.";
-    case "INVITE_EXHAUSTED": return "초대 인원이 모두 찼어요. 개설자에게 새 초대 코드를 요청해 주세요.";
     case "MAP_CLOSED": return "보관 중인 지도예요. 개설자에게 지도를 다시 열어 달라고 요청해 주세요.";
     case "MEMBERSHIP_BLOCKED": return "현재 이 지도에 참여할 수 없어요. 지도 관리자에게 참여 상태를 확인해 주세요.";
     case "INVITE_RATE_LIMIT": {

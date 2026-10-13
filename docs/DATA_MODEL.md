@@ -22,11 +22,13 @@
 | `maps` | id, owner_principal_id, template_id, title, description, activity_context(school/community), center_lat/lng, initial_zoom, bounds?, visibility(public/invite_only), participation(invited/admin_only/closed), moderation(immediate/approval), status(draft/active/archived/deleted), pin_mode(rating/category/single), single_color?, rating_enabled, ideas_enabled, proposals_enabled, comments_enabled, theme_locked_at?, config_revision, data_revision, version, deleted_at/by | owner는 active account만 가능. rating pin은 rating_enabled 필수. single 모드 색상 필수. 범위 min<max·좌표 유효성 검사 |
 | `map_members` | id, map_id, principal_id, nickname, role(admin/participant), status(active/blocked/left), version, joined_at | UNIQUE(map_id,principal_id), 닉네임은 2~20자, 동일 닉네임 허용. 소유자는 maps.owner_principal_id로 단일 결정 |
 | `app_private.map_participation_passwords` | map_id PK/FK, salt, password_hash, algorithm(scrypt-v1), updated_by, updated_at | salt·해시 각각 32바이트. app_backend만 CRUD 가능, anon/authenticated 접근 금지. 지도 삭제 시 CASCADE |
-| `app_private.invites` | id, map_id, code_hmac, expires_at, revoked_at?, max_uses, uses, created_by, created_at | code_hmac UNIQUE. 난수 Crockford Base32 12자·256bit 서버 pepper로 HMAC. uses 0..max_uses. role은 항상 participant |
+| `app_private.invites` | id, map_id, code_hmac, expires_at, revoked_at?, max_uses?, uses, created_by, created_at | code_hmac UNIQUE. 난수 Crockford Base32 12자·256bit 서버 pepper로 HMAC. 신규 max_uses=NULL, 기존 숫자는 과거 설정으로만 보존하고 적용하지 않음. uses>=0인 누적 참여 통계. role은 항상 participant |
 
 소유자도 지도별 닉네임을 위해 active membership을 가진다. 소유권 위임은 MVP에서 제공하지 않는다. 관리자는 Google 계정 principal에게만 부여한다. 관련 계정 조건은 단순 CHECK가 다른 행을 읽을 수 없으므로 트랜잭션 서비스와 DB constraint trigger로 강제한다.
 
 초대 원문은 생성 성공 응답에 한 번 반환한다. 이후 재조회·로그에 원문을 제공하지 않고 필요하면 재발급한다. 복구 불가능한 코드 원문 대신 HMAC 비교를 사용한다. 회원가입 없는 방문자는 principal이 없다.
+
+`011_unlimited_map_invites.sql`은 `max_uses`의 NOT NULL·범위와 `uses<=max_uses` 제약을 제거한다. 기존 코드의 사용 통계·만료·폐기 상태 및 과거 `max_uses` 값은 보존한다. 새 앱은 기존 값을 무시하고 모든 유효 코드에 참여를 허용하며, 새 코드는 `max_uses=NULL`로 저장한다. 앱 배포 전에 이 마이그레이션을 적용한다.
 
 ## 3. 지도별 분류·이모지·평가·질문
 
@@ -84,7 +86,7 @@
 | 동작 | 같은 트랜잭션에서 보장할 것 |
 |---|---|
 | 지도 개설 | account 검증 → 템플릿 복사 → 분류·이모지·질문·scheme → owner membership → config revision → active |
-| 등록 참여 | map lock → 상태·기존 membership → 전체공개 또는 비밀번호·인증코드 검증 → membership 생성 → guest 세션 생성. 코드 방식은 invite lock·잔여 사용량·지도 일치 검사 후 신규 참여만 uses 증가 |
+| 등록 참여 | map lock → 상태·기존 membership → 전체공개 또는 비밀번호·인증코드 검증 → membership 생성 → guest 세션 생성. 코드 방식은 invite lock·만료·폐기·지도 일치 검사 후 신규 참여만 uses 증가. 인원 상한 없음 |
 | 기록 제출 | map row lock → 권한·active·config version → 필수·참조·첨부 ready 검증 → 상태 결정 → theme lock → map data revision 증가 |
 | 기록 수정 | map → observation 순서 잠금 → X-Resource-Version 검사 → 새 값 검증 → approval 지도면 pending → version/data revision 증가 |
 | 검수 | 같은 잠금 순서로 상태 전이·audit·data revision 증가. 숨김 이유 필수 |
@@ -114,4 +116,4 @@ idempotency 키는 24시간 보관한다. 같은 actor·route·key·body의 재�
 
 ## 8. 구현 시 반드시 실행할 DB 검증
 
-다른 지도 category·emoji·rating·question·evidence 연결 거부, 같은 지도라도 다른 category의 emoji 거부, 두 요청의 초대 마지막 사용권 경합, 설정 변경과 첫 제출 경합, version 충돌, 제출 재시도, 지도 간 조회 격리, Data API 직접 접근 거부를 검증한다. 본 문서 작성은 이 테스트들의 통과를 의미하지 않는다.
+다른 지도 category·emoji·rating·question·evidence 연결 거부, 같은 지도라도 다른 category의 emoji 거부, 과거 사용 한도를 넘는 초대 참여와 동일 세션 재참여 시 누적 통계 유지, 설정 변경과 첫 제출 경합, version 충돌, 제출 재시도, 지도 간 조회 격리, Data API 직접 접근 거부를 검증한다. 본 문서 작성은 이 테스트들의 통과를 의미하지 않는다.

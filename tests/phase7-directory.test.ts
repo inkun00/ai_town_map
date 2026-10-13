@@ -54,7 +54,7 @@ describe("invite recovery guidance", () => {
   it("gives distinct recovery actions and bounded retry guidance", () => {
     expect(inviteFeedback("INVITE_EXPIRED")).toContain("기한");
     expect(inviteFeedback("INVITE_REVOKED")).toContain("중지");
-    expect(inviteFeedback("INVITE_EXHAUSTED")).toContain("인원");
+    expect(inviteFeedback("INVITE_EXHAUSTED")).not.toContain("인원이 모두 찼");
     expect(inviteFeedback("MAP_CLOSED")).toContain("다시 열어");
     expect(inviteFeedback("MEMBERSHIP_BLOCKED")).toContain("관리자");
     expect(inviteFeedback("INVITE_RATE_LIMIT", "90")).toContain("2분");

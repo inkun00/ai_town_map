@@ -94,6 +94,7 @@ try {
   expect(anonymousPrivate, 404, "anonymous private map access");
   const invitation = await api(`/api/v1/maps/${createdMaps[0]}/invites`, { method: "POST", cookie: accountCookie, csrf: accountCsrf, body: {} });
   expect(invitation, 201, "invite creation");
+  if (invitation.data.maxUses !== null) throw new Error("Default invitation must allow unlimited participation");
   const joined = await api("/api/v1/invites/redeem", { method: "POST", body: { code: invitation.data.code, nickname: "검사참여자" } });
   expect(joined, 200, "guest redemption");
   const guestCookie = joined.cookies.filter((value) => value.startsWith(cookiePrefix)).map((value) => value.split(";")[0]).join("; ");
@@ -142,15 +143,26 @@ try {
   if(closedResult.code!=="MAP_CLOSED")throw new Error("Missing closed map guidance code");
   await admin.query("UPDATE app.maps SET status='active' WHERE id=$1",[createdMaps[0]]);
 
-  const exhausted = await api(`/api/v1/maps/${createdMaps[0]}/invites`, { method: "POST", cookie: accountCookie, csrf: accountCsrf, body: { maxUses: 1 } });
-  expect(exhausted, 201, "limited invite creation");
-  await admin.query("UPDATE app_private.invites SET uses=max_uses WHERE id=$1", [exhausted.data.id]);
-  expect(await api("/api/v1/invites/redeem", { method: "POST", body: { code: exhausted.data.code, nickname: "횟수검사" } }), 409, "exhausted invite denial");
+  const unlimited = await api(`/api/v1/maps/${createdMaps[0]}/invites`, { method: "POST", cookie: accountCookie, csrf: accountCsrf, body: { maxUses: 1 } });
+  expect(unlimited, 201, "legacy maxUses compatibility");
+  if (unlimited.data.maxUses !== null) throw new Error("Legacy maxUses must not limit participation");
+  await admin.query("UPDATE app_private.invites SET uses=1000 WHERE id=$1", [unlimited.data.id]);
+  const additional = await api("/api/v1/invites/redeem", { method: "POST", body: { code: unlimited.data.code, nickname: "무제한검사" } });
+  expect(additional, 200, "participation beyond the previous invitation limit");
+  const additionalToken = additional.cookies.find((value) => value.startsWith(`${sessionName}=`))?.split(";")[0].split("=")[1];
+  const additionalRow = await admin.query("SELECT principal_id FROM app_private.sessions WHERE token_hash=$1", [digest(additionalToken)]);
+  if (!additionalRow.rows[0]?.principal_id) throw new Error("Additional guest principal missing");
+  guestIds.push(additionalRow.rows[0].principal_id);
+  const usage = await admin.query("SELECT max_uses,uses FROM app_private.invites WHERE id=$1", [unlimited.data.id]);
+  if (usage.rows[0]?.max_uses !== null || usage.rows[0]?.uses !== 1001) throw new Error("Unlimited invite usage statistics mismatch");
+  const invitations = await api(`/api/v1/maps/${createdMaps[0]}/invites`, { cookie: accountCookie });
+  expect(invitations, 200, "invitation statistics");
+  if (!invitations.data.some((item) => item.id === unlimited.data.id && item.maxUses === null && item.uses === 1001)) throw new Error("Invitation list did not report unlimited participation");
 
   await admin.query("UPDATE app.map_members SET status='blocked' WHERE map_id=$1 AND principal_id=$2", [createdMaps[0], guestId]);
   expect(await api(`/api/v1/maps/${createdMaps[0]}`, { cookie: guestCookie }), 404, "blocked guest map denial");
   expect(await api("/api/v1/invites/redeem", { method: "POST", cookie: guestCookie, csrf: guestSession.data.csrfToken, body: { code: invitation.data.code, nickname: "검사참여자" } }), 403, "blocked guest re-entry denial");
-  console.log("Live API smoke passed: five themes, sessions, microsecond pagination, server search, invite guidance, nickname isolation, blocked guest");
+  console.log("Live API smoke passed: five themes, sessions, microsecond pagination, server search, unlimited invitations, invite guidance, nickname isolation, blocked guest");
   if(process.env.DIRECTORY_UI_CHECK==="1") {
     const label=`목록검증-${Date.now()}`;
     for(let i=0;i<25;i++){

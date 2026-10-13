@@ -15,7 +15,8 @@ function codeHash(code: string): Buffer { return createHmac("sha256", getServerC
 function actorHash(value: string): Buffer { return createHmac("sha256", getServerConfig().invitePepper).update(`attempt:${value}`).digest(); }
 
 export const createInviteSchema = z.strictObject({
-  maxUses: z.number().int().min(1).max(1000).default(30),
+  // Legacy callers may still send a quota; all map invitations are unlimited.
+  maxUses: z.number().int().min(1).max(1000).nullable().default(null),
   expiresAt: z.iso.datetime({ offset: true }).optional(),
 });
 export const redeemSchema = z.strictObject({ code: z.string().min(12).max(20), nickname: z.string().trim().min(2).max(20) });
@@ -40,12 +41,20 @@ export async function recordInviteAttempt(request: NextRequest, mapId?: string) 
 }
 
 export async function recordFailedInviteAttempt(request: NextRequest, error: unknown, mapId?: string) {
-  if (!(error instanceof ApiError) || !["PARTICIPATION_PASSWORD_INVALID", "PARTICIPATION_AUTH_REQUIRED", "INVITE_INVALID", "INVITE_REVOKED", "INVITE_EXPIRED", "INVITE_EXHAUSTED"].includes(error.code)) return;
+  if (!(error instanceof ApiError) || !["PARTICIPATION_PASSWORD_INVALID", "INVITE_INVALID"].includes(error.code)) return;
   const actor = requestActor(request, mapId);
   await query(`INSERT INTO app_private.invite_attempts(actor_hash,window_start,attempts)
     VALUES($1,now(),1) ON CONFLICT(actor_hash) DO UPDATE SET
       attempts=CASE WHEN app_private.invite_attempts.window_start<now()-interval '10 minutes' THEN 1 ELSE app_private.invite_attempts.attempts+1 END,
-      window_start=CASE WHEN app_private.invite_attempts.window_start<now()-interval '10 minutes' THEN now() ELSE app_private.invite_attempts.window_start END`, [actorHash(`credentials:${actor}`)]);
+      window_start=CASE WHEN app_private.invite_attempts.window_start<now()-interval '10 minutes' THEN now() ELSE app_private.invite_attempts.window_start END`, [actorHash(`participation-credentials:${actor}`)]);
+}
+
+/** Successful map joins have no shared-IP request budget. Only invalid credentials are limited. */
+export async function recordParticipationAttempt(request: NextRequest, mapId?: string) {
+  const actor = requestActor(request, mapId);
+  // A new bucket prevents historical invite exhaustion from blocking valid invitations after rollout.
+  const failures = await query<{ attempts: number }>("SELECT attempts FROM app_private.invite_attempts WHERE actor_hash=$1 AND window_start>now()-interval '10 minutes'", [actorHash(`participation-credentials:${actor}`)]);
+  if ((failures[0]?.attempts ?? 0) >= 20) throw new ApiError(429, "INVITE_RATE_LIMIT", "인증 실패가 여러 번 발생했습니다. 잠시 후 다시 시도해 주세요.");
 }
 
 export async function createInvite(mapId: string, session: AppSession, input: z.infer<typeof createInviteSchema>) {
@@ -57,17 +66,17 @@ export async function createInvite(mapId: string, session: AppSession, input: z.
     if (map.status !== "active") throw new ApiError(409, "MAP_CLOSED", "현재 초대할 수 없는 지도입니다.");
     const raw = createInviteCode();
     const result = await client.query<{ id: string }>(`INSERT INTO app_private.invites(map_id,code_hmac,expires_at,max_uses,created_by)
-      VALUES($1,$2,$3,$4,$5) RETURNING id`, [mapId, codeHash(raw), expiresAt, input.maxUses, session.principalId]);
-    return { id: result.rows[0].id, code: `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`, expiresAt, maxUses: input.maxUses, joinUrl: `${getServerConfig().appOrigin}/join#code=${raw}` };
+      VALUES($1,$2,$3,$4,$5) RETURNING id`, [mapId, codeHash(raw), expiresAt, null, session.principalId]);
+    return { id: result.rows[0].id, code: `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`, expiresAt, maxUses: null, joinUrl: `${getServerConfig().appOrigin}/join#code=${raw}` };
   });
 }
 
 export async function listInvites(mapId: string, session: AppSession) {
   return withTransaction(async (client) => {
     await getManageableMap(client, mapId, session);
-    const result = await client.query<{ id: string; expires_at: Date; revoked_at: Date | null; max_uses: number; uses: number; created_at: Date }>(
-      "SELECT id,expires_at,revoked_at,max_uses,uses,created_at FROM app_private.invites WHERE map_id=$1 ORDER BY created_at DESC LIMIT 50", [mapId]);
-    return result.rows.map((row) => ({ id: row.id, expiresAt: row.expires_at, revokedAt: row.revoked_at, maxUses: row.max_uses, uses: row.uses, createdAt: row.created_at }));
+    const result = await client.query<{ id: string; expires_at: Date; revoked_at: Date | null; uses: number; created_at: Date }>(
+      "SELECT id,expires_at,revoked_at,uses,created_at FROM app_private.invites WHERE map_id=$1 ORDER BY created_at DESC LIMIT 50", [mapId]);
+    return result.rows.map((row) => ({ id: row.id, expiresAt: row.expires_at, revokedAt: row.revoked_at, maxUses: null, uses: row.uses, createdAt: row.created_at }));
   });
 }
 
@@ -91,8 +100,8 @@ export async function redeemInviteInTransaction(client: PoolClient, input: z.inf
     if (!candidate.rows[0] || (expectedMapId && candidate.rows[0].map_id !== expectedMapId)) throw new ApiError(422, "INVITE_INVALID", "이 지도의 교사 인증코드를 확인해 주세요.");
     // Settings, joins and point writes all take the map lock before member/invite locks.
     await client.query("SELECT id FROM app.maps WHERE id=$1 FOR UPDATE", [candidate.rows[0].map_id]);
-    const found = await client.query<{ id: string; map_id: string; expires_at: Date; revoked_at: Date | null; max_uses: number; uses: number; status: string; participation: string }>(
-      `SELECT i.id,i.map_id,i.expires_at,i.revoked_at,i.max_uses,i.uses,m.status,m.participation
+    const found = await client.query<{ id: string; map_id: string; expires_at: Date; revoked_at: Date | null; status: string; participation: string }>(
+      `SELECT i.id,i.map_id,i.expires_at,i.revoked_at,m.status,m.participation
          FROM app_private.invites i JOIN app.maps m ON m.id=i.map_id
         WHERE i.code_hmac=$1 FOR UPDATE OF i`, [codeHash(code)]);
     const invite = found.rows[0];
@@ -106,7 +115,6 @@ export async function redeemInviteInTransaction(client: PoolClient, input: z.inf
       if (membership.rows[0]) throw new ApiError(403, "MEMBERSHIP_BLOCKED", "이 지도에 참여할 수 없습니다.");
     }
     if (invite.participation !== "invited") throw new ApiError(403, "WRITE_FORBIDDEN", "현재 이 지도는 새 포인트 등록 참여를 받지 않습니다.");
-    if (invite.uses >= invite.max_uses) throw new ApiError(409, "INVITE_EXHAUSTED", "초대 사용 횟수가 모두 찼습니다.");
     let principalId = existing?.principalId;
     if (!principalId) {
       const created = await client.query<{ id: string }>("INSERT INTO app.principals(kind) VALUES('guest') RETURNING id");

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { readFile } from "node:fs/promises";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import type { AppSession } from "../src/server/auth/session";
 
@@ -27,14 +27,18 @@ vi.mock("../src/server/env", () => ({ getServerConfig: () => ({ appOrigin: "http
 import { createMap, createMapSchema, getMap, getMapConfiguration, listMaps } from "../src/server/services/maps";
 import { joinMap, joinMapSchema } from "../src/server/services/map-joining";
 import { changeMapSettings, mapSettingsInput } from "../src/server/services/operations";
-import { createInvite, createInviteSchema, redeemInvite } from "../src/server/services/invites";
+import { createInvite, createInviteSchema, listInvites, recordFailedInviteAttempt, redeemInvite } from "../src/server/services/invites";
 import { createObservation, listObservations, observationSchema } from "../src/server/services/observations";
 import { createMergedMap, createMergedMapSchema, previewMapMerge } from "../src/server/services/map-merge";
 import { POST } from "../src/app/api/v1/maps/[mapId]/join/route";
+import { POST as redeemPOST } from "../src/app/api/v1/invites/redeem/route";
 import { mapCreationRequestHash } from "../src/server/services/map-passwords";
+import { ApiError } from "../src/server/http";
 
 const session = (id: string, kind: AppSession["kind"] = "account"): AppSession => ({ id: randomUUID(), principalId: id, kind, csrfHash: Buffer.alloc(32), expiresAt: new Date(Date.now() + 86400000) });
+let exhaustedLegacyInvite: { mapId: string; inviteId: string; code: string };
 beforeAll(async () => {
+  vi.stubEnv("TRUSTED_CLIENT_IP_HEADER", "x-classroom-test-ip");
   db = new PGlite();
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
   for (const name of ["001_core.sql", "002_observations.sql", "003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql","009_student_identifiers.sql"]) await db.exec(await readFile(`db/migrations/${name}`, "utf8"));
@@ -42,8 +46,13 @@ beforeAll(async () => {
     const themes = JSON.parse(await readFile(source, "utf8")), theme = themes.templates.find((item: { key: string }) => item.key === "custom");
     await execute("INSERT INTO app.theme_templates(theme_key,version,definition) VALUES($1,$2,$3)", [theme.key, theme.version, JSON.stringify(theme)]);
   }
+  const owner = await teacher(), partial = await map(owner, "invite_only"), code = "ABCDEFGHJKMN";
+  const hash = createHmac("sha256", "test-map-sharing-pepper-not-for-production").update(`invite:${code}`).digest();
+  const legacy = await execute("INSERT INTO app_private.invites(map_id,code_hmac,expires_at,max_uses,uses,created_by) VALUES($1,$2,now()+interval '1 day',1,1,$3) RETURNING id", [partial.id, hash, owner.principalId]);
+  exhaustedLegacyInvite = { mapId: partial.id, inviteId: legacy.rows[0].id as string, code };
+  await db.exec(await readFile("db/migrations/011_unlimited_map_invites.sql", "utf8"));
 }, 30000);
-afterAll(async () => db.close());
+afterAll(async () => { await db.close(); vi.unstubAllEnvs(); });
 
 async function teacher() {
   const id = randomUUID();
@@ -112,11 +121,24 @@ describe("public map reading and contribution sharing", () => {
     expect((await execute("SELECT uses FROM app_private.invites WHERE id=$1", [wrong.id])).rows[0].uses).toBe(0);
     const joined = await joinMap(partial.id, { nickname: "학생 하늘", code: invite.code }, null);
     expect((await getMap(partial.id, await guest(joined.session!))).capabilities.canCreateObservation).toBe(true);
-    await expect(joinMap(partial.id, { nickname: "학생 바다", code: invite.code }, null)).rejects.toMatchObject({ code: "INVITE_EXHAUSTED" });
+    expect(invite.maxUses).toBeNull();
+    expect((await joinMap(partial.id, { nickname: "학생 바다", code: invite.code }, null)).repeated).toBe(false);
+    expect((await execute("SELECT max_uses,uses FROM app_private.invites WHERE id=$1", [invite.id])).rows[0]).toEqual({ max_uses: null, uses: 2 });
+    expect((await listInvites(partial.id, owner)).find(item => item.id === invite.id)).toMatchObject({ maxUses: null, uses: 2 });
     const joinedOther = await joinMap(other.id, { nickname: "학생 바다", code: wrong.code }, null);
     expect(joinedOther.repeated).toBe(false);
     // Existing global invite links retain the same code-based membership behavior.
     expect(await redeemInvite({ nickname: "학생 바다", code: wrong.code }, await guest(joinedOther.session!))).toMatchObject({ mapId: other.id, repeated: true });
+    expect((await execute("SELECT uses FROM app_private.invites WHERE id=$1", [wrong.id])).rows[0].uses).toBe(1);
+  });
+
+  it("reopens an already exhausted invitation when the unlimited migration is applied", async () => {
+    const { mapId, inviteId, code } = exhaustedLegacyInvite;
+    expect((await execute("SELECT max_uses,uses FROM app_private.invites WHERE id=$1", [inviteId])).rows[0]).toEqual({ max_uses: 1, uses: 1 });
+    const joined = await redeemInvite({ nickname: "다음 수업 학생", code }, null);
+    expect(joined).toMatchObject({ mapId, repeated: false });
+    expect((await getMap(mapId, await guest(joined.session!))).capabilities.canCreateObservation).toBe(true);
+    expect((await execute("SELECT uses FROM app_private.invites WHERE id=$1", [inviteId])).rows[0].uses).toBe(2);
   });
 
   it("rejects revoked or expired teacher codes and keeps blocked/left members read-only", async () => {
@@ -193,7 +215,7 @@ describe("public map reading and contribution sharing", () => {
     expect(mapCreationRequestHash(withoutPassword)).toEqual(createHash("sha256").update(JSON.stringify(withoutPassword)).digest());
   });
 
-  it("protects the join endpoint with origin, CSRF and rate limits, and issues HttpOnly cookies instead of response tokens", async () => {
+  it("protects the join endpoint with origin and CSRF, and issues HttpOnly cookies instead of response tokens", async () => {
     const owner = await teacher(), open = await map(owner, "public");
     const request = (origin = "http://localhost:3001", cookie?: string, csrf?: string) => new NextRequest(`http://localhost:3001/api/v1/maps/${open.id}/join`, { method: "POST", headers: { origin, "content-type": "application/json", ...(cookie ? { cookie } : {}), ...(csrf ? { "x-csrf-token": csrf } : {}) }, body: JSON.stringify({ nickname: "학생 하늘" }) });
     const context = { params: Promise.resolve({ mapId: open.id }) };
@@ -207,12 +229,30 @@ describe("public map reading and contribution sharing", () => {
     const cookie = `moa_dev_session=${sessionToken}; moa_dev_csrf=${csrfToken}`;
     expect((await POST(request(undefined, cookie), context)).status).toBe(403);
     expect((await POST(request(undefined, cookie, csrfToken), context)).status).toBe(200);
-    for (let index = 0; index < 30; index++) expect((await POST(request(), context)).status).toBe(200);
-    await execute("UPDATE app_private.invite_attempts SET attempts=180,window_start=now()");
-    const limited = await POST(request(), context);
-    expect(limited.status).toBe(429);
-    expect(limited.headers.get("Retry-After")).toBe("600");
   });
+
+  it("lets more than 180 students sharing one IP join through both endpoints despite legacy quota locks", async () => {
+    const owner = await teacher(), partial = await map(owner, "invite_only");
+    const invite = await createInvite(partial.id, owner, createInviteSchema.parse({}));
+    const headers = { origin: "http://localhost:3001", "content-type": "application/json", "x-classroom-test-ip": "198.51.100.10" };
+    for (const endpoint of ["map", "invite"] as const) {
+      const actor = `198.51.100.10:${endpoint === "map" ? partial.id : "invitation"}`;
+      for (const [prefix, attempts] of [["credentials", 20], ["joins", 180]] as const) {
+        const hash = createHmac("sha256", "test-map-sharing-pepper-not-for-production").update(`attempt:${prefix}:${actor}`).digest();
+        await execute("INSERT INTO app_private.invite_attempts(actor_hash,window_start,attempts) VALUES($1,now(),$2)", [hash, attempts]);
+      }
+      for (let index = 0; index < 181; index++) {
+        const body = JSON.stringify({ nickname: `학생 ${endpoint} ${index}`, code: invite.code });
+        const response = endpoint === "map"
+          ? await POST(new NextRequest(`http://localhost:3001/api/v1/maps/${partial.id}/join`, { method: "POST", headers, body }), { params: Promise.resolve({ mapId: partial.id }) })
+          : await redeemPOST(new NextRequest("http://localhost:3001/api/v1/invites/redeem", { method: "POST", headers, body }));
+        expect(response.status, `${endpoint} student ${index + 1}`).toBe(200);
+        expect((await response.json()).data).toEqual({ mapId: partial.id, repeated: false });
+      }
+    }
+    expect((await execute("SELECT max_uses,uses FROM app_private.invites WHERE id=$1", [invite.id])).rows[0]).toEqual({ max_uses: null, uses: 362 });
+    expect((await execute("SELECT count(*)::int AS count FROM app.map_members WHERE map_id=$1", [partial.id])).rows[0].count).toBe(363);
+  }, 15000);
 
   it("limits failed passwords separately per map while allowing another class to join successfully", async () => {
     const owner = await teacher(), partial = await map(owner, "invite_only", "탐험1234"), other = await map(owner, "public");
@@ -221,7 +261,48 @@ describe("public map reading and contribution sharing", () => {
       const response = await POST(request(partial.id, "틀린1234"), { params: Promise.resolve({ mapId: partial.id }) });
       expect(response.status).toBe(403);
     }
-    expect((await POST(request(partial.id, "탐험1234"), { params: Promise.resolve({ mapId: partial.id }) })).status).toBe(429);
+    const limited = await POST(request(partial.id, "탐험1234"), { params: Promise.resolve({ mapId: partial.id }) });
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("600");
     expect((await POST(request(other.id), { params: Promise.resolve({ mapId: other.id }) })).status).toBe(200);
+  });
+
+  it("still limits incorrect teacher codes after 20 failures from the same IP", async () => {
+    const owner = await teacher(), partial = await map(owner, "invite_only");
+    const invite = await createInvite(partial.id, owner, createInviteSchema.parse({}));
+    const request = (code: string) => new NextRequest("http://localhost:3001/api/v1/invites/redeem", { method: "POST", headers: { origin: "http://localhost:3001", "content-type": "application/json", "x-classroom-test-ip": "198.51.100.11" }, body: JSON.stringify({ nickname: "학생 하늘", code }) });
+    for (let index = 0; index < 20; index++) {
+      const response = await redeemPOST(request("123456789012"));
+      expect(response.status).toBe(422);
+      expect((await response.json()).error.code).toBe("INVITE_INVALID");
+    }
+    const limited = await redeemPOST(request(invite.code));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("600");
+    expect((await execute("SELECT uses FROM app_private.invites WHERE id=$1", [invite.id])).rows[0].uses).toBe(0);
+  });
+
+  it("does not treat repeated expired or revoked invitations as failed credentials", async () => {
+    const owner = await teacher(), partial = await map(owner, "invite_only");
+    const invite = await createInvite(partial.id, owner, createInviteSchema.parse({}));
+    const request = () => new NextRequest("http://localhost:3001/api/v1/invites/redeem", { method: "POST", headers: { origin: "http://localhost:3001", "content-type": "application/json", "x-classroom-test-ip": "198.51.100.12" }, body: JSON.stringify({ nickname: "학생 하늘", code: invite.code }) });
+    for (const code of ["INVITE_REVOKED", "INVITE_EXPIRED"]) {
+      await execute(code === "INVITE_REVOKED" ? "UPDATE app_private.invites SET revoked_at=now() WHERE id=$1" : "UPDATE app_private.invites SET revoked_at=NULL,expires_at=now()-interval '1 minute' WHERE id=$1", [invite.id]);
+      for (let index = 0; index < 20; index++) {
+        const response = await redeemPOST(request());
+        expect(response.status).toBe(422);
+        expect((await response.json()).error.code).toBe(code);
+      }
+    }
+    await execute("UPDATE app_private.invites SET expires_at=now()+interval '1 day' WHERE id=$1", [invite.id]);
+    expect((await redeemPOST(request())).status).toBe(200);
+  });
+
+  it("ignores legacy exhausted errors when counting failed credentials", async () => {
+    const owner = await teacher(), partial = await map(owner, "invite_only");
+    const invite = await createInvite(partial.id, owner, createInviteSchema.parse({}));
+    const request = () => new NextRequest(`http://localhost:3001/api/v1/maps/${partial.id}/join`, { method: "POST", headers: { origin: "http://localhost:3001", "content-type": "application/json", "x-classroom-test-ip": "198.51.100.13" }, body: JSON.stringify({ nickname: "학생 하늘", code: invite.code }) });
+    for (let index = 0; index < 20; index++) await recordFailedInviteAttempt(request(), new ApiError(409, "INVITE_EXHAUSTED", "legacy quota"), partial.id);
+    expect((await POST(request(), { params: Promise.resolve({ mapId: partial.id }) })).status).toBe(200);
   });
 });
