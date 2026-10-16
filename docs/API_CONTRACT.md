@@ -14,7 +14,7 @@
 - 세션이 있는 POST 개설·draft 생성·제출·댓글·제안 생성·검수 명령·export 요청에는 `Idempotency-Key` UUID를 요구한다. 24시간 내 같은 body 재시도는 동일 결과, 다른 body면 `409 IDEMPOTENCY_CONFLICT`. 로그인과 최초 게스트 입장은 예외이며 아래 입장 재시도 규칙을 따른다.
 - 201은 신규 생성, 200은 조회·수정·상태 전이 및 이미 완료된 제출 재시도, 202는 작업 접수, 204는 logout/폐기 성공. pending은 실패가 아니라 성공 응답의 상태다.
 - 권한에 따른 401/403/404는 PERMISSIONS의 규칙을 따른다. 413 본문·파일 초과, 415 지원하지 않는 파일, 422 입력/기능 미사용, 429 요청 제한, 503 외부 서비스 장애. 429는 Retry-After 포함.
-- 주요 업무 오류: `INVITE_INVALID`(잘못된 코드·삭제 지도), `INVITE_EXPIRED`(만료), `INVITE_REVOKED`(철회), `INVITE_EXHAUSTED`, `INVITE_RATE_LIMIT`, `MEMBERSHIP_BLOCKED`, `FEATURE_DISABLED`, `MAP_CLOSED`, `THEME_LOCKED`, `CONFIG_CHANGED`, `INVALID_EMOJI`, `RATING_NOT_ALLOWED`, `ATTACHMENT_NOT_READY`, `EVIDENCE_CHANGED`. 일치하는 초대 코드의 상태만 구분하며 지도·참여자 정보는 오류에 포함하지 않는다. 요청 제한 429에는 `Retry-After` 초 단위 헤더를 포함한다.
+- 주요 업무 오류: `INVITE_INVALID`(잘못된 코드·삭제 지도), `INVITE_EXPIRED`(만료), `INVITE_REVOKED`(철회), `INVITE_RATE_LIMIT`, `MEMBERSHIP_BLOCKED`, `FEATURE_DISABLED`, `MAP_CLOSED`, `THEME_LOCKED`, `CONFIG_CHANGED`, `INVALID_EMOJI`, `RATING_NOT_ALLOWED`, `ATTACHMENT_NOT_READY`, `EVIDENCE_CHANGED`. 일치하는 초대 코드의 상태만 구분하며 지도·참여자 정보는 오류에 포함하지 않는다. 인증 실패 제한 429에는 `Retry-After` 초 단위 헤더를 포함한다.
 
 ## 2. 인증·지도 생성·참여
 
@@ -35,8 +35,8 @@
 | GET `/maps/{mapId}/publication-preview` | 없음 | owner. 공개 시 노출할 게시 기록·사진·제안 수, 민감 항목 점검 안내 |
 | DELETE `/maps/{mapId}` | 없음 | owner, X-Resource-Version, soft delete |
 | POST `/maps/{mapId}/restore` | 없음 | owner, X-Resource-Version, 복구 기간 내 이전 상태로 복구 |
-| POST `/maps/{mapId}/invites` | expiresAt?, maxUses | admin/owner, 원문 code·join URL·만료를 한 번 반환 |
-| GET `/maps/{mapId}/invites` | 없음 | admin/owner, ID·만료·uses만, 원문 없음 |
+| POST `/maps/{mapId}/invites` | expiresAt?, maxUses? (기존 숫자 입력 호환, 제한에 사용하지 않음) | admin/owner, 원문 code·join URL·만료·maxUses:null을 한 번 반환 |
+| GET `/maps/{mapId}/invites` | 없음 | admin/owner, ID·만료·폐기 여부·maxUses:null·누적 uses, 원문 없음 |
 | DELETE `/maps/{mapId}/invites/{inviteId}` | 없음 | admin/owner, 신규 입장만 중단 |
 | POST `/invites/redeem` | code, nickname | 회원이 없으면 guest 생성, session·membership·mapId 반환. raw session은 cookie에만 |
 | GET `/maps/{mapId}/members` | cursor?, limit? | admin/owner만. 일반 화면은 기록에 붙은 닉네임만 제공 |
@@ -66,7 +66,7 @@ CreateMap은 저장된 템플릿 version을 복사한다. 직접 만들기에는
 
 `capabilities`는 `canCreateObservation`, `canModerate`, `canManageMap`, `canCreateProposal`, `canComment` 등 UI용 boolean이다. API 서버는 이를 클라이언트로부터 다시 받지 않고 매번 권한을 계산한다.
 
-입장 재시도 시 유효한 기존 세션·membership이 있으면 그 참여자를 반환하고 초대 uses를 늘리지 않는다. 최초 응답과 쿠키를 모두 받지 못했다면 같은 닉네임만으로 기존 guest를 되찾지 않는다. 다시 입장하면 새 identity가 생길 수 있으며, 초대 한도가 소진된 경우 관리자에게 재발급을 요청한다. 이 한계는 작성자 도용 방지를 위한 MVP 복구 범위다.
+입장 재시도 시 유효한 기존 세션·membership이 있으면 그 참여자를 반환하고 초대 uses를 늘리지 않는다. 최초 응답과 쿠키를 모두 받지 못했다면 같은 닉네임만으로 기존 guest를 되찾지 않는다. 다시 입장하면 새 identity가 생길 수 있다. 이 한계는 작성자 도용 방지를 위한 MVP 복구 범위다. 초대 코드와 지도 참여에는 인원·누적 사용 횟수 상한을 적용하지 않으며 `uses`는 신규 참여 누적 통계다. API의 `maxUses`는 기존 초대를 포함해 항상 `null`이다. 코드 만료·폐기, 지도 상태와 차단, 인증 실패 방어는 계속 검사한다.
 
 ## 3. 기록 작성·제출·검수
 
@@ -254,5 +254,5 @@ export는 처음에 published 필터만 지원한다. 승인 상태는 published
 
 - `GET /maps`: limit 기본 30, 최대 50. 홈은 공개·참여 목록별 20개씩 요청하며 `nextCursor`가 있으면 더 불러온다. q는 지도 이름/지역의 부분 문자열(최대 100자), themeKey는 별도 주제 필터다. `%`, `_`는 와일드카드로 해석하지 않는다.
 - 커서는 UTC 마이크로초 생성 시각과 UUID를 보존한다. 클라이언트는 커서를 그대로 돌려주고 검색 조건 변경 시 버린다. 잘못된 날짜/UUID/커서는 422 `INVALID_CURSOR`다.
-- `POST /invites/redeem`: 만료·철회·보관 지도는 각각 422 `INVITE_EXPIRED`, `INVITE_REVOKED`, `MAP_CLOSED`. 삭제 지도·없는 코드는 422 `INVITE_INVALID`, 횟수 소진은 409 `INVITE_EXHAUSTED`, 차단은 403 `MEMBERSHIP_BLOCKED`다. 기존 참가자의 유효 초대 재사용은 횟수를 추가 소비하지 않는다.
+- `POST /invites/redeem`: 만료·철회·보관 지도는 각각 422 `INVITE_EXPIRED`, `INVITE_REVOKED`, `MAP_CLOSED`. 삭제 지도·없는 코드는 422 `INVITE_INVALID`, 차단은 403 `MEMBERSHIP_BLOCKED`다. 참여 횟수 소진 오류는 반환하지 않는다. 기존 참가자의 유효 초대 재사용은 누적 사용 통계를 늘리지 않는다.
 - 구현·검증 근거: [초대·목록 검토](STAGE7_DIRECTORY_REVIEW.md).

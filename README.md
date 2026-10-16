@@ -15,6 +15,8 @@ npm run dev -- -p 3001
 
 검증 명령은 `npm run db:check-schema`, `npm test`, `npm run typecheck`, `npm run build`입니다. 실제 DB API 연동은 합성 자료를 생성·삭제하는 `RUN_LIVE_PHASE4=1 node scripts/check-live-phase4.mjs`로 검사할 수 있습니다.
 
+지도와 초대 코드에 참여 인원·누적 사용 횟수 상한을 적용하지 않습니다. 기존 코드를 포함한 변경에는 `011_unlimited_map_invites.sql`이 필요하며 앱 배포 전에 `npm run db:migrate`로 적용합니다. 코드 만료·폐기, 차단과 인증 실패 검사는 유지합니다. 실제 동시 처리 규모는 서버·DB 자원에 따라 달라집니다.
+
 여러 참여자가 작성 중 새 이모지를 추가해도 다른 참여자의 기록은 계속 저장됩니다. 질문·분류·평가 등 실제 설정이 바뀌면 입력과 사진을 유지한 채 **지도 설정 다시 확인**으로 갱신하고, 변경된 항목을 확인한 뒤 저장합니다. 합성 학생 30명의 동시 등록과 중복 요청 방지는 `RUN_LIVE_CLASSROOM_RECORDS=1 node scripts/check-live-classroom-records.mjs`로 검사하며, 운영 앱 검증에는 `LIVE_APP_ORIGIN=https://ai-town-map.vercel.app`을 함께 설정합니다. 이 검사는 실제 학생 기록을 변경하지 않고 생성한 검사 자료만 정리합니다.
 
 ## 배포

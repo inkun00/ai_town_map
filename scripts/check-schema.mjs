@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 const db = new PGlite();
 try {
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
-  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql", "009_student_identifiers.sql", "010_student_analysis.sql"]){
+  for(const name of ["001_core.sql","002_observations.sql","003_community_moderation.sql", "004_analysis_proposals.sql", "005_retention.sql", "006_exploration_games.sql", "007_account_roles_game_deletion.sql", "008_map_participation_passwords.sql", "009_student_identifiers.sql", "010_student_analysis.sql", "011_unlimited_map_invites.sql"]){
     await db.exec(await readFile(`db/migrations/${name}`,"utf8"));
   }
   const result = await db.query("SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema IN ('app','app_private')");
@@ -37,7 +37,21 @@ try {
     await db.exec(`BEGIN; UPDATE app.categories SET default_emoji_id='00000000-0000-4000-8000-000000000052' WHERE id='00000000-0000-4000-8000-000000000041'; COMMIT;`);
   } catch { crossMapRejected = true; await db.exec("ROLLBACK"); }
   if (!crossMapRejected) throw new Error("Cross-map emoji reference was accepted");
-  process.stdout.write(`Migration syntax, ${result.rows[0].count} tables, grants, private student credentials, and cross-map emoji FK verified in PGlite\n`);
+  const inviteColumn = await db.query("SELECT is_nullable FROM information_schema.columns WHERE table_schema='app_private' AND table_name='invites' AND column_name='max_uses'");
+  if (inviteColumn.rows[0]?.is_nullable !== "YES") throw new Error("Invitation participation quotas were not removed");
+  const unlimited = await db.query(`INSERT INTO app_private.invites(map_id,code_hmac,expires_at,max_uses,uses,created_by)
+    VALUES('00000000-0000-4000-8000-000000000031',decode(repeat('a',64),'hex'),now()+interval '1 day',NULL,1001,'00000000-0000-4000-8000-000000000001')
+    RETURNING id,max_uses,uses`);
+  if (unlimited.rows[0]?.max_uses !== null || unlimited.rows[0]?.uses !== 1001) throw new Error("Unlimited invitation usage statistics were rejected");
+  const legacy = await db.query(`INSERT INTO app_private.invites(map_id,code_hmac,expires_at,max_uses,uses,created_by)
+    VALUES('00000000-0000-4000-8000-000000000031',decode(repeat('b',64),'hex'),now()+interval '1 day',30,30,'00000000-0000-4000-8000-000000000001') RETURNING id`);
+  const legacyUsage = await db.query("UPDATE app_private.invites SET uses=uses+1 WHERE id=$1 RETURNING max_uses,uses", [legacy.rows[0].id]);
+  if (legacyUsage.rows[0]?.max_uses !== 30 || legacyUsage.rows[0]?.uses !== 31) throw new Error("Legacy invitation metadata still limits participation");
+  let negativeUsesRejected = false;
+  try { await db.query("UPDATE app_private.invites SET uses=-1 WHERE id=$1", [unlimited.rows[0].id]); }
+  catch (error) { if (error.code !== "23514") throw error; negativeUsesRejected = true; }
+  if (!negativeUsesRejected) throw new Error("Negative invitation usage statistics were accepted");
+  process.stdout.write(`Migration syntax, ${result.rows[0].count} tables, grants, private student credentials, unlimited invitations, and cross-map emoji FK verified in PGlite\n`);
 } finally {
   await db.close();
 }
