@@ -3094,6 +3094,989 @@
     },
     {
       "version": 2,
+      "key": "tourism",
+      "label": "관광",
+      "features": {
+        "ratingEnabled": false,
+        "ideasEnabled": true,
+        "proposalsEnabled": true,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "category"
+      },
+      "rating": null,
+      "categories": [
+        {
+          "key": "heritage",
+          "label": "문화재·유적지",
+          "color": "#A16207",
+          "defaultEmojiKey": "heritage-1",
+          "emojiOptions": [
+            {
+              "key": "heritage-1",
+              "glyph": "🏯",
+              "label": "궁궐·고궁"
+            },
+            {
+              "key": "heritage-2",
+              "glyph": "🏰",
+              "label": "성곽·성터"
+            },
+            {
+              "key": "heritage-3",
+              "glyph": "🛕",
+              "label": "사찰"
+            },
+            {
+              "key": "heritage-4",
+              "glyph": "🪷",
+              "label": "사찰 정원"
+            },
+            {
+              "key": "heritage-5",
+              "glyph": "🏛️",
+              "label": "역사 유적"
+            },
+            {
+              "key": "heritage-6",
+              "glyph": "🗿",
+              "label": "석상·돌 문화재"
+            },
+            {
+              "key": "heritage-7",
+              "glyph": "🪦",
+              "label": "고분·옛 무덤"
+            },
+            {
+              "key": "heritage-8",
+              "glyph": "🏠",
+              "label": "전통 가옥·한옥"
+            },
+            {
+              "key": "heritage-9",
+              "glyph": "🏘️",
+              "label": "한옥 마을"
+            },
+            {
+              "key": "heritage-10",
+              "glyph": "🛖",
+              "label": "전통 생활 유적"
+            },
+            {
+              "key": "heritage-11",
+              "glyph": "🧱",
+              "label": "옛 성벽"
+            },
+            {
+              "key": "heritage-12",
+              "glyph": "🪨",
+              "label": "고인돌·선사 유적"
+            },
+            {
+              "key": "heritage-13",
+              "glyph": "🔔",
+              "label": "종·범종"
+            },
+            {
+              "key": "heritage-14",
+              "glyph": "📜",
+              "label": "옛 문서·기록"
+            },
+            {
+              "key": "heritage-15",
+              "glyph": "👑",
+              "label": "왕실 문화유산"
+            },
+            {
+              "key": "heritage-16",
+              "glyph": "⚱️",
+              "label": "도자기·유물"
+            },
+            {
+              "key": "heritage-17",
+              "glyph": "🛡️",
+              "label": "역사 기념 시설"
+            },
+            {
+              "key": "heritage-18",
+              "glyph": "🕰️",
+              "label": "근대 문화유산"
+            }
+          ]
+        },
+        {
+          "key": "museum",
+          "label": "박물관·전시",
+          "color": "#7C3AED",
+          "defaultEmojiKey": "museum-1",
+          "emojiOptions": [
+            {
+              "key": "museum-1",
+              "glyph": "🏛️",
+              "label": "박물관"
+            },
+            {
+              "key": "museum-2",
+              "glyph": "🖼️",
+              "label": "미술관"
+            },
+            {
+              "key": "museum-3",
+              "glyph": "🎨",
+              "label": "미술 전시"
+            },
+            {
+              "key": "museum-4",
+              "glyph": "🏺",
+              "label": "역사 유물 전시"
+            },
+            {
+              "key": "museum-5",
+              "glyph": "🦖",
+              "label": "공룡 박물관"
+            },
+            {
+              "key": "museum-6",
+              "glyph": "🦕",
+              "label": "자연사 박물관"
+            },
+            {
+              "key": "museum-7",
+              "glyph": "🔬",
+              "label": "과학관"
+            },
+            {
+              "key": "museum-8",
+              "glyph": "🔭",
+              "label": "천문대"
+            },
+            {
+              "key": "museum-9",
+              "glyph": "🚀",
+              "label": "우주 과학 전시"
+            },
+            {
+              "key": "museum-10",
+              "glyph": "🦴",
+              "label": "화석 전시"
+            },
+            {
+              "key": "museum-11",
+              "glyph": "🐠",
+              "label": "해양 전시관"
+            },
+            {
+              "key": "museum-12",
+              "glyph": "🚂",
+              "label": "철도 박물관"
+            },
+            {
+              "key": "museum-13",
+              "glyph": "⚓",
+              "label": "선박 전시관"
+            },
+            {
+              "key": "museum-14",
+              "glyph": "🧸",
+              "label": "장난감 박물관"
+            },
+            {
+              "key": "museum-15",
+              "glyph": "📷",
+              "label": "사진 전시"
+            },
+            {
+              "key": "museum-16",
+              "glyph": "🧵",
+              "label": "공예 전시"
+            },
+            {
+              "key": "museum-17",
+              "glyph": "💎",
+              "label": "보석·광물 전시"
+            },
+            {
+              "key": "museum-18",
+              "glyph": "🪞",
+              "label": "기획·체험 전시"
+            }
+          ]
+        },
+        {
+          "key": "culture",
+          "label": "공연·문화공간",
+          "color": "#BE185D",
+          "defaultEmojiKey": "culture-1",
+          "emojiOptions": [
+            {
+              "key": "culture-1",
+              "glyph": "🎭",
+              "label": "극장·연극"
+            },
+            {
+              "key": "culture-2",
+              "glyph": "🎬",
+              "label": "영화관"
+            },
+            {
+              "key": "culture-3",
+              "glyph": "🎼",
+              "label": "공연장"
+            },
+            {
+              "key": "culture-4",
+              "glyph": "🎻",
+              "label": "음악회"
+            },
+            {
+              "key": "culture-5",
+              "glyph": "🎹",
+              "label": "피아노 공연"
+            },
+            {
+              "key": "culture-6",
+              "glyph": "🎷",
+              "label": "재즈 공연"
+            },
+            {
+              "key": "culture-7",
+              "glyph": "🎸",
+              "label": "밴드 공연"
+            },
+            {
+              "key": "culture-8",
+              "glyph": "🥁",
+              "label": "전통 음악 공연"
+            },
+            {
+              "key": "culture-9",
+              "glyph": "🎤",
+              "label": "노래·버스킹"
+            },
+            {
+              "key": "culture-10",
+              "glyph": "💃",
+              "label": "춤 공연"
+            },
+            {
+              "key": "culture-11",
+              "glyph": "🩰",
+              "label": "무용 공연"
+            },
+            {
+              "key": "culture-12",
+              "glyph": "🎪",
+              "label": "서커스 공연"
+            },
+            {
+              "key": "culture-13",
+              "glyph": "📚",
+              "label": "문화 도서관"
+            },
+            {
+              "key": "culture-14",
+              "glyph": "✍️",
+              "label": "문학관"
+            },
+            {
+              "key": "culture-15",
+              "glyph": "🖌️",
+              "label": "서예·문예 공간"
+            },
+            {
+              "key": "culture-16",
+              "glyph": "🧶",
+              "label": "공방·문화 창작"
+            },
+            {
+              "key": "culture-17",
+              "glyph": "🎙️",
+              "label": "방송·미디어 체험"
+            },
+            {
+              "key": "culture-18",
+              "glyph": "🏟️",
+              "label": "야외 문화 공연장"
+            }
+          ]
+        },
+        {
+          "key": "experience",
+          "label": "놀이·체험시설",
+          "color": "#C2410C",
+          "defaultEmojiKey": "experience-1",
+          "emojiOptions": [
+            {
+              "key": "experience-1",
+              "glyph": "🎡",
+              "label": "대관람차"
+            },
+            {
+              "key": "experience-2",
+              "glyph": "🎢",
+              "label": "놀이공원"
+            },
+            {
+              "key": "experience-3",
+              "glyph": "🎠",
+              "label": "회전목마"
+            },
+            {
+              "key": "experience-4",
+              "glyph": "🛝",
+              "label": "놀이터"
+            },
+            {
+              "key": "experience-5",
+              "glyph": "🎯",
+              "label": "놀이 체험"
+            },
+            {
+              "key": "experience-6",
+              "glyph": "🧩",
+              "label": "어린이 체험관"
+            },
+            {
+              "key": "experience-7",
+              "glyph": "🕹️",
+              "label": "실내 놀이시설"
+            },
+            {
+              "key": "experience-8",
+              "glyph": "🏊",
+              "label": "수영장·물놀이장"
+            },
+            {
+              "key": "experience-9",
+              "glyph": "🛶",
+              "label": "카누·수상 체험"
+            },
+            {
+              "key": "experience-10",
+              "glyph": "⛵",
+              "label": "요트·보트 체험"
+            },
+            {
+              "key": "experience-11",
+              "glyph": "🚣",
+              "label": "노 젓기 체험"
+            },
+            {
+              "key": "experience-12",
+              "glyph": "🏹",
+              "label": "활쏘기 체험"
+            },
+            {
+              "key": "experience-13",
+              "glyph": "🧗",
+              "label": "등반 체험"
+            },
+            {
+              "key": "experience-14",
+              "glyph": "🛼",
+              "label": "롤러스케이트장"
+            },
+            {
+              "key": "experience-15",
+              "glyph": "⛸️",
+              "label": "아이스링크"
+            },
+            {
+              "key": "experience-16",
+              "glyph": "🎳",
+              "label": "볼링장"
+            },
+            {
+              "key": "experience-17",
+              "glyph": "🧑‍🌾",
+              "label": "농촌 체험"
+            },
+            {
+              "key": "experience-18",
+              "glyph": "🐎",
+              "label": "승마 체험"
+            }
+          ]
+        },
+        {
+          "key": "festival",
+          "label": "축제·행사",
+          "color": "#B45309",
+          "defaultEmojiKey": "festival-1",
+          "emojiOptions": [
+            {
+              "key": "festival-1",
+              "glyph": "🎉",
+              "label": "지역 축제"
+            },
+            {
+              "key": "festival-2",
+              "glyph": "🎊",
+              "label": "기념 행사"
+            },
+            {
+              "key": "festival-3",
+              "glyph": "🎆",
+              "label": "불꽃 축제"
+            },
+            {
+              "key": "festival-4",
+              "glyph": "🎇",
+              "label": "빛 축제"
+            },
+            {
+              "key": "festival-5",
+              "glyph": "🏮",
+              "label": "등 축제"
+            },
+            {
+              "key": "festival-6",
+              "glyph": "🌸",
+              "label": "꽃 축제"
+            },
+            {
+              "key": "festival-7",
+              "glyph": "🌻",
+              "label": "계절 꽃 행사"
+            },
+            {
+              "key": "festival-8",
+              "glyph": "🍁",
+              "label": "가을 축제"
+            },
+            {
+              "key": "festival-9",
+              "glyph": "⛄",
+              "label": "겨울 축제"
+            },
+            {
+              "key": "festival-10",
+              "glyph": "🏖️",
+              "label": "바다 축제"
+            },
+            {
+              "key": "festival-11",
+              "glyph": "🎈",
+              "label": "어린이 행사"
+            },
+            {
+              "key": "festival-12",
+              "glyph": "🪁",
+              "label": "연날리기 행사"
+            },
+            {
+              "key": "festival-13",
+              "glyph": "🥁",
+              "label": "퍼레이드"
+            },
+            {
+              "key": "festival-14",
+              "glyph": "🎺",
+              "label": "거리 공연 행사"
+            },
+            {
+              "key": "festival-15",
+              "glyph": "🎟️",
+              "label": "유료 행사·입장권"
+            },
+            {
+              "key": "festival-16",
+              "glyph": "🛍️",
+              "label": "장터·플리마켓"
+            },
+            {
+              "key": "festival-17",
+              "glyph": "🎁",
+              "label": "체험 부스·이벤트"
+            },
+            {
+              "key": "festival-18",
+              "glyph": "🏁",
+              "label": "스포츠·걷기 행사"
+            }
+          ]
+        },
+        {
+          "key": "scenery",
+          "label": "자연·경관명소",
+          "color": "#15803D",
+          "defaultEmojiKey": "scenery-1",
+          "emojiOptions": [
+            {
+              "key": "scenery-1",
+              "glyph": "⛰️",
+              "label": "산·봉우리"
+            },
+            {
+              "key": "scenery-2",
+              "glyph": "🌋",
+              "label": "지질 명소"
+            },
+            {
+              "key": "scenery-3",
+              "glyph": "🏞️",
+              "label": "국립공원·풍경"
+            },
+            {
+              "key": "scenery-4",
+              "glyph": "🌳",
+              "label": "숲·수목원"
+            },
+            {
+              "key": "scenery-5",
+              "glyph": "🌲",
+              "label": "휴양림"
+            },
+            {
+              "key": "scenery-6",
+              "glyph": "🌺",
+              "label": "꽃 정원"
+            },
+            {
+              "key": "scenery-7",
+              "glyph": "🌾",
+              "label": "들판·농촌 경관"
+            },
+            {
+              "key": "scenery-8",
+              "glyph": "🌊",
+              "label": "바다·해안"
+            },
+            {
+              "key": "scenery-9",
+              "glyph": "🏝️",
+              "label": "섬"
+            },
+            {
+              "key": "scenery-10",
+              "glyph": "🏖️",
+              "label": "해수욕장"
+            },
+            {
+              "key": "scenery-11",
+              "glyph": "💦",
+              "label": "폭포"
+            },
+            {
+              "key": "scenery-12",
+              "glyph": "🏕️",
+              "label": "캠핑장"
+            },
+            {
+              "key": "scenery-13",
+              "glyph": "🪨",
+              "label": "기암·바위 명소"
+            },
+            {
+              "key": "scenery-14",
+              "glyph": "🌅",
+              "label": "해돋이 명소"
+            },
+            {
+              "key": "scenery-15",
+              "glyph": "🌄",
+              "label": "산 전망대"
+            },
+            {
+              "key": "scenery-16",
+              "glyph": "🌇",
+              "label": "노을 명소"
+            },
+            {
+              "key": "scenery-17",
+              "glyph": "🌌",
+              "label": "별 보기 명소"
+            },
+            {
+              "key": "scenery-18",
+              "glyph": "🥾",
+              "label": "탐방로·둘레길"
+            }
+          ]
+        },
+        {
+          "key": "food_market",
+          "label": "먹거리·시장",
+          "color": "#DC2626",
+          "defaultEmojiKey": "food_market-1",
+          "emojiOptions": [
+            {
+              "key": "food_market-1",
+              "glyph": "🍽️",
+              "label": "지역 맛집"
+            },
+            {
+              "key": "food_market-2",
+              "glyph": "🥘",
+              "label": "향토 음식"
+            },
+            {
+              "key": "food_market-3",
+              "glyph": "🍚",
+              "label": "한식 식당"
+            },
+            {
+              "key": "food_market-4",
+              "glyph": "🍜",
+              "label": "국수·면 요리"
+            },
+            {
+              "key": "food_market-5",
+              "glyph": "🥟",
+              "label": "만두·분식"
+            },
+            {
+              "key": "food_market-6",
+              "glyph": "🐟",
+              "label": "해산물 시장"
+            },
+            {
+              "key": "food_market-7",
+              "glyph": "🍖",
+              "label": "고기 요리"
+            },
+            {
+              "key": "food_market-8",
+              "glyph": "🥬",
+              "label": "농산물 시장"
+            },
+            {
+              "key": "food_market-9",
+              "glyph": "🍎",
+              "label": "과일 장터"
+            },
+            {
+              "key": "food_market-10",
+              "glyph": "🍞",
+              "label": "빵집·빵지순례"
+            },
+            {
+              "key": "food_market-11",
+              "glyph": "🍰",
+              "label": "디저트 가게"
+            },
+            {
+              "key": "food_market-12",
+              "glyph": "🍦",
+              "label": "아이스크림"
+            },
+            {
+              "key": "food_market-13",
+              "glyph": "☕",
+              "label": "카페"
+            },
+            {
+              "key": "food_market-14",
+              "glyph": "🍵",
+              "label": "전통 찻집"
+            },
+            {
+              "key": "food_market-15",
+              "glyph": "🧺",
+              "label": "전통시장"
+            },
+            {
+              "key": "food_market-16",
+              "glyph": "🏪",
+              "label": "야시장·먹거리 골목"
+            },
+            {
+              "key": "food_market-17",
+              "glyph": "🎁",
+              "label": "지역 특산품"
+            },
+            {
+              "key": "food_market-18",
+              "glyph": "🚚",
+              "label": "푸드트럭"
+            }
+          ]
+        },
+        {
+          "key": "travel_info",
+          "label": "교통·여행안내",
+          "color": "#0369A1",
+          "defaultEmojiKey": "travel_info-1",
+          "emojiOptions": [
+            {
+              "key": "travel_info-1",
+              "glyph": "ℹ️",
+              "label": "관광 안내소"
+            },
+            {
+              "key": "travel_info-2",
+              "glyph": "🗺️",
+              "label": "안내 지도"
+            },
+            {
+              "key": "travel_info-3",
+              "glyph": "🪧",
+              "label": "방향 안내판"
+            },
+            {
+              "key": "travel_info-4",
+              "glyph": "🚌",
+              "label": "관광버스"
+            },
+            {
+              "key": "travel_info-5",
+              "glyph": "🚏",
+              "label": "버스 정류장"
+            },
+            {
+              "key": "travel_info-6",
+              "glyph": "🚉",
+              "label": "기차역"
+            },
+            {
+              "key": "travel_info-7",
+              "glyph": "🚇",
+              "label": "지하철역"
+            },
+            {
+              "key": "travel_info-8",
+              "glyph": "🚕",
+              "label": "택시 승강장"
+            },
+            {
+              "key": "travel_info-9",
+              "glyph": "🚗",
+              "label": "주차장"
+            },
+            {
+              "key": "travel_info-10",
+              "glyph": "🚲",
+              "label": "자전거 대여"
+            },
+            {
+              "key": "travel_info-11",
+              "glyph": "🚡",
+              "label": "케이블카"
+            },
+            {
+              "key": "travel_info-12",
+              "glyph": "🚠",
+              "label": "곤돌라"
+            },
+            {
+              "key": "travel_info-13",
+              "glyph": "🚢",
+              "label": "여객선 터미널"
+            },
+            {
+              "key": "travel_info-14",
+              "glyph": "⚓",
+              "label": "관광 유람선 선착장"
+            },
+            {
+              "key": "travel_info-15",
+              "glyph": "✈️",
+              "label": "공항"
+            },
+            {
+              "key": "travel_info-16",
+              "glyph": "🎫",
+              "label": "매표소·예약"
+            },
+            {
+              "key": "travel_info-17",
+              "glyph": "🧭",
+              "label": "여행 시작·집결지"
+            },
+            {
+              "key": "travel_info-18",
+              "glyph": "👣",
+              "label": "도보 여행 코스"
+            }
+          ]
+        },
+        {
+          "key": "amenities",
+          "label": "휴식·편의시설",
+          "color": "#0F766E",
+          "defaultEmojiKey": "amenities-1",
+          "emojiOptions": [
+            {
+              "key": "amenities-1",
+              "glyph": "🏨",
+              "label": "숙박시설"
+            },
+            {
+              "key": "amenities-2",
+              "glyph": "🛌",
+              "label": "게스트하우스"
+            },
+            {
+              "key": "amenities-3",
+              "glyph": "🛖",
+              "label": "한옥 숙박"
+            },
+            {
+              "key": "amenities-4",
+              "glyph": "🪑",
+              "label": "벤치·쉼터"
+            },
+            {
+              "key": "amenities-5",
+              "glyph": "⛱️",
+              "label": "그늘 쉼터"
+            },
+            {
+              "key": "amenities-6",
+              "glyph": "🚻",
+              "label": "화장실"
+            },
+            {
+              "key": "amenities-7",
+              "glyph": "♿",
+              "label": "무장애 편의시설"
+            },
+            {
+              "key": "amenities-8",
+              "glyph": "🚼",
+              "label": "수유·기저귀 교환실"
+            },
+            {
+              "key": "amenities-9",
+              "glyph": "🚰",
+              "label": "음수대"
+            },
+            {
+              "key": "amenities-10",
+              "glyph": "🧳",
+              "label": "짐 보관소"
+            },
+            {
+              "key": "amenities-11",
+              "glyph": "🔋",
+              "label": "휴대전화 충전"
+            },
+            {
+              "key": "amenities-12",
+              "glyph": "📶",
+              "label": "무선 인터넷"
+            },
+            {
+              "key": "amenities-13",
+              "glyph": "🏧",
+              "label": "현금인출기"
+            },
+            {
+              "key": "amenities-14",
+              "glyph": "🛒",
+              "label": "여행 편의점"
+            },
+            {
+              "key": "amenities-15",
+              "glyph": "🏥",
+              "label": "응급 의료시설"
+            },
+            {
+              "key": "amenities-16",
+              "glyph": "🐕",
+              "label": "반려동물 동반 공간"
+            },
+            {
+              "key": "amenities-17",
+              "glyph": "📸",
+              "label": "사진 촬영 명소"
+            },
+            {
+              "key": "amenities-18",
+              "glyph": "🛟",
+              "label": "물가 안전시설"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "key": "attractions",
+          "label": "볼거리·체험 특징",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 1000
+        },
+        {
+          "key": "opening_info",
+          "label": "운영 시간·행사 기간",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 300
+        },
+        {
+          "key": "admission",
+          "label": "입장·체험 요금",
+          "type": "single",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "free",
+              "label": "무료"
+            },
+            {
+              "key": "paid",
+              "label": "유료"
+            },
+            {
+              "key": "mixed",
+              "label": "무료·유료 함께 있음"
+            }
+          ]
+        },
+        {
+          "key": "visitor_services",
+          "label": "편의시설",
+          "type": "multi",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "options": [
+            {
+              "key": "rest",
+              "label": "휴식공간"
+            },
+            {
+              "key": "restroom",
+              "label": "화장실"
+            },
+            {
+              "key": "parking",
+              "label": "주차장"
+            },
+            {
+              "key": "public_transport",
+              "label": "대중교통"
+            },
+            {
+              "key": "accessible",
+              "label": "휠체어 접근"
+            },
+            {
+              "key": "stroller",
+              "label": "유아차 이용"
+            },
+            {
+              "key": "information",
+              "label": "관광 안내"
+            },
+            {
+              "key": "food",
+              "label": "먹거리"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": 2,
       "key": "custom",
       "label": "직접 만들기",
       "requiresConfiguration": true,

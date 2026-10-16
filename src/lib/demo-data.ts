@@ -1,7 +1,7 @@
 import source from "../../docs/contracts/theme-presets.json";
 import {emojiCatalog,findCatalogEmoji} from "./emoji-catalog";
 
-export type ThemeKey = "universal_design" | "safety" | "ecology" | "weather_life" | "custom";
+export type ThemeKey = "universal_design" | "safety" | "ecology" | "weather_life" | "tourism" | "custom";
 export type PinMode = "rating" | "category" | "single";
 export type TabKey = "map" | "record" | "analysis" | "proposal" | "more";
 export type ScreenKey = "home" | "create" | "workspace";

@@ -107,6 +107,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible, input:focus-visibl
 .adventure-theme--safety { --theme-surface: #fde2bf; }
 .adventure-theme--ecology { --theme-surface: #e5edc4; }
 .adventure-theme--weather_life { --theme-surface: #dcebf7; }
+.adventure-theme--tourism { --theme-surface: #f8e6cc; }
+.theme-pill--tourism { background: #fff1dc; color: #895b21; }
 .adventure-theme--custom { --theme-surface: #e7ddf3; }
 .home-scroll>.home-section:last-child { padding-bottom: 25px; }
 

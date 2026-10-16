@@ -61,7 +61,7 @@ type MapWithSettings = DemoMap & { categories?: Category[]; questions?: Theme["q
 type LiveSession = { draftScope:string; kind: "account" | "guest"; accountRole:import("@/domain/account").AccountRole|null; canCreateMap:boolean; expiresAt: string; csrfToken: string | null };
 
 function asDemoMap(map: LiveMap): MapWithSettings {
-  const accent: Record<ThemeKey, string> = { universal_design: "mint", safety: "peach", ecology: "lime", weather_life: "sky", custom: "mint" };
+  const accent: Record<ThemeKey, string> = { universal_design: "mint", safety: "peach", ecology: "lime", weather_life: "sky", tourism: "peach", custom: "mint" };
   return { id: map.id, title: map.title, description: map.description, themeKey: map.themeKey, location: map.location, center: map.center, configRevision: map.configRevision, author: map.isOwner ? "내가 만든 지도" : "커뮤니티", isMine: map.isMine, isOwner: map.isOwner, canManageMap: map.capabilities.canManageMap, canCreateObservation: map.capabilities.canCreateObservation,canComment:map.capabilities.canComment, visibility: map.visibility,passwordEnabled:map.passwordEnabled,participation:map.participation,moderation:map.moderation,commentsEnabled:map.commentsEnabled,status:map.status,version:map.version, accent: accent[map.themeKey], coverEmoji: themeSymbol[map.themeKey] };
 }
 type LiveObservation = { id:string;mapId:string;title:string;body:string;locationLabel:string;locationSource:"gps"|"search"|"manual";location:Coordinates;categoryKey:string;emojiKey:string;ratingKey:string|null;answers:Record<string,string[]>;improvementIdea:string|null;link:string|null;status:"pending"|"published"|"hidden"|"deleted";version:string;createdAt:string;author:string;canEdit:boolean;canDelete:boolean;photoUrl:string|null };
@@ -87,12 +87,13 @@ type Draft = {
 
 const makeDraft = (): Draft => ({ title: "", body: "", categoryKey: "", emojiKey: "", ratingKey: "", location: "", idea: "", imageName: "", link: "", answers: {} });
 const guestStartKey="moa:start:guest";
-const themeSymbol: Record<ThemeKey, string> = { universal_design: "♿", safety: "🚸", ecology: "🌳", weather_life: "☀️", custom: "✨" };
+const themeSymbol: Record<ThemeKey, string> = { universal_design: "♿", safety: "🚸", ecology: "🌳", weather_life: "☀️", tourism: "🏯", custom: "✨" };
 const themeDescription: Record<ThemeKey, string> = {
   universal_design: "누구에게나 편리한 길과 시설",
   safety: "안전한 동네를 위한 발견",
   ecology: "우리 곁의 생명과 자연",
   weather_life: "날씨가 남긴 생활의 흔적",
+  tourism: "지역의 문화재·유적지·놀이시설·축제",
   custom: "우리만의 새로운 주제",
 };
 

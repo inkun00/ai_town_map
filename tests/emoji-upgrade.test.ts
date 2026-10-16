@@ -4,9 +4,9 @@ import {themes,type Theme} from "../src/lib/demo-data";
 import {themeVersions} from "../src/server/theme-history";
 
 describe("이모지 확장과 과거 기록 보존",()=>{
-  it("네 기본 주제에 100개 이상을 제공하고 원래 키와 의미를 보존한다",()=>{
-    for(const latest of themes.filter(theme=>theme.key!=="custom")){
-      const legacy=themeVersions.find(theme=>theme.key===latest.key&&theme.version===1)!;
+  it("기존 기본 주제에 100개 이상을 제공하고 원래 키와 의미를 보존한다",()=>{
+    for(const legacy of themeVersions.filter(theme=>theme.key!=="custom"&&theme.version===1)){
+      const latest=themes.find(theme=>theme.key===legacy.key)!;
       expect(latest.categories.reduce((sum,c)=>sum+c.emojiOptions.length,0)).toBeGreaterThanOrEqual(100);
       const plan=emojiUpgradePlan(legacy,latest);
       expect(plan.additions.length).toBeGreaterThan(80);

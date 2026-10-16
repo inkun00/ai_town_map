@@ -116,6 +116,24 @@ describe("Gemini configuration and request access", () => {
 });
 
 describe("bounded source evidence and privacy", () => {
+  it("uses tourism-specific text evidence and suggests verification of history and visitor information", async () => {
+    const tourism = JSON.parse(await readFile("docs/contracts/theme-presets.json", "utf8")).templates.find((theme: { key: string }) => theme.key === "tourism");
+    await execute("INSERT INTO app.theme_templates(theme_key,version,definition) VALUES($1,$2,$3) ON CONFLICT DO NOTHING", [tourism.key, tourism.version, JSON.stringify(tourism)]);
+    const created = await createMap(createMapSchema.parse({ themeKey: "tourism", themeVersion: tourism.version, title: "관광 AI 제안 검증 지도", locationLabel: "가상 지역", visibility: "public" }), owner, randomUUID());
+    const category = tourism.categories[0], emoji = category.emojiOptions[0];
+    const saved = await createObservation(created.map.id, owner, randomUUID(), observationSchema.parse({ configRevision: 1,
+      title: "문화유산 관찰 기록", body: "안내판에 쓰인 설명과 방문객을 위한 휴식 공간을 기록했어요.", locationLabel: "가상 유적지 입구",
+      locationSource: "manual", location: { lat: 37.5, lng: 127 }, categoryKey: category.key, emojiKey: emoji.key, ratingKey: null, answers: {} }));
+    const result = await createAiSuggestions(created.map.id, owner, input());
+    const prompt = promptFrom() as Prompt & { theme: { key: string; guidance: string } };
+    expect(prompt.theme.key).toBe("tourism");
+    expect(prompt.theme.guidance).toContain("문화재, 유적지, 놀이시설, 축제");
+    expect(prompt.theme.guidance).toContain("역사적 사실, 행사 일정, 운영 시간, 입장료");
+    expect(prompt.records[0]).toMatchObject({ id: saved.observation.id, title: "문화유산 관찰 기록" });
+    expect(result.sections.discoveries[0].evidenceIds).toEqual([saved.observation.id]);
+    expect(JSON.stringify(provider.mock.calls[0][1]?.body)).not.toContain("inlineData");
+  });
+
   it("sends only validated, published evidence and authoritative counts; excludes authors, precise locations, URLs and contact details", async () => {
     const definition = (await execute("SELECT definition FROM app.map_config_revisions WHERE map_id=$1 AND revision=1", [mapId])).rows[0].definition as { categories: { label: string }[] };
     definition.categories[0].label = "나무 class@example.test";

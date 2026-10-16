@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { themes, themeByKey } from "@/lib/demo-data";
 import { MapPager, mapListUrl, type LiveMap, type PageState } from "@/lib/map-directory";
 
-const symbols = { ecology: "🌳", safety: "🚸", universal_design: "♿", weather_life: "☀️", custom: "✨" };
+const symbols = { ecology: "🌳", safety: "🚸", universal_design: "♿", weather_life: "☀️", tourism: "🏯", custom: "✨" };
 export type DirectoryScope = "public" | "mine";
 const scopeTitles = { public: "전체 지도", mine: "참여한 지도" };
 
