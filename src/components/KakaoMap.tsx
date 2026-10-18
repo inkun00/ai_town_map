@@ -7,12 +7,14 @@ import {groupMapPoints} from "@/domain/map-points";
 import {formatDistance,connectionSegments,type WorkbenchState} from "@/domain/map-workbench";
 import {PointInteraction,type GestureTool} from "./PointInteraction";
 import {acquirePrecisePosition,GeolocationMeasurementError,type LocationFix} from "@/lib/geolocation";
+import {travelLegLabel,travelModeColor,type TravelRouteOverlay} from "@/domain/travel-route";
+import "@/app/travel-route-map.css";
 import { useEffect, useRef, useState } from "react";
 
 export type Coordinates={lat:number;lng:number};
 export type MapFocus={location:Coordinates;nonce:number;radiusMeters?:number;locations?:Coordinates[]};
 export type MapPoint={id:string;title:string;emoji:string;color:string;label?:string;description?:string;rating?:RatingMeaning|null;selectionState?:PointSelectionState;location:Coordinates};
-type Props={autoLocate?:boolean;center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean;workbench?:WorkbenchState;anchorPoints?:MapPoint[];onCanvasPick?:(location:Coordinates)=>void;focus?:MapFocus|null;contextPointId?:string|null;contextPopup?:React.ReactNode;onCloseContext?:()=>void;gestureTool?:GestureTool|null;onSelectNote?:(id:string)=>void;onGestureEnd?:(result:{pointId:string;meters?:number;targetId?:string}|null)=>void};
+type Props={autoLocate?:boolean;center?:Coordinates|null;points?:MapPoint[];selectedId?:string|null;onSelectPoint?:(id:string)=>void;onBoundsChange?:(bounds:[number,number,number,number])=>void;onPick?:(location:Coordinates,source:"gps"|"search"|"manual",label?:string)=>void;chosen?:Coordinates|null;compact?:boolean;workbench?:WorkbenchState;anchorPoints?:MapPoint[];onCanvasPick?:(location:Coordinates)=>void;focus?:MapFocus|null;contextPointId?:string|null;contextPopup?:React.ReactNode;onCloseContext?:()=>void;gestureTool?:GestureTool|null;onSelectNote?:(id:string)=>void;onGestureEnd?:(result:{pointId:string;meters?:number;targetId?:string}|null)=>void;travelRoute?:TravelRouteOverlay};
 type KakaoBounds={extend:(position:unknown)=>void};
 export type KakaoPlace={id?:string;x:string;y:string;place_name:string;address_name?:string;road_address_name?:string};
 type KakaoPlacePagination={current:number;hasPrevPage:boolean;hasNextPage:boolean;prevPage:()=>void;nextPage:()=>void};
@@ -38,7 +40,7 @@ function measurementAge(observedAt:string,now:number){
   return seconds<5?"방금 측정":seconds<60?`${seconds}초 전 측정`:`${Math.floor(seconds/60)}분 전 측정`;
 }
 
-export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false,workbench,anchorPoints=points,onCanvasPick,focus,contextPointId,contextPopup,onCloseContext,gestureTool,onGestureEnd,onSelectNote,autoLocate=true}:Props) {
+export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBoundsChange,onPick,chosen,compact=false,workbench,anchorPoints=points,onCanvasPick,focus,contextPointId,contextPopup,onCloseContext,gestureTool,onGestureEnd,onSelectNote,autoLocate=true,travelRoute}:Props) {
   const elementRef=useRef<HTMLDivElement>(null);
   const mapRef=useRef<KakaoMapObject|null>(null);
   const pinRef=useRef<KakaoMarker[]>([]);
@@ -164,6 +166,23 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
     if(workbench.layers.notes)for(const note of workbench.notes)label(note.location,[note.emoji,note.text].filter(Boolean).join(" "),`map-drawing-note${note.text?"":" map-drawing-note--emoji"}`,note.color,note.id);
     return()=>{overlays.forEach(overlay=>overlay.setMap(null));};
   },[ready,workbench,anchorPoints,gestureTool]);
+
+  useEffect(()=>{
+    const kakao=window.kakao,map=mapRef.current;if(!ready||!kakao||!map||!travelRoute)return;
+    const overlays:KakaoOverlay[]=[],latLng=(location:Coordinates)=>new kakao.maps.LatLng(location.lat,location.lng);
+    const label=(location:Coordinates,text:string,className:string,yAnchor:number)=>{
+      const content=document.createElement("div");content.className=className;content.textContent=text;content.title=text;
+      overlays.push(new kakao.maps.CustomOverlay({map,position:latLng(location),content,xAnchor:.5,yAnchor,zIndex:12}));
+    };
+    for(const [index,stop] of travelRoute.stops.slice(0,12).entries())label(stop.location,`${index+1} · ${stop.emoji} ${stop.title}`,"map-travel-stop",3.2);
+    if(!travelRoute.draft)for(const [index,leg] of travelRoute.legs.entries()){
+      const paths=leg.status==="ready"?leg.paths.filter(path=>path.length>1&&path.every(location=>Number.isFinite(location.lat)&&Number.isFinite(location.lng)&&Math.abs(location.lat)<=90&&Math.abs(location.lng)<=180)):[];
+      for(const path of paths)overlays.push(new kakao.maps.Polyline({map,path:path.map(latLng),strokeWeight:5,strokeColor:travelModeColor(leg.mode),strokeOpacity:.9,zIndex:3}));
+      const longest=paths.reduce<Coordinates[]>((best,path)=>path.length>best.length?path:best,[]),location=longest[Math.floor(longest.length/2)]??travelRoute.stops.find(stop=>stop.id===leg.fromId)?.location;
+      if(location)label(location,`${index+1}구간 · ${travelLegLabel(leg)}`,"map-travel-leg",leg.status==="ready"?1.1:0);
+    }
+    return()=>{overlays.forEach(overlay=>overlay.setMap(null));};
+  },[ready,travelRoute]);
 
   useEffect(()=>{
     if(!ready||!mapRef.current||!viewing||!autoLocate||autoLocatedRef.current)return;

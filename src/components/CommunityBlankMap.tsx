@@ -8,12 +8,14 @@ import {groupMapPoints} from "@/domain/map-points";
 import {connectionSegments,distanceMeters,formatDistance,maximumRadiusMeters,snapPoint} from "@/domain/map-workbench";
 import {communityProjection,panCommunityBounds,zoomCommunityBounds,type CommunityBounds} from "@/domain/community-blank-map";
 import {placeWeatherBoundaryLabels,weatherBoundaryColors,weatherBoundaryPath,type WeatherBoundaryFeature} from "@/domain/weather-boundaries";
+import {formatTravelDistance,formatTravelDuration,travelModeColor,travelModeLabel} from "@/domain/travel-route";
+import "@/app/travel-route-map.css";
 
 type Props=ComponentProps<typeof KakaoMap>&{bounds:CommunityBounds;features:WeatherBoundaryFeature[];onViewportChange:(bounds:CommunityBounds)=>void;loading?:boolean;error?:string;onRetry?:()=>void};
 type Drag={pointerId:number;kind:"pan"|"gesture";start:{x:number;y:number};bounds:CommunityBounds;moved:boolean;targetId:string|null;meters:number;end:Coordinates};
 
 /** Real administrative boundaries with the same observation callbacks as the SDK. */
-export default function CommunityBlankMap({bounds,features,onViewportChange,points=[],anchorPoints=points,selectedId,onSelectPoint,workbench,onCanvasPick,contextPointId,contextPopup,onCloseContext,gestureTool,onGestureEnd,onSelectNote,loading=false,error,onRetry}:Props){
+export default function CommunityBlankMap({bounds,features,onViewportChange,points=[],anchorPoints=points,selectedId,onSelectPoint,workbench,onCanvasPick,contextPointId,contextPopup,onCloseContext,gestureTool,onGestureEnd,onSelectNote,loading=false,error,onRetry,travelRoute}:Props){
   const host=useRef<HTMLDivElement>(null),svg=useRef<SVGSVGElement>(null),popup=useRef<HTMLDivElement>(null),drag=useRef<Drag|null>(null),suppressClick=useRef(false);
   const [size,setSize]=useState({width:440,height:640}),[overlapIds,setOverlapIds]=useState<string[]>([]),[preview,setPreview]=useState<{meters:number;targetId:string|null;end:Coordinates}|null>(null),[keyboardMeters,setKeyboardMeters]=useState(100),[keyboardTarget,setKeyboardTarget]=useState("");
   const callbacks=useRef({onGestureEnd,onCloseContext,onViewportChange});callbacks.current={onGestureEnd,onCloseContext,onViewportChange};
@@ -27,6 +29,29 @@ export default function CommunityBlankMap({bounds,features,onViewportChange,poin
   const colors=useMemo(()=>weatherBoundaryColors(features.map(feature=>feature.id)),[features]);
   const labels=useMemo(()=>placeWeatherBoundaryLabels(features.map(feature=>{const position=projection.project(feature.label);return {id:feature.id,...position,width:[...feature.name].length*10+6,height:17};}),{width:size.width,height:size.height,top:70,bottom:135}),[features,projection,size]);
   const featuresById=useMemo(()=>new Map(features.map(feature=>[feature.id,feature])),[features]);
+  const travelLabels=useMemo(()=>{
+    if(!travelRoute)return [];
+    const content=new Map<string,{lines:string[];title:string;anchor:{x:number;y:number};color:string;kind:"stop"|"leg"}>();
+    const add=(id:string,location:Coordinates,lines:string[],title:string,offset:number,color:string,kind:"stop"|"leg")=>{
+      const anchor=projection.project([location.lng,location.lat]);if(anchor.x<0||anchor.x>size.width||anchor.y<0||anchor.y>size.height)return null;
+      content.set(id,{lines,title,anchor,color,kind});return {id,x:anchor.x,y:Math.max(0,Math.min(size.height,anchor.y+offset)),width:Math.min(size.width-16,Math.max(...lines.map(line=>Array.from(line).reduce((sum,char)=>sum+(/[\u2e80-\uffff]/.test(char)?11:6.5),0)))+10),height:lines.length*14+6};
+    };
+    const anchors=[];
+    for(const [index,stop] of travelRoute.stops.slice(0,12).entries()){
+      const chars=Array.from(stop.title),limit=Math.max(8,Math.min(21,Math.floor((size.width-64)/11))),short=chars.length>limit?`${chars.slice(0,limit-1).join("")}…`:stop.title;
+      const item=add(`0-stop:${stop.id}`,stop.location,[`${index+1}. ${stop.emoji} ${short}`],`${index+1}. ${stop.emoji} ${stop.title}`,-60,"#173e51","stop");if(item)anchors.push(item);
+    }
+    if(!travelRoute.draft)for(const [index,leg] of travelRoute.legs.slice(0,11).entries()){
+      const path=leg.status==="ready"?leg.paths.reduce<Coordinates[]>((best,part)=>part.length>best.length?part:best,[]):[],location=path[Math.floor(path.length/2)]??travelRoute.stops.find(stop=>stop.id===leg.fromId)?.location;
+      if(!location)continue;const lines=[`${index+1}구간 · ${travelModeLabel(leg.mode)}`,`${formatTravelDistance(leg.status==="ready"?leg.distanceMeters:null)} · ${formatTravelDuration(leg.status==="ready"?leg.durationSeconds:null)}`];
+      const item=add(`1-leg:${index}`,location,lines,lines.join(" · "),leg.status==="ready"?-12:30,travelModeColor(leg.mode),"leg");if(item)anchors.push(item);
+    }
+    const placements=placeWeatherBoundaryLabels(anchors,{width:size.width,height:size.height,top:70,bottom:135}),placed=new Set(placements.map(item=>item.id));
+    // If a very short viewport cannot fit every caption, keep them inside the image;
+    // full names and measurements remain available in the exported caption above it.
+    for(const anchor of anchors)if(!placed.has(anchor.id))placements.push({...anchor,x:Math.max(8+anchor.width/2,Math.min(size.width-8-anchor.width/2,anchor.x)),y:Math.max(anchor.height/2+8,Math.min(size.height-8-anchor.height/2,anchor.y)),anchorX:anchor.x,anchorY:anchor.y});
+    return placements.map(label=>({...label,...content.get(label.id)!}));
+  },[travelRoute,projection,size]);
   useEffect(()=>{
     const element=host.current;if(!element)return;
     const resize=()=>{const rect=element.getBoundingClientRect();if(rect.width>0&&rect.height>0)setSize({width:rect.width,height:rect.height});};resize();
@@ -91,6 +116,7 @@ export default function CommunityBlankMap({bounds,features,onViewportChange,poin
       <rect width={size.width} height={size.height} fill="#fff"/>
       <g className="community-boundaries">{features.map(feature=><path key={feature.id} d={weatherBoundaryPath(feature.geometry,projection)} fill={colors.get(feature.id)} fillOpacity=".7" fillRule="evenodd" stroke="#839791" strokeWidth="1" vectorEffect="non-scaling-stroke"/>)}</g>
       <g aria-hidden="true" pointerEvents="none">{labels.map(label=><g key={label.id}>{Math.hypot(label.x-label.anchorX,label.y-label.anchorY)>8&&<line x1={label.anchorX} y1={label.anchorY} x2={label.x} y2={label.y} stroke="#718a88" strokeWidth="1" strokeOpacity=".7"/>}<text x={label.x} y={label.y} textAnchor="middle" className="community-boundary-label">{featuresById.get(label.id)?.name}</text></g>)}</g>
+      {!travelRoute?.draft&&travelRoute?.legs.map((leg,index)=>leg.status==="ready"?<g key={index} data-travel-leg={index} data-travel-mode={leg.mode} pointerEvents="none">{leg.paths.filter(path=>path.length>1&&path.every(location=>Number.isFinite(location.lat)&&Number.isFinite(location.lng)&&Math.abs(location.lat)<=90&&Math.abs(location.lng)<=180)).map((path,pathIndex)=><polyline key={pathIndex} points={path.map(location=>{const pixel=project(location);return `${pixel.x},${pixel.y}`;}).join(" ")} fill="none" stroke={travelModeColor(leg.mode)} strokeWidth="5" vectorEffect="non-scaling-stroke"/>)}</g>:null)}
       {workbench?.layers.radii&&workbench.radii.flatMap(radius=>{const point=lookup.get(radius.pointId);return !point||gestureTool?.kind==="radius"&&gestureTool.pointId===point.id?[]:radius.meters.map(meters=>radiusGraphic(point,meters,`${point.id}:${meters}`));})}
       {workbench?.layers.route&&connectionSegments(workbench,anchorPoints).map(segment=>{const from=project(segment.from.location!),to=project(segment.to.location!);return <g key={segment.index} data-connection={segment.index}><line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#9b43cc" strokeWidth="4"/><text x={(from.x+to.x)/2} y={(from.y+to.y)/2-5} textAnchor="middle" className="community-drawing-label">{segment.index+1}구간 · {formatDistance(segment.meters)}</text></g>;})}
       {preview&&source&&(gestureTool?.kind==="radius"?radiusGraphic(source,preview.meters,"preview",true):<line x1={sourcePixel!.x} y1={sourcePixel!.y} x2={project(preview.end).x} y2={project(preview.end).y} stroke="#9b43cc" strokeWidth="4" strokeDasharray="6 4"/>)}
@@ -105,6 +131,11 @@ export default function CommunityBlankMap({bounds,features,onViewportChange,poin
       })}
       {workbench?.layers.route&&workbench.route.map((id,index)=>{const point=lookup.get(id);if(!point)return null;const position=project(point.location);return <text key={`${id}:${index}`} x={position.x-17} y={position.y-40} fontSize="14" fontWeight="800" className="community-drawing-label">{index+1}</text>;})}
       {workbench?.layers.notes&&workbench.notes.map(note=>{const position=project(note.location),text=[note.emoji,note.text].filter(Boolean).join(" "),lines=Array.from(text).reduce<string[]>((all,char,index)=>{if(index%24===0)all.push("");all[all.length-1]+=char;return all;},[]),width=Math.min(290,Math.max(34,Math.min(24,Array.from(text).length)*11+14));return <g key={note.id} data-note={note.id} transform={`translate(${position.x} ${position.y})`} role="button" tabIndex={gestureTool?-1:0} aria-label={`${text} 메모 수정`} onClick={event=>{event.stopPropagation();if(!suppressClick.current&&!gestureTool)onSelectNote?.(note.id);}} onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();onSelectNote?.(note.id);}}}><rect x={-width/2} y={-lines.length*18-8} width={width} height={lines.length*18+10} rx="6" fill={note.color} stroke="#839791"/><text textAnchor="middle" fontSize="12" fill="#173e51">{lines.map((line,index)=><tspan key={index} x="0" y={-(lines.length-index-1)*18-8}>{line}</tspan>)}</text></g>;})}
+      {travelRoute&&<g className="community-travel-overlay" pointerEvents="none" aria-label={travelRoute.draft?"여행 동선 · 아직 계산하지 않음":`여행 동선 · ${travelRoute.provider??"도로 경로"} 계산 결과`}>
+        <g>{travelLabels.map(label=>Math.hypot(label.x-label.anchor.x,label.y-label.anchor.y)>20?<line key={label.id} x1={label.anchor.x} y1={label.anchor.y} x2={label.x} y2={label.y} stroke={label.color} strokeWidth="1" strokeOpacity=".65"/>:null)}</g>
+        {travelRoute.stops.slice(0,12).map((stop,index)=>{const position=project(stop.location);return <g key={stop.id} data-travel-stop={stop.id}><circle cx={position.x-18} cy={position.y-43} r="10" fill="#173e51" stroke="white" strokeWidth="2"/><text x={position.x-18} y={position.y-39} textAnchor="middle" fontSize="11" fontWeight="800" fill="white">{index+1}</text></g>;})}
+        <g>{travelLabels.map(label=><g key={label.id} data-travel-label={label.id} data-label-x={label.x} data-label-y={label.y} data-label-width={label.width} data-label-height={label.height}><title>{label.title}</title><text textAnchor="middle" className={label.kind==="stop"?"community-travel-stop-title":"community-travel-label"}>{label.lines.map((line,index)=><tspan key={index} x={label.x} y={label.y+(index-(label.lines.length-1)/2)*14}>{index?" ":""}{line}</tspan>)}</text></g>)}</g>
+      </g>}
       {gestureTool&&[sourcePixel,targetPixel].filter(Boolean).map((position,index)=><circle key={index} cx={position!.x} cy={position!.y-29} r="26" fill="none" stroke={index?"#9b43cc":"#2563eb"} strokeWidth="3" strokeDasharray="5 3" pointerEvents="none"/>)}
     </svg>
     <div className="community-blank-zoom" aria-label="백지도 확대·축소"><button type="button" aria-label="백지도 확대" disabled={!!gestureTool} onClick={()=>onViewportChange(zoomCommunityBounds(bounds,1.5,size.width/2,size.height/2,size.width,size.height))}>＋</button><button type="button" aria-label="백지도 축소" disabled={!!gestureTool} onClick={()=>onViewportChange(zoomCommunityBounds(bounds,1/1.5,size.width/2,size.height/2,size.width,size.height))}>−</button><button type="button" aria-label="백지도 위치 초기화" disabled={!!gestureTool} onClick={()=>onViewportChange(initialBounds.current)}>↺</button></div>
