@@ -36,15 +36,27 @@ async function upstream(file: string, parameters: Record<string, string>, ttl: n
   const task = (async () => {
     await enter();
     try {
-      const now = Date.now();
-      if (now - budgetWindow >= 60_000) { budgetWindow = now; budgetCount = 0; }
-      if (++budgetCount > 90) throw new ApiError(429, "WEATHER_QUOTA", "기상청 조회량을 보호하기 위해 잠시 쉬고 있습니다. 1분 후 다시 조회해 주세요.");
       const url = new URL(file, HOST);
       Object.entries(parameters).forEach(([name, value]) => url.searchParams.set(name, value));
       url.searchParams.set("authKey", credential);
-      let response: Response;
-      try { response = await fetch(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20_000) }); }
-      catch { throw new ApiError(502, "WEATHER_UNAVAILABLE", "기상청 응답이 늦습니다. 잠시 후 다시 조회해 주세요."); }
+      let response: Response | undefined;
+      // Retry only safe observation reads. Class-wide callers share this entire attempt.
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const now = Date.now();
+        if (now - budgetWindow >= 60_000) { budgetWindow = now; budgetCount = 0; }
+        if (++budgetCount > 90) throw new ApiError(429, "WEATHER_QUOTA", "기상청 조회량을 보호하기 위해 잠시 쉬고 있습니다. 1분 후 다시 조회해 주세요.");
+        try { response = await fetch(url, { cache: "no-store", redirect: "error", signal: AbortSignal.timeout(20_000) }); }
+        catch {
+          if (attempt === 0) continue;
+          throw new ApiError(502, "WEATHER_UNAVAILABLE", "기상청 응답이 늦습니다. 잠시 후 다시 조회해 주세요.");
+        }
+        if (attempt === 0 && [408, 500, 502, 503, 504].includes(response.status)) {
+          await response.body?.cancel();
+          continue;
+        }
+        break;
+      }
+      if (!response) throw new ApiError(502, "WEATHER_UNAVAILABLE", "기상청 응답을 받지 못했습니다. 잠시 후 다시 조회해 주세요.");
       if (response.status === 403) throw new ApiError(503, "WEATHER_PERMISSION_REQUIRED", "기상청 API허브에서 종관기상관측(ASOS)의 시간자료·일자료(기간 조회)와 지상관측 지점정보의 지상(SFC) API 활용신청이 필요합니다. 활용 승인 후 다시 조회해 주세요.");
       if (response.status === 401) throw new ApiError(503, "WEATHER_KEY_INVALID", "기상청 API 인증키가 유효하지 않습니다. API허브에서 발급받은 인증키와 서버 설정을 확인해 주세요.");
       if (!response.ok) throw new ApiError(response.status === 429 ? 429 : 502, "WEATHER_UPSTREAM", "기상청 연결 상태와 API 활용 승인을 확인해 주세요.");

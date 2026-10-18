@@ -166,6 +166,33 @@ describe("KMA parser and data service", () => {
     expect(second.items[0].series[0].date).toBe("2026-10-11");
     expect(second.items[0].series[0].values.temperature).toBe(10);
   });
+  it.each(["timeout", "gateway"])("retries one transient %s within a shared class-wide read", async (failure) => {
+    let dailyCalls = 0;
+    const fetch = vi.fn(async (url: URL) => {
+      if (url.pathname.endsWith("stn_inf.php")) return new Response(stations);
+      dailyCalls += 1;
+      if (dailyCalls === 1) {
+        if (failure === "timeout") throw new DOMException("provider request timed out", "TimeoutError");
+        return new Response("temporary failure", { status: 503 });
+      }
+      return new Response(daily);
+    });
+    vi.stubGlobal("fetch", fetch);
+    const [first, second] = await Promise.all([getWeather(query), getWeather(query)]);
+    expect(first.items[0].summary.values.temperature).toBe(0.5);
+    expect(second).toEqual(first);
+    expect(dailyCalls).toBe(2);
+    expect(JSON.stringify(first)).not.toContain("test-secret-do-not-expose");
+  });
+  it("bounds repeated transport failures to two attempts", async () => {
+    const fetch = vi.fn(async (url: URL) => {
+      if (url.pathname.endsWith("stn_inf.php")) return new Response(stations);
+      throw new TypeError("network unavailable");
+    });
+    vi.stubGlobal("fetch", fetch);
+    await expect(getWeather(query)).rejects.toMatchObject({ code: "WEATHER_UNAVAILABLE" });
+    expect(fetch.mock.calls.filter(([url]) => url.pathname.endsWith("kma_sfcdd3.php"))).toHaveLength(2);
+  });
   it("keeps incomplete today out of daily data and degrades current outages explicitly", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: URL) => url.pathname.endsWith("kma_sfctm2.php") ? new Response("unavailable", { status: 503 }) : new Response(url.pathname.endsWith("stn_inf.php") ? stations : daily)));
     const result = await getWeather({ ...query, end: "2026-10-18" });
