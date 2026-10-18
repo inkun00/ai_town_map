@@ -3,10 +3,13 @@ import {act,type ComponentType} from "react";
 import {createRoot,type Root} from "react-dom/client";
 import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 import type {MapFocus,MapPoint} from "../src/components/KakaoMap";
+import type {WeatherBoundaryFeature,WeatherBoundaryResult} from "../src/domain/weather-boundaries";
 
 const mapProbe=vi.hoisted(()=>({autoLocate:undefined as boolean|undefined,focus:null as MapFocus|null,points:[] as MapPoint[]}));
+const blankProbe=vi.hoisted(()=>({features:[] as WeatherBoundaryFeature[],points:[] as MapPoint[]}));
 vi.mock("next/dynamic",async()=>{const {lazy,Suspense}=await import("react");return {default:(loader:()=>Promise<{default:ComponentType<Record<string,unknown>>}>)=>{const Loaded=lazy(loader);return function Dynamic(props:Record<string,unknown>){return <Suspense fallback={<p>지도 불러오는 중</p>}><Loaded {...props}/></Suspense>;};}};});
 vi.mock("../src/components/KakaoMap",()=>({default:({autoLocate,focus,points,onSelectPoint}:{autoLocate:boolean;focus:MapFocus|null;points:MapPoint[];onSelectPoint:(id:string)=>void})=>{mapProbe.autoLocate=autoLocate;mapProbe.focus=focus;mapProbe.points=points;return <div aria-label="날씨 지도">{points.map(point=><button type="button" key={point.id} onClick={()=>onSelectPoint(point.id)}>{point.title}</button>)}</div>;}}));
+vi.mock("../src/components/WeatherBlankMap",()=>({default:({features,points,selectedId,onSelectPoint,loading,error,onRetry}:{features:WeatherBoundaryFeature[];points:MapPoint[];selectedId?:string;onSelectPoint:(id:string)=>void;loading?:boolean;error?:string;onRetry?:()=>void})=>{blankProbe.features=features;blankProbe.points=points;return <div aria-label="지역별 백지도" aria-busy={loading}>{error?<p role="alert">{error}</p>:loading?<p role="status">지역 경계를 불러오고 있어요.</p>:features.map(feature=><button type="button" key={feature.id} aria-pressed={feature.id===selectedId} onClick={()=>onSelectPoint(feature.id)}>{points.find(point=>point.id===feature.id)?.label??feature.name}</button>)}{error&&onRetry&&<button type="button" onClick={onRetry}>경계 다시 불러오기</button>}</div>;}}));
 import {WeatherChart,WeatherExplorer} from "../src/components/WeatherExplorer";
 import {koreanWeatherDate,weatherMetrics,type WeatherMetric} from "../src/domain/weather";
 
@@ -18,6 +21,7 @@ const days=(observed=1)=>Object.fromEntries((Object.keys(weatherMetrics) as Weat
 const weatherCounts={clear:null,cloudy:null,rain:0,snow:null,unknown:1};
 function location(region:typeof city|typeof district){return {region,station:{id:"112",name:"인천",lat:37.48,lng:126.62},distanceKm:4.8,current:{observedAt:"2026-10-18T01:00:00Z",values:values(19,3)},series:[{date:"2026-10-10",endDate:"2026-10-10",values:values(15,4.6),observedDays:1,expectedDays:1,metricDays:days(),weatherCounts},{date:"2026-10-11",endDate:"2026-10-11",values:values(null),observedDays:0,expectedDays:1,metricDays:days(0),weatherCounts},{date:"2026-10-12",endDate:"2026-10-12",values:values(17,5.4),observedDays:1,expectedDays:1,metricDays:days(),weatherCounts}],summary:{values:values(16,10),observedDays:2,expectedDays:3,metricDays:days(2)},weatherCounts};}
 function result(){return {region:city,start:"2026-10-10",end:koreanWeatherDate(),period:"day",configured:true,items:[location(city),location(district)],notice:"구체적인 서버 설명은 지도에 상시 노출하지 않습니다.",source:"기상청"};}
+function boundaryResult():WeatherBoundaryResult{return {features:[{id:district.id,name:district.name,label:[district.lng,district.lat],geometry:{type:"Polygon",coordinates:[[[126.6,37.3],[126.8,37.3],[126.8,37.5],[126.6,37.5],[126.6,37.3]]]}}],source:"테스트 행정경계",updatedAt:"2026-07-01",missingIds:[]};}
 function ok(data:unknown){return {ok:true,json:async()=>({data})};}
 let container:HTMLDivElement,root:Root;
 const fetchSpy=vi.fn();
@@ -38,10 +42,11 @@ async function toggle(label:string){await act(async()=>labelled<HTMLInputElement
 async function check(label:string){if(!labelled<HTMLInputElement>("input",label,dialog("날씨 그래프")!).checked)await toggle(label);}
 async function submit(){await act(async()=>dialog("지역·기간 선택")!.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
 async function render(){await act(async()=>root.render(<WeatherExplorer initialRegion={city.id}/>));await vi.waitFor(()=>expect(select("시·도").value).toBe(city.id));await vi.waitFor(()=>expect(select("시·군·구").disabled).toBe(false));}
-async function load(){await render();await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(2));}
+async function load(){await render();await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(1));}
 function weatherReads(){return fetchSpy.mock.calls.filter(([url])=>new URL(String(url),"http://localhost:3001").pathname==="/api/v1/weather");}
+function boundaryReads(){return fetchSpy.mock.calls.filter(([url])=>new URL(String(url),"http://localhost:3001").pathname==="/api/v1/weather/boundaries");}
 
-beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);vi.stubGlobal("matchMedia",undefined);configured=true;mapProbe.points=[];mapProbe.focus=null;mapProbe.autoLocate=undefined;fetchSpy.mockReset().mockImplementation(async(raw:RequestInfo|URL)=>{const url=new URL(String(raw),"http://localhost:3001");if(url.pathname==="/api/v1/weather/regions"){const parentId=url.searchParams.get("parentId");return ok({items:parentId===city.id?[district]:parentId===district.id?[dong]:parentId?[]:[city],source:"기상청 행정구역",updatedAt:"2026-07-01"});}if(url.pathname==="/api/v1/weather")return ok(configured?result():{...result(),configured:false,items:[],notice:"기상청 API 인증키 설정이 필요해요."});throw new Error(`Unexpected URL: ${url}`);});vi.stubGlobal("fetch",fetchSpy);container=document.createElement("div");document.body.appendChild(container);root=createRoot(container);});
+beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);vi.stubGlobal("matchMedia",undefined);configured=true;mapProbe.points=[];mapProbe.focus=null;mapProbe.autoLocate=undefined;blankProbe.features=[];blankProbe.points=[];fetchSpy.mockReset().mockImplementation(async(raw:RequestInfo|URL)=>{const url=new URL(String(raw),"http://localhost:3001");if(url.pathname==="/api/v1/weather/regions"){const parentId=url.searchParams.get("parentId");return ok({items:parentId===city.id?[district]:parentId===district.id?[dong]:parentId?[]:[city],source:"기상청 행정구역",updatedAt:"2026-07-01"});}if(url.pathname==="/api/v1/weather/boundaries")return ok(boundaryResult());if(url.pathname==="/api/v1/weather")return ok(configured?result():{...result(),configured:false,items:[],notice:"기상청 API 인증키 설정이 필요해요."});throw new Error(`Unexpected URL: ${url}`);});vi.stubGlobal("fetch",fetchSpy);container=document.createElement("div");document.body.appendChild(container);root=createRoot(container);});
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 describe("weather explorer map and dialogs",()=>{
@@ -51,6 +56,7 @@ describe("weather explorer map and dialogs",()=>{
     expect(mapProbe.autoLocate).toBe(false);
     expect(dialog("지역·기간 선택")).not.toBeNull();
     expect(dialog("날씨 그래프")).toBeNull();
+    expect(button("백지도").disabled).toBe(true);
     expect(weatherReads()).toHaveLength(0);
     await click("지역·기간 선택 닫기");
     expect(dialog("지역·기간 선택")).toBeNull();
@@ -68,6 +74,7 @@ describe("weather explorer map and dialogs",()=>{
     expect(container.textContent).toContain("실제 날씨자료 연결이 필요해요");
     expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();
     expect(mapProbe.points).toHaveLength(0);
+    expect(button("백지도").disabled).toBe(true);
     expect(container.querySelector("svg.weather-chart")).toBeNull();
   });
   it("shows provider failures on the map and allows a successful retry",async()=>{
@@ -75,7 +82,7 @@ describe("weather explorer map and dialogs",()=>{
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("기상청 응답이 지연되고 있어요.");
     expect(mapProbe.points).toHaveLength(0);
     expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();
-    await click("날씨 다시 불러오기");await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(2));
+    await click("날씨 다시 불러오기");await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(1));
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
   it("keeps the map controls on the map and removes explanatory and summary cards",async()=>{
@@ -88,11 +95,75 @@ describe("weather explorer map and dialogs",()=>{
     expect(container.querySelector(".weather-chart")).toBeNull();
     await click("그래프");
     expect(dialog("날씨 그래프")).not.toBeNull();
-    expect(select("그래프로 볼 지역").value).toBe(city.id);
+    expect(select("그래프로 볼 지역").value).toBe(district.id);
     expect(dialog("날씨 그래프")!.querySelector("svg")).not.toBeNull();
     await click("그래프 닫기");
     expect(dialog("날씨 그래프")).toBeNull();
     expect(container.querySelector(".weather-chart")).toBeNull();
+  });
+  it("maps only child regions while retaining the overall region in the graph selector",async()=>{
+    await load();
+    expect(mapProbe.points.map(point=>point.id)).toEqual([district.id]);
+    expect(mapProbe.points[0].label).toBe("연수구 16℃");
+    expect(container.querySelector('[aria-label="날씨 지도"]')?.textContent).not.toContain("인천광역시");
+    await click("그래프");
+    expect([...select("그래프로 볼 지역").options].map(option=>option.value)).toEqual([city.id,district.id]);
+    await change("그래프로 볼 지역",city.id);expect(select("그래프로 볼 지역").value).toBe(city.id);
+    expect(mapProbe.points.map(point=>point.id)).toEqual([district.id]);
+  });
+  it("keeps a leaf region's own pin when the result has no child regions",async()=>{
+    await render();fetchSpy.mockResolvedValueOnce(ok({...result(),region:dong,items:[location(dong)]}));await submit();
+    await vi.waitFor(()=>expect(mapProbe.points.map(point=>point.id)).toEqual([dong.id]));
+    expect(mapProbe.points[0].label).toBe("송도1동 16℃");
+  });
+  it("toggles to child boundaries, updates values without refetching, and returns to the tile map",async()=>{
+    await load();expect(button("백지도").getAttribute("aria-pressed")).toBe("false");
+    await click("백지도");
+    await vi.waitFor(()=>expect(blankProbe.features.map(feature=>feature.id)).toEqual([district.id]));
+    expect(button("백지도").getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector('[aria-label="날씨 지도"]')).toBeNull();
+    expect(container.querySelector('[aria-label="지역별 백지도"]')?.textContent).toContain("연수구 16℃");
+    expect(blankProbe.points.map(point=>point.id)).toEqual([district.id]);
+    expect(new URL(String(boundaryReads()[0][0]),"http://localhost:3001").searchParams.get("regionId")).toBe(city.id);
+    await change("지도에 표시할 항목","rainfall");
+    expect(blankProbe.points[0].label).toBe("연수구 10mm");expect(boundaryReads()).toHaveLength(1);expect(weatherReads()).toHaveLength(1);
+    await click("그래프");await change("그래프로 볼 지역",city.id);
+    await click("연수구 10mm",container.querySelector('[aria-label="지역별 백지도"]')!);
+    expect(select("그래프로 볼 지역").value).toBe(district.id);
+    await click("그래프 닫기");await click("백지도");
+    expect(button("백지도").getAttribute("aria-pressed")).toBe("false");
+    expect(container.querySelector('[aria-label="지역별 백지도"]')).toBeNull();
+    expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();
+    expect(mapProbe.points[0].label).toBe("연수구 10mm");
+  });
+  it("shows boundary failures without an invented map and allows a successful retry",async()=>{
+    await load();fetchSpy.mockResolvedValueOnce({ok:false,json:async()=>({error:{message:"이 지역의 행정경계를 불러오지 못했어요."}})});
+    await click("백지도");
+    await vi.waitFor(()=>expect(container.querySelector('[role="alert"]')?.textContent).toContain("이 지역의 행정경계를 불러오지 못했어요."));
+    expect(container.querySelector('[aria-label="날씨 지도"]')).toBeNull();
+    expect(blankProbe.features).toHaveLength(0);
+    await click("경계 다시 불러오기");
+    await vi.waitFor(()=>expect(blankProbe.features).toHaveLength(1));
+    expect(container.querySelector('[role="alert"]')).toBeNull();expect(boundaryReads()).toHaveLength(2);
+  });
+  it("aborts outdated boundaries and ignores their reply after the weather region changes",async()=>{
+    await load();const standardFetch=fetchSpy.getMockImplementation()!;let firstReply:((response:unknown)=>void)|undefined;let boundaryCount=0;
+    fetchSpy.mockImplementation((raw:RequestInfo|URL,options?:RequestInit)=>{
+      const path=new URL(String(raw),"http://localhost:3001").pathname;
+      if(path==="/api/v1/weather/boundaries"){
+        boundaryCount++;if(boundaryCount===1)return new Promise(resolve=>{firstReply=resolve;});
+        return Promise.resolve(ok({...boundaryResult(),features:[{...boundaryResult().features[0],id:dong.id,name:dong.name,label:[dong.lng,dong.lat]}]}));
+      }
+      if(path==="/api/v1/weather")return Promise.resolve(ok({...result(),region:district,items:[location(district),location(dong)]}));
+      return standardFetch(raw,options);
+    });
+    await click("백지도");const firstSignal=boundaryReads()[0][1].signal as AbortSignal;
+    await click("지역·기간");await change("시·군·구",district.id);await vi.waitFor(()=>expect(select("읍·면·동").options).toHaveLength(2));await submit();
+    await vi.waitFor(()=>expect(blankProbe.features.map(feature=>feature.id)).toEqual([dong.id]));
+    expect(firstSignal.aborted).toBe(true);
+    await act(async()=>firstReply!(ok(boundaryResult())));
+    expect(blankProbe.features.map(feature=>feature.id)).toEqual([dong.id]);
+    expect(blankProbe.points.map(point=>point.id)).toEqual([dong.id]);
   });
   it("keeps the desktop graph outside the app frame and updates it while using the map",async()=>{
     const media={matches:true,media:"(any-hover: hover) and (any-pointer: fine)",onchange:null,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn(),dispatchEvent:vi.fn()};
@@ -114,8 +185,9 @@ describe("weather explorer map and dialogs",()=>{
     await act(async()=>{header.dispatchEvent(new PointerEvent("pointermove",{pointerId:1,pointerType:"mouse",clientX:-5000,clientY:5000,bubbles:true}));header.dispatchEvent(new PointerEvent("pointerup",{pointerId:1,pointerType:"mouse",clientX:-5000,clientY:5000,bubbles:true}));});
     expect(Number.parseFloat(graph.style.left)).toBeGreaterThanOrEqual(8);expect(Number.parseFloat(graph.style.left)+420).toBeLessThanOrEqual(container.getBoundingClientRect().left);
     expect(Number.parseFloat(graph.style.top)).toBeGreaterThanOrEqual(8);expect(Number.parseFloat(graph.style.top)+400).toBeLessThanOrEqual(window.innerHeight-8);
-    expect(select("그래프로 볼 지역",graph).value).toBe(city.id);
-    await act(async()=>container.querySelectorAll<HTMLButtonElement>('[aria-label="날씨 지도"] button')[1].click());
+    expect(select("그래프로 볼 지역",graph).value).toBe(district.id);
+    await change("그래프로 볼 지역",city.id);
+    await act(async()=>container.querySelector<HTMLButtonElement>('[aria-label="날씨 지도"] button')!.click());
     expect(dialog("날씨 그래프")).toBe(graph);expect(graph.open).toBe(true);
     expect(select("그래프로 볼 지역",graph).value).toBe(district.id);
     expect(weatherReads()).toHaveLength(1);
@@ -201,11 +273,11 @@ describe("weather explorer map and dialogs",()=>{
     await check("강수량 (mm)");
     expect(select("강수량 그래프 종류").disabled).toBe(false);
     expect(select("강수량 그래프 종류").value).toBe("line");
-    await change("그래프로 볼 지역",district.id);
+    await change("그래프로 볼 지역",city.id);
     expect(select("강수량 그래프 종류").value).toBe("line");
     await click("그래프 닫기");await click("그래프");
     const modal=dialog("날씨 그래프")!;
-    expect(select("그래프로 볼 지역",modal).value).toBe(district.id);
+    expect(select("그래프로 볼 지역",modal).value).toBe(city.id);
     expect(select("강수량 그래프 종류",modal).value).toBe("line");
     expect(labelled<HTMLInputElement>("input","강수량 (mm)",modal).checked).toBe(true);
     expect(modal.querySelector('.weather-multi-chart__series[aria-label="강수량"] circle')).not.toBeNull();

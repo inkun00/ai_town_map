@@ -6,8 +6,10 @@ import {koreanWeatherDate,validWeatherDate,weatherMetrics,type WeatherBucket,typ
 import type {MapFocus,MapPoint} from "./KakaoMap";
 import {WeatherMultiChart,type WeatherChartSeries} from "./WeatherMultiChart";
 import {ResponsiveMapDialog} from "./ResponsiveMapDialog";
+import type {WeatherBoundaryResult} from "@/domain/weather-boundaries";
 
 const KakaoMap=dynamic(()=>import("./KakaoMap"),{loading:()=> <p className="weather-map-loading" role="status">날씨 지도를 펼치고 있어요…</p>});
+const WeatherBlankMap=dynamic(()=>import("./WeatherBlankMap"),{loading:()=> <p className="weather-map-loading" role="status">백지도를 펼치고 있어요…</p>});
 type RegionList={items:WeatherRegion[];source:string;updatedAt:string};
 type Query={regionId:string;start:string;end:string;period:WeatherPeriod;nonce:number};
 type CountKind="clear"|"cloudy"|"rain"|"snow";
@@ -75,6 +77,7 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
   const [chartKinds,setChartKinds]=useState<Record<ChartKey,ChartKind>>(()=>Object.fromEntries(chartKeys.map(key=>[key,defaultChartKind(key)])) as Record<ChartKey,ChartKind>);
   const [chartMetrics,setChartMetrics]=useState<ChartKey[]>(["temperature"]),[queryOpen,setQueryOpen]=useState(true),[chartOpen,setChartOpen]=useState(false),[formError,setFormError]=useState("");
   const [mapMode,setMapMode]=useState<"summary"|"current">("summary");
+  const [blankMode,setBlankMode]=useState(false),[boundaries,setBoundaries]=useState<WeatherBoundaryResult|null>(null),[boundaryBusy,setBoundaryBusy]=useState(false),[boundaryError,setBoundaryError]=useState(""),[boundaryAttempt,setBoundaryAttempt]=useState(0);
   const [query,setQuery]=useState<Query|null>(null),[result,setResult]=useState<WeatherResult|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[selectedId,setSelectedId]=useState("");
   const serial=useRef(0);
   const id=useId(),selectedRegion=dongs.find(region=>region.id===dongId)??districts.find(region=>region.id===districtId)??cities.find(region=>region.id===cityId);
@@ -99,14 +102,22 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
   useEffect(()=>{
     if(!query)return;const controller=new AbortController();let active=true;setBusy(true);setError("");setResult(null);setSelectedId("");
     const parameters=new URLSearchParams({regionId:query.regionId,start:query.start,end:query.end,period:query.period});
-    void fetch(`/api/v1/weather?${parameters}`,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)]),cache:"no-store"}).then(responseData<WeatherResult>).then(data=>{if(active){setResult(data);setSelectedId(data.items[0]?.region.id??"");const useCurrent=data.start===koreanWeatherDate()&&data.end===koreanWeatherDate()&&data.items.some(item=>!!item.current);setMapMode(useCurrent?"current":"summary");if(useCurrent)setMapMetric(current=>currentMetricKeys.includes(current as WeatherMetric)?current:"temperature");}}).catch(cause=>{if(active)setError(cause instanceof Error?cause.message:"날씨 자료를 불러오지 못했어요.");}).finally(()=>{if(active)setBusy(false);});
+    void fetch(`/api/v1/weather?${parameters}`,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)]),cache:"no-store"}).then(responseData<WeatherResult>).then(data=>{if(active){setResult(data);setSelectedId((data.items.find(item=>item.region.id!==data.region.id)??data.items[0])?.region.id??"");const useCurrent=data.start===koreanWeatherDate()&&data.end===koreanWeatherDate()&&data.items.some(item=>!!item.current);setMapMode(useCurrent?"current":"summary");if(useCurrent)setMapMetric(current=>currentMetricKeys.includes(current as WeatherMetric)?current:"temperature");}}).catch(cause=>{if(active)setError(cause instanceof Error?cause.message:"날씨 자료를 불러오지 못했어요.");}).finally(()=>{if(active)setBusy(false);});
     return()=>{active=false;controller.abort();};
   },[query]);
+
+  const boundaryRegionId=result?.configured?result.region.id:null;
+  useEffect(()=>{
+    if(!blankMode||!boundaryRegionId){setBoundaryBusy(false);if(!boundaryRegionId)setBoundaries(null);return;}
+    const controller=new AbortController();let active=true;setBoundaryBusy(true);setBoundaryError("");setBoundaries(null);
+    void fetch(`/api/v1/weather/boundaries?${new URLSearchParams({regionId:boundaryRegionId})}`,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(20000)])}).then(responseData<WeatherBoundaryResult>).then(data=>{if(active)setBoundaries(data);}).catch(cause=>{if(active)setBoundaryError(cause instanceof Error?cause.message:"행정구역 경계를 불러오지 못했어요.");}).finally(()=>{if(active)setBoundaryBusy(false);});
+    return()=>{active=false;controller.abort();};
+  },[blankMode,boundaryRegionId,boundaryAttempt]);
 
   const selected=result?.items.find(item=>item.region.id===selectedId)??result?.items[0];
   const metadata=chartMetadata(mapMetric),unit=metadata.unit,kind=countKey(mapMetric),metric=mapMetric as WeatherMetric;
   const hasCurrent=result?.end===today&&result.items.some(item=>!!item.current);
-  const mapPoints=useMemo<MapPoint[]>(()=>result?.items.map(item=>{const value=mapMode==="current"?item.current?.values[metric]??null:kind?countValue(item,kind):item.summary.values[metric];const label=mapMode==="current"?currentLabels[metric]:metadata.label;return {id:item.region.id,title:`${item.region.name} · ${label} ${numberLabel(value,unit)} · ${item.station.name} 관측소${mapMode==="current"&&item.current?` · ${timestampLabel(item.current.observedAt)}`:""}`,label:`${item.region.name} ${numberLabel(value,unit)}`,emoji:kind?countEmoji[kind]:metricEmoji[metric],color:item.region.id===result.region.id?"#176a62":"#277d99",location:{lat:item.region.lat,lng:item.region.lng},description:`${item.region.fullName} · ${item.station.name} 관측소 대표자료`};})??[],[result,metric,kind,metadata.label,mapMode,unit]);
+  const mapPoints=useMemo<MapPoint[]>(()=>{if(!result)return [];const children=result.items.filter(item=>item.region.id!==result.region.id);return (children.length?children:result.items).map(item=>{const value=mapMode==="current"?item.current?.values[metric]??null:kind?countValue(item,kind):item.summary.values[metric];const label=mapMode==="current"?currentLabels[metric]:metadata.label;return {id:item.region.id,title:`${item.region.name} · ${label} ${numberLabel(value,unit)} · ${item.station.name} 관측소${mapMode==="current"&&item.current?` · ${timestampLabel(item.current.observedAt)}`:""}`,label:`${item.region.name} ${numberLabel(value,unit)}`,emoji:kind?countEmoji[kind]:metricEmoji[metric],color:"#277d99",location:{lat:item.region.lat,lng:item.region.lng},description:`${item.region.fullName} · ${item.station.name} 관측소 대표자료`};});},[result,metric,kind,metadata.label,mapMode,unit]);
   const focus=useMemo<MapFocus|null>(()=>result?.items.length?{location:{lat:result.region.lat,lng:result.region.lng},locations:result.items.map(item=>({lat:item.region.lat,lng:item.region.lng})),nonce:query?.nonce??0}:selectedRegion?{location:{lat:selectedRegion.lat,lng:selectedRegion.lng},radiusMeters:selectedRegion.level==="city"?30000:selectedRegion.level==="district"?6000:1500,nonce:serial.current}:null,[result,query,selectedRegion]);
   const chartSeries=useMemo<WeatherChartSeries[]>(()=>chartMetrics.map(key=>({id:key,...chartMetadata(key),kind:chartKinds[key],color:chartColors[chartKeys.indexOf(key)],data:selected?.series.map(bucket=>({label:dateLabel(bucket.date),value:bucketValue(bucket,key)}))??[]})),[selected,chartMetrics,chartKinds]);
   function submit(event:FormEvent){
@@ -125,10 +136,11 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
       <h1>🌤️ 기상청 날씨지도</h1>
     </header>}
     <div className="weather-canvas">
-      <div className="weather-map"><KakaoMap autoLocate={false} points={mapPoints} selectedId={selected?.region.id} onSelectPoint={setSelectedId} focus={focus}/></div>
+      <div className="weather-map">{blankMode?<WeatherBlankMap features={boundaries?.features??[]} points={mapPoints} selectedId={selected?.region.id} onSelectPoint={setSelectedId} loading={boundaryBusy||busy} error={boundaryError} onRetry={()=>setBoundaryAttempt(value=>value+1)}/>:<KakaoMap autoLocate={false} points={mapPoints} selectedId={selected?.region.id} onSelectPoint={setSelectedId} focus={focus}/>}</div>
       <div className="weather-map-toolbar" aria-label="날씨지도 도구">
         <div className="weather-map-toolbar__actions">
           <button type="button" onClick={()=>setQueryOpen(true)} aria-haspopup="dialog"><span aria-hidden="true">📍</span> 지역·기간</button>
+          <button type="button" aria-label="백지도" aria-pressed={blankMode} onClick={()=>setBlankMode(value=>!value)} disabled={!result?.configured||!mapPoints.length||busy}><span aria-hidden="true">🗺️</span> 백지도</button>
           <button type="button" onClick={()=>setChartOpen(true)} disabled={!selected||busy} aria-haspopup="dialog"><span aria-hidden="true">📊</span> 그래프</button>
         </div>
         <div className="weather-map-toolbar__selects">
@@ -139,6 +151,7 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
           </select></label>
         </div>
         {result?.configured&&<p className="weather-query-chip">{result.region.fullName} · {result.start} ~ {result.end} · {mapMode==="current"?"최근 실황":result.period==="day"?"일별":result.period==="week"?"주별":"월별"}</p>}
+        {blankMode&&!!boundaries?.missingIds.length&&<p className="weather-boundary-warning" role="status">경계 없음: {boundaries.missingIds.map(code=>result?.items.find(item=>item.region.id===code)?.region.name??code).join(", ")}</p>}
       </div>
       <div className="weather-map-status" aria-live="polite">
         {busy&&<p className="weather-loading" role="status">기상청 관측자료를 불러오고 있어요…</p>}
@@ -148,6 +161,7 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
         {!query&&!queryOpen&&<button type="button" className="weather-start-button" onClick={()=>setQueryOpen(true)}>지역과 기간 선택하기</button>}
       </div>
       {result?.configured&&<a className="weather-attribution" href="https://data.kma.go.kr/" target="_blank" rel="noopener noreferrer">기상청 · 인근 관측소 대표값</a>}
+      {blankMode&&boundaries&&<a className="weather-boundary-attribution" href="https://github.com/vuski/admdongkor" target="_blank" rel="noopener noreferrer">경계: SGIS · vuski/admdongkor · CC BY 4.0 · 2026.07</a>}
     </div>
     {queryOpen&&<WeatherDialog label="지역·기간 선택" onClose={()=>setQueryOpen(false)}>
       <form className="weather-controls" onSubmit={submit}>

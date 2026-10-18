@@ -6,7 +6,25 @@
 .weather-workspace-tabs button { flex: 1; min-height: 44px; padding: 8px; border: 1px solid #8faca6; border-radius: 12px; background: #fffdf4; color: #294552; font-weight: 800; }
 .weather-workspace-tabs button[aria-pressed="true"] { background: #285f60; color: #fff; border-color: #285f60; }
 .weather-workspace-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
-.map-point-value { min-height: 44px; padding: 5px 9px; border: 1.5px solid #347a86; border-radius: 10px; background: #fffdf4f5; color: #204951; font: inherit; font-size: 12px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 5px #1d514c30; }
+.map-point-value {
+  display: block;
+  width: max-content;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px 6px;
+  border: 1.5px solid #347a86;
+  border-radius: 6px;
+  background: #fffdf4f5;
+  color: #204951;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  transform: translateY(6px);
+  box-shadow: 0 2px 5px #1d514c30;
+}
 .map-point-value[aria-pressed="true"] { border-color: #184943; background: #ffdf7d; color: #193d38; }
 .map-point-value:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
 .kakao-place-results { position: absolute; left: 9px; right: 9px; top: 62px; z-index: 4; overflow: hidden; border: 1px solid #a9bdb3; border-radius: 14px; background: #fffdf5; box-shadow: 0 5px 18px #153b2530; color: #253d4c; }

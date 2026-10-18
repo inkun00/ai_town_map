@@ -11,6 +11,7 @@
 .weather-map-toolbar__actions { display:flex; justify-content:space-between; gap:8px; }
 .weather-map-toolbar button,.weather-start-button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:46px; padding:9px 13px; border:2px solid #334c59; border-radius:13px; background:#fffdf4; color:#253d4c; font-size:13px; font-weight:800; box-shadow:0 3px 0 #334c5930; pointer-events:auto; }
 .weather-map-toolbar button:last-child { background:#ffe38a; }
+.weather-map-toolbar button[aria-pressed="true"] { background:#d9efca; border-color:#31664f; box-shadow:0 3px 0 #31664f40; }
 .weather-map-toolbar button:disabled { opacity:.65; }
 .weather-map-toolbar__selects { display:flex; gap:7px; }
 .weather-map-toolbar__selects label { min-width:0; pointer-events:auto; }
@@ -19,6 +20,8 @@
 :is(.weather-explorer,.weather-dialog) select,:is(.weather-explorer,.weather-dialog) input { width:100%; min-width:0; min-height:46px; padding:9px 10px; border:1.5px solid #a6beb5; border-radius:11px; background:#fff; color:#253d4c; font:inherit; font-size:14px; }
 .weather-map-toolbar select { border:2px solid #334c59; box-shadow:0 2px 5px #22373f1c; background:#fffdf4; font-weight:700; }
 .weather-query-chip { justify-self:start; max-width:100%; padding:6px 9px; margin:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; background:#fffdf4eF; border:1px solid #bfcec5; border-radius:8px; color:#365c60; font-size:10px; box-shadow:0 2px 4px #22373f12; }
+.weather-boundary-warning { max-width:100%; justify-self:start; padding:5px 8px; margin:0; border:1px solid #c49b53; border-radius:7px; background:#fff4d4; color:#6b4918; font-size:11px; line-height:1.4; }
+.weather-boundary-attribution { position:absolute; z-index:2; bottom:7px; left:9px; max-width:calc(100% - 75px); padding:3px 6px; border-radius:4px; background:#fffdf4eb; color:#365c60; font-size:9px; text-decoration:none; }
 .weather-map-status { position:absolute; z-index:4; top:40%; left:14px; right:14px; pointer-events:none; }
 .weather-map-status>* { pointer-events:auto; }
 .weather-attribution { position:absolute; z-index:2; bottom:26px; left:9px; max-width:calc(100% - 18px); border-radius:5px; padding:4px 7px; background:#fffdf4eF; color:#365c60; font-size:10px; text-decoration:none; }
@@ -89,5 +92,6 @@
 .weather-table-scroll thead th { background:#edf5f2; }
 @media (max-width:600px) { :is(.weather-explorer,.weather-dialog) select,:is(.weather-explorer,.weather-dialog) input { font-size:16px; } .weather-chart-metrics>div { grid-template-columns:1fr; } :is(.weather-explorer,.weather-dialog) .weather-chart-metric__kind select { font-size:16px; } :is(.weather-explorer,.weather-dialog) .weather-chart-metric__kind { flex-basis:96px; } }
 @media (max-width:420px) { .weather-region-fields { grid-template-columns:1fr 1fr; } .weather-region-fields>label:first-child { grid-column:1/-1; } .weather-date-fields { gap:7px; } .weather-date-fields input { font-size:14px; } .weather-dialog__body { padding-inline:13px; } .weather-map-toolbar select { font-size:14px; padding-inline:7px; } }
+@media (max-width:360px) { .weather-map-toolbar button { padding-inline:7px; font-size:12px; white-space:nowrap; } }
 @media (max-height:540px) { .weather-dialog { max-height:calc(100dvh - 16px); } .weather-explorer__header { min-height:48px; padding-block:6px; } }
 @media (prefers-reduced-motion:reduce) { :is(.weather-explorer,.weather-dialog) * { scroll-behavior:auto; } }

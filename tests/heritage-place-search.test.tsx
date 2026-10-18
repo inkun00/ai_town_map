@@ -16,7 +16,7 @@ vi.mock("../src/components/PointInteraction", () => ({ PointInteraction: () => n
 type MapEvent = (event?: { latLng: { getLat: () => number; getLng: () => number } }) => void;
 const listeners = new Map<string, MapEvent>();
 const setCenter = vi.fn(), onPick = vi.fn();
-const overlays: { content: HTMLElement; setMap: ReturnType<typeof vi.fn> }[] = [];
+const overlays: { content: HTMLElement; xAnchor: number; yAnchor: number; setMap: ReturnType<typeof vi.fn> }[] = [];
 let container: HTMLDivElement, root: Root, KakaoMap: typeof KakaoMapComponent;
 function sdk(): KakaoApi {
   const coordinates = { getLat: () => 37, getLng: () => 127 };
@@ -26,9 +26,11 @@ function sdk(): KakaoApi {
     Marker: class { setMap() {} }, Circle: class { setMap() {} }, MarkerImage: class {}, Size: class {}, Point: class {},
     CustomOverlay: class {
       content: HTMLElement;
+      xAnchor: number;
+      yAnchor: number;
       setMap = vi.fn((map: unknown) => { if (map === null) this.content.remove(); });
-      constructor(options: { content: HTMLElement }) {
-        this.content = options.content; overlays.push(this);
+      constructor(options: { content: HTMLElement; xAnchor: number; yAnchor: number }) {
+        this.content = options.content; this.xAnchor = options.xAnchor; this.yAnchor = options.yAnchor; overlays.push(this);
         container.querySelector(".kakao-map")!.appendChild(this.content);
       }
     },
@@ -73,11 +75,14 @@ describe("heritage location selection without GPS", () => {
     const points = [{ id: "weather-point", title: "가상 관측 지역", emoji: "🌡️", color: "#0369A1", label, location: { lat: 37.5, lng: 126.7 } }];
     await act(async () => root.render(<KakaoMap autoLocate={false} points={points} onSelectPoint={onSelect}/>));
     const first = overlays.at(-1)!, content = first.content;
+    expect(first.xAnchor).toBe(.5); expect(first.yAnchor).toBe(0);
+    expect(content.className).toBe("map-point-value");
     expect(content.tagName).toBe("BUTTON"); expect(content.textContent).toBe(label); expect(content.querySelector("img")).toBeNull();
     expect(content.getAttribute("aria-label")).toBe("가상 관측 지역"); expect(content.getAttribute("aria-pressed")).toBe("false");
     await act(async () => content.click()); expect(onSelect).toHaveBeenCalledExactlyOnceWith("weather-point");
     await act(async () => root.render(<KakaoMap autoLocate={false} points={points} selectedId="weather-point" onSelectPoint={onSelect}/>));
     expect(first.setMap).toHaveBeenCalledWith(null); expect(content.isConnected).toBe(false);
+    await act(async () => content.click()); expect(onSelect).toHaveBeenCalledTimes(1);
     const selected = overlays.at(-1)!; expect(selected.content.getAttribute("aria-pressed")).toBe("true");
     await act(async () => root.render(<KakaoMap autoLocate={false} points={[]} onSelectPoint={onSelect}/>));
     expect(selected.setMap).toHaveBeenCalledWith(null); expect(container.querySelector(".map-point-value")).toBeNull();

@@ -223,9 +223,11 @@ export default function KakaoMap({center,points=[],selectedId,onSelectPoint,onBo
       content.setAttribute("aria-pressed",String(point.id===selectedId));
       const select=(event:Event)=>{event.stopPropagation();stopLocating();onSelectPoint?.(point.id);};
       content.addEventListener("click",select);
-      return new kakao.maps.CustomOverlay({map,position:new kakao.maps.LatLng(point.location.lat,point.location.lng),content,clickable:true,xAnchor:.5,yAnchor:2.2,zIndex:point.id===selectedId?10:8});
+      // The coordinate marks the pin tip; start the compact value label below it.
+      const overlay=new kakao.maps.CustomOverlay({map,position:new kakao.maps.LatLng(point.location.lat,point.location.lng),content,clickable:true,xAnchor:.5,yAnchor:0,zIndex:point.id===selectedId?10:8});
+      return ()=>{content.removeEventListener("click",select);overlay.setMap(null);};
     });
-    return()=>{overlays.forEach(overlay=>overlay.setMap(null));};
+    return()=>{overlays.forEach(remove=>remove());};
   },[ready,points,selectedId,onSelectPoint]);
 
   useEffect(()=>{
