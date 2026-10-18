@@ -13,33 +13,147 @@ import {koreanWeatherDate,weatherMetrics,type WeatherMetric} from "../src/domain
 const city={id:"2800000000",name:"인천광역시",fullName:"인천광역시",parentId:null,level:"city",lat:37.45,lng:126.7};
 const district={id:"2818500000",name:"연수구",fullName:"인천광역시 연수구",parentId:city.id,level:"district",lat:37.41,lng:126.68};
 const dong={id:"2818570000",name:"송도1동",fullName:"인천광역시 연수구 송도1동",parentId:district.id,level:"dong",lat:37.39,lng:126.64};
-const values=(temperature:number|null)=>Object.fromEntries((Object.keys(weatherMetrics) as WeatherMetric[]).map(key=>[key,key==="temperature"?temperature:null]));
-const days=()=>Object.fromEntries((Object.keys(weatherMetrics) as WeatherMetric[]).map(key=>[key,key==="temperature"?2:0]));
+const values=(temperature:number|null,rainfall:number|null=null)=>Object.fromEntries((Object.keys(weatherMetrics) as WeatherMetric[]).map(key=>[key,key==="temperature"?temperature:key==="rainfall"?rainfall:null]));
+const days=(observed=1)=>Object.fromEntries((Object.keys(weatherMetrics) as WeatherMetric[]).map(key=>[key,key==="temperature"||key==="rainfall"?observed:0]));
 const weatherCounts={clear:null,cloudy:null,rain:0,snow:null,unknown:1};
-function location(region:typeof city|typeof district){return {region,station:{id:"112",name:"인천",lat:37.48,lng:126.62},distanceKm:4.8,current:{observedAt:"2026-10-18T01:00:00Z",values:values(19)},series:[{date:"2026-10-10",endDate:"2026-10-10",values:values(15),observedDays:1,expectedDays:1,metricDays:days(),weatherCounts},{date:"2026-10-11",endDate:"2026-10-11",values:values(null),observedDays:0,expectedDays:1,metricDays:days(),weatherCounts},{date:"2026-10-12",endDate:"2026-10-12",values:values(17),observedDays:1,expectedDays:1,metricDays:days(),weatherCounts}],summary:{values:values(16),observedDays:2,expectedDays:3,metricDays:days()},weatherCounts};}
-function result(){return {region:city,start:"2026-10-10",end:koreanWeatherDate(),period:"day",configured:true,items:[location(city),location(district)],notice:"하루가 끝난 날의 통계입니다.",source:"기상청"};}
+function location(region:typeof city|typeof district){return {region,station:{id:"112",name:"인천",lat:37.48,lng:126.62},distanceKm:4.8,current:{observedAt:"2026-10-18T01:00:00Z",values:values(19,3)},series:[{date:"2026-10-10",endDate:"2026-10-10",values:values(15,4.6),observedDays:1,expectedDays:1,metricDays:days(),weatherCounts},{date:"2026-10-11",endDate:"2026-10-11",values:values(null),observedDays:0,expectedDays:1,metricDays:days(0),weatherCounts},{date:"2026-10-12",endDate:"2026-10-12",values:values(17,5.4),observedDays:1,expectedDays:1,metricDays:days(),weatherCounts}],summary:{values:values(16,10),observedDays:2,expectedDays:3,metricDays:days(2)},weatherCounts};}
+function result(){return {region:city,start:"2026-10-10",end:koreanWeatherDate(),period:"day",configured:true,items:[location(city),location(district)],notice:"구체적인 서버 설명은 지도에 상시 노출하지 않습니다.",source:"기상청"};}
 function ok(data:unknown){return {ok:true,json:async()=>({data})};}
 let container:HTMLDivElement,root:Root;
 const fetchSpy=vi.fn();
-let configured:boolean,weatherReply:((response:unknown)=>void)|null;
-function select(label:string){const matching=[...container.querySelectorAll<HTMLLabelElement>("label")].find(item=>item.firstChild?.textContent===label);const element=matching?.querySelector<HTMLSelectElement>("select");if(!element)throw new Error(`Missing select: ${label}`);return element;}
+let configured:boolean;
+function labelled<T extends Element>(tag:string,label:string,scope:ParentNode=container):T{
+  const direct=[...scope.querySelectorAll<T>(tag)].find(item=>item.getAttribute("aria-label")===label);
+  if(direct)return direct;
+  const matching=[...scope.querySelectorAll<HTMLLabelElement>("label")].find(item=>{const copy=item.cloneNode(true) as HTMLElement;copy.querySelectorAll("input,select,textarea").forEach(control=>control.remove());return copy.textContent?.replace(/\s+/g," ").trim()===label;});
+  const element=matching?.querySelector<T>(tag)??(matching?.htmlFor?scope.querySelector<T>(`#${CSS.escape(matching.htmlFor)}`):null);
+  if(!element)throw new Error(`Missing ${tag}: ${label}`);return element;
+}
+function select(label:string,scope:ParentNode=container){return labelled<HTMLSelectElement>("select",label,scope);}
+function dialog(label:string){return container.querySelector<HTMLElement>(`dialog[aria-label="${label}"],[role="dialog"][aria-label="${label}"]`);}
+function button(label:string,scope:ParentNode=container){const found=[...scope.querySelectorAll<HTMLButtonElement>("button")].find(item=>{const copy=item.cloneNode(true) as HTMLElement;copy.querySelectorAll('[aria-hidden="true"]').forEach(node=>node.remove());return item.getAttribute("aria-label")===label||copy.textContent?.replace(/\s+/g," ").trim()===label;});if(!found)throw new Error(`Missing button: ${label}`);return found;}
 async function change(label:string,value:string){await act(async()=>{const element=select(label);element.value=value;element.dispatchEvent(new Event("change",{bubbles:true}));});}
-function button(label:string){const found=[...container.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent===label);if(!found)throw new Error(`Missing button: ${label}`);return found;}
-async function click(label:string){await act(async()=>button(label).click());}
-async function submit(){await act(async()=>container.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
-async function render(){await act(async()=>root.render(<WeatherExplorer initialRegion={city.id}/>));await vi.waitFor(()=>expect(select("시·도").value).toBe(city.id));}
+async function click(label:string,scope:ParentNode=container){await act(async()=>button(label,scope).click());}
+async function toggle(label:string){await act(async()=>labelled<HTMLInputElement>("input",label,dialog("날씨 그래프")!).click());}
+async function check(label:string){if(!labelled<HTMLInputElement>("input",label,dialog("날씨 그래프")!).checked)await toggle(label);}
+async function submit(){await act(async()=>dialog("지역·기간 선택")!.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
+async function render(){await act(async()=>root.render(<WeatherExplorer initialRegion={city.id}/>));await vi.waitFor(()=>expect(select("시·도").value).toBe(city.id));await vi.waitFor(()=>expect(select("시·군·구").disabled).toBe(false));}
+async function load(){await render();await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(2));}
+function weatherReads(){return fetchSpy.mock.calls.filter(([url])=>new URL(String(url),"http://localhost:3001").pathname==="/api/v1/weather");}
 
-beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);configured=true;weatherReply=null;mapProbe.points=[];mapProbe.focus=null;mapProbe.autoLocate=undefined;fetchSpy.mockReset().mockImplementation(async(raw:RequestInfo|URL)=>{const url=new URL(String(raw),"http://localhost:3001");if(url.pathname==="/api/v1/weather/regions"){const parentId=url.searchParams.get("parentId");return ok({items:parentId===city.id?[district]:parentId===district.id?[dong]:parentId?[]:[city],source:"기상청 행정구역",updatedAt:"2026-07-01"});}if(url.pathname==="/api/v1/weather")return ok(configured?result():{...result(),configured:false,items:[],notice:"기상청 API 인증키 설정이 필요해요."});throw new Error(`Unexpected URL: ${url}`);});vi.stubGlobal("fetch",fetchSpy);container=document.createElement("div");document.body.appendChild(container);root=createRoot(container);});
+beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);configured=true;mapProbe.points=[];mapProbe.focus=null;mapProbe.autoLocate=undefined;fetchSpy.mockReset().mockImplementation(async(raw:RequestInfo|URL)=>{const url=new URL(String(raw),"http://localhost:3001");if(url.pathname==="/api/v1/weather/regions"){const parentId=url.searchParams.get("parentId");return ok({items:parentId===city.id?[district]:parentId===district.id?[dong]:parentId?[]:[city],source:"기상청 행정구역",updatedAt:"2026-07-01"});}if(url.pathname==="/api/v1/weather")return ok(configured?result():{...result(),configured:false,items:[],notice:"기상청 API 인증키 설정이 필요해요."});throw new Error(`Unexpected URL: ${url}`);});vi.stubGlobal("fetch",fetchSpy);container=document.createElement("div");document.body.appendChild(container);root=createRoot(container);});
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.unstubAllGlobals();});
 
-describe("weather explorer",()=>{
-  it("uses the returned administrative hierarchy and asks the backend for the chosen dong",async()=>{await render();await change("시·군·구",district.id);await vi.waitFor(()=>expect(select("읍·면·동").options).toHaveLength(2));await change("읍·면·동",dong.id);await click("월별");await submit();const request=fetchSpy.mock.calls.map(([url])=>new URL(String(url),"http://localhost:3001")).find(url=>url.pathname==="/api/v1/weather")!;expect(request.searchParams.get("regionId")).toBe(dong.id);expect(request.searchParams.get("period")).toBe("month");});
-  it("shows a real setup state without invented weather when no server key exists",async()=>{configured=false;await render();await submit();expect(container.textContent).toContain("실제 날씨자료 연결이 필요해요");expect(container.textContent).toContain("인증키는 서버에서만 사용해요");expect(container.querySelector(".weather-summary")).toBeNull();expect(container.querySelector(".weather-chart")).toBeNull();expect(mapProbe.points).toHaveLength(0);});
-  it("shows source, station, missing periods and separate current values without asking for GPS",async()=>{await render();await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(2));expect(mapProbe.autoLocate).toBe(false);expect(container.textContent).toContain("인천 관측소");expect(container.textContent).toContain("지역 전체의 공간 평균이 아닌 대표 관측소");expect(container.querySelector(".weather-summary strong")?.textContent).toBe("16℃");expect(container.querySelector(".weather-current")?.textContent).toContain("19℃");expect(container.querySelector(".weather-table-scroll")?.textContent).toContain("자료 없음");expect(container.querySelectorAll(".weather-chart polyline")).toHaveLength(0);expect(container.querySelectorAll(".weather-chart circle")).toHaveLength(2);});
-  it("keeps unavailable weather classes missing instead of turning them into zero days",async()=>{await render();await submit();await change("지도와 그래프에 표시할 항목","weatherCounts");expect(container.querySelector(".weather-count-values")?.textContent).toContain("맑은 날자료 없음");expect(container.querySelector(".weather-count-values")?.textContent).toContain("강수 있는 날0일");expect(container.querySelector(".weather-count-values")?.textContent).toContain("새 눈 쌓인 날자료 없음");expect(container.textContent).toContain("강수량에는 비와 눈이 포함");expect(container.textContent).toContain("공식 기상현상 분류");expect(container.querySelectorAll(".weather-chart rect")).toHaveLength(1);expect(container.querySelector(".weather-chart-picker button[aria-pressed=true]")?.textContent).toBe("막대");});
-  it("lets users map current observations without mixing them into historical averages",async()=>{await render();await submit();await click("최근 실황");expect(mapProbe.points[0].label).toContain("19℃");expect(container.querySelector(".weather-map-caption")?.textContent).toContain("최근 실황");expect(container.querySelector(".weather-summary strong")?.textContent).toBe("16℃");expect([...select("지도와 그래프에 표시할 항목").options].map(option=>option.value)).toEqual(["temperature","rainfall","humidity","windSpeed"]);await click("기간 통계");expect(mapProbe.points[0].label).toContain("16℃");});
-  it("automatically maps live measurements for today-only requests and leaves unfinished daily data empty",async()=>{await render();fetchSpy.mockResolvedValue(ok({...result(),start:koreanWeatherDate(),end:koreanWeatherDate(),items:[{...location(city),series:[],summary:{values:values(null),metricDays:days(),observedDays:0,expectedDays:1}}]}));await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(1));expect(mapProbe.points[0].label).toContain("19℃");expect(container.querySelector('[aria-label="지도에 표시할 자료"] button[aria-pressed=true]')?.textContent).toBe("최근 실황");expect(container.querySelector(".weather-summary strong")?.textContent).toBe("자료 없음");expect(container.querySelector(".weather-chart-card")?.textContent).toContain("해당 기간의 관측자료가 없어요");expect(container.querySelector(".weather-current")?.textContent).toContain("19℃");});
-  it("aborts reads on unmount and ignores a weather response that arrives later",async()=>{await render();fetchSpy.mockImplementation((raw:RequestInfo|URL)=>String(raw).startsWith("/api/v1/weather?")?new Promise(resolve=>{weatherReply=resolve;}):Promise.resolve(ok({items:[]})));await submit();const call=fetchSpy.mock.calls.find(([url])=>String(url).startsWith("/api/v1/weather?"))!;const signal=call[1].signal as AbortSignal;await act(async()=>root.unmount());expect(signal.aborted).toBe(true);await act(async()=>weatherReply!(ok(result())));expect(container.querySelector(".weather-results")).toBeNull();root=createRoot(container);});
+describe("weather explorer map and dialogs",()=>{
+  it("keeps a map surface visible and asks for a region and period before reading weather",async()=>{
+    await render();
+    expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();
+    expect(mapProbe.autoLocate).toBe(false);
+    expect(dialog("지역·기간 선택")).not.toBeNull();
+    expect(dialog("날씨 그래프")).toBeNull();
+    expect(weatherReads()).toHaveLength(0);
+    await click("지역·기간 선택 닫기");
+    expect(dialog("지역·기간 선택")).toBeNull();
+    await click("지역·기간");
+    expect(dialog("지역·기간 선택")).not.toBeNull();
+  });
+  it("uses the returned administrative hierarchy and sends the chosen dong and period",async()=>{
+    await render();await change("시·군·구",district.id);await vi.waitFor(()=>expect(select("읍·면·동").options).toHaveLength(2));await change("읍·면·동",dong.id);await click("월별");await submit();
+    const request=new URL(String(weatherReads()[0][0]),"http://localhost:3001");
+    expect(request.searchParams.get("regionId")).toBe(dong.id);expect(request.searchParams.get("period")).toBe("month");
+    expect(dialog("지역·기간 선택")).toBeNull();
+  });
+  it("shows a real setup error without invented pins or graphs when no server key exists",async()=>{
+    configured=false;await render();await submit();
+    expect(container.textContent).toContain("실제 날씨자료 연결이 필요해요");
+    expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();
+    expect(mapProbe.points).toHaveLength(0);
+    expect(container.querySelector("svg.weather-chart")).toBeNull();
+  });
+  it("shows provider failures on the map and allows a successful retry",async()=>{
+    await render();fetchSpy.mockResolvedValueOnce({ok:false,json:async()=>({error:{message:"기상청 응답이 지연되고 있어요."}})});await submit();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("기상청 응답이 지연되고 있어요.");
+    expect(mapProbe.points).toHaveLength(0);
+    expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();
+    await click("날씨 다시 불러오기");await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(2));
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+  it("keeps the map controls on the map and removes explanatory and summary cards",async()=>{
+    await load();
+    expect(select("지도에 표시할 항목").value).toBe("temperature");
+    expect(container.querySelector(".weather-map")).not.toBeNull();
+    expect(container.querySelector(".weather-summary,.weather-station,.weather-current,.weather-disclaimer,.weather-detail")).toBeNull();
+    expect(container.textContent).not.toContain(result().notice);
+    expect(container.textContent).not.toContain("지역 중심에서 약");
+    expect(container.querySelector(".weather-chart")).toBeNull();
+    await click("그래프");
+    expect(dialog("날씨 그래프")).not.toBeNull();
+    expect(select("그래프로 볼 지역").value).toBe(city.id);
+    expect(dialog("날씨 그래프")!.querySelector("svg")).not.toBeNull();
+    await click("그래프 닫기");
+    expect(dialog("날씨 그래프")).toBeNull();
+    expect(container.querySelector(".weather-chart")).toBeNull();
+  });
+  it("shows missing weather counts as missing, while a measured zero remains zero",async()=>{
+    await load();
+    await change("지도에 표시할 항목","count:clear");expect(mapProbe.points[0].label).toContain("자료 없음");
+    await change("지도에 표시할 항목","count:rain");expect(mapProbe.points[0].label).toContain("0일");
+    await click("그래프");await check("맑은 날 (일)");await check("강수 있는 날 (일)");
+    const modal=dialog("날씨 그래프")!;
+    expect(modal.textContent).toContain("자료 없음");
+    expect(modal.querySelector("table")?.textContent).toContain("맑은 날");
+    expect(modal.querySelector("table")?.textContent).toContain("강수 있는 날");
+  });
+  it("maps current observations separately from the historical graph without asking for GPS",async()=>{
+    await load();await change("지도에 표시할 자료","current");
+    expect(mapProbe.autoLocate).toBe(false);
+    expect(mapProbe.points[0].label).toContain("19℃");
+    expect(mapProbe.points[0].title).toContain("인천 관측소");
+    expect([...select("지도에 표시할 항목").options].map(option=>option.value)).toEqual(["temperature","rainfall","humidity","windSpeed"]);
+    await click("그래프");
+    const modal=dialog("날씨 그래프")!;
+    expect(modal.querySelector("table")?.textContent).toContain("15℃");
+    expect(modal.querySelector("table")?.textContent).toContain("17℃");
+    expect(modal.querySelector("table")?.textContent).not.toContain("19℃");
+    await click("그래프 닫기");await change("지도에 표시할 자료","summary");expect(mapProbe.points[0].label).toContain("16℃");
+  });
+  it("automatically maps live measurements for today and leaves unfinished daily graphs empty",async()=>{
+    await render();fetchSpy.mockResolvedValue(ok({...result(),start:koreanWeatherDate(),end:koreanWeatherDate(),items:[{...location(city),series:[],summary:{values:values(null),metricDays:days(0),observedDays:0,expectedDays:1}}]}));await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(1));
+    expect(mapProbe.points[0].label).toContain("19℃");expect(select("지도에 표시할 자료").value).toBe("current");
+    await click("그래프");expect(dialog("날씨 그래프")?.textContent).toContain("해당 기간의 관측자료가 없어요");expect(dialog("날씨 그래프")?.querySelector("svg")).toBeNull();
+  });
+  it("plots multiple chosen metrics together, keeps their units, and retains at least one series",async()=>{
+    await load();await click("그래프");const modal=dialog("날씨 그래프")!;
+    expect(modal.querySelectorAll('input[type="checkbox"]')).toHaveLength(13);
+    expect(modal.querySelectorAll('input[type="checkbox"]:checked')).toHaveLength(1);
+    await toggle("평균 기온 (℃)");expect(modal.querySelectorAll('input[type="checkbox"]:checked')).toHaveLength(1);
+    await toggle("강수량 (mm)");
+    expect(modal.querySelectorAll('input[type="checkbox"]:checked')).toHaveLength(2);
+    expect(modal.querySelectorAll("svg")).toHaveLength(1);
+    const table=modal.querySelector("table")!;
+    expect(table.querySelector("thead")?.textContent).toContain("평균 기온");expect(table.querySelector("thead")?.textContent).toContain("강수량");
+    expect(table.textContent).toContain("15℃");expect(table.textContent).toContain("4.6mm");
+    await click("막대",modal);expect(modal.querySelectorAll("svg rect").length).toBeGreaterThan(0);
+    await click("꺾은선",modal);expect(modal.querySelectorAll("svg circle")).toHaveLength(4);
+  });
+  it("keeps the displayed result while query edits are unsubmitted",async()=>{
+    await load();const before=mapProbe.points.map(point=>({...point}));await click("지역·기간");await change("시·군·구",district.id);await click("주별");
+    expect(mapProbe.points).toEqual(before);expect(weatherReads()).toHaveLength(1);
+    await click("지역·기간 선택 닫기");expect(mapProbe.points).toEqual(before);
+  });
+  it("aborts the old query and ignores a stale response after a new query finishes",async()=>{
+    await render();let firstReply:((response:unknown)=>void)|undefined;let requested=0;
+    fetchSpy.mockImplementation((raw:RequestInfo|URL)=>{if(String(raw).startsWith("/api/v1/weather?")){requested++;return requested===1?new Promise(resolve=>{firstReply=resolve;}):Promise.resolve(ok({...result(),items:[{...location(city),summary:{...location(city).summary,values:values(26)}}]}));}return Promise.resolve(ok({items:[district]}));});
+    await submit();const firstSignal=weatherReads()[0][1].signal as AbortSignal;await click("지역·기간");await click("월별");await submit();
+    await vi.waitFor(()=>expect(mapProbe.points[0].label).toContain("26℃"));expect(firstSignal.aborted).toBe(true);
+    await act(async()=>firstReply!(ok(result())));expect(mapProbe.points[0].label).toContain("26℃");
+  });
+  it("aborts reads on unmount and ignores a weather response that arrives later",async()=>{
+    await render();let reply:((response:unknown)=>void)|undefined;
+    fetchSpy.mockImplementation((raw:RequestInfo|URL)=>String(raw).startsWith("/api/v1/weather?")?new Promise(resolve=>{reply=resolve;}):Promise.resolve(ok({items:[]})));await submit();
+    const signal=weatherReads()[0][1].signal as AbortSignal;await act(async()=>root.unmount());expect(signal.aborted).toBe(true);
+    await act(async()=>reply!(ok(result())));expect(container.childElementCount).toBe(0);root=createRoot(container);
+  });
 });
 
 describe("weather chart",()=>{
