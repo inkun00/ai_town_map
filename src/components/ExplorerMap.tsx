@@ -56,10 +56,10 @@ function ExplorerMapViewer(props:Props){
       travelDetails.push(`여행 방문 순서: ${route.stops.slice(0,12).map((stop,index)=>`${index+1}. ${stop.title}`).join(" → ")}`);
       if(route.draft)travelDetails.push("여행 동선은 아직 계산하지 않았어요. 방문 순서만 표시합니다.");
       else{
-        for(const [index,leg] of route.legs.slice(0,11).entries()){travelDetails.push(`${index+1}구간 · ${travelLegLabel(leg)}`);if(leg.status==="ready")legend.set(`travel:${leg.mode}`,{label:`여행 동선 · ${travelModeLabel(leg.mode)}`,color:travelModeColor(leg.mode)});}
+        for(const [index,leg] of route.legs.slice(0,11).entries()){travelDetails.push(`${index+1}구간 · ${travelLegLabel(leg)}`);if(leg.status==="ready")legend.set(`travel:${leg.mode}`,{label:`${travelModeLabel(leg.mode)} (자동차 기준)`,color:travelModeColor(leg.mode)});}
         const total=travelRouteSummary(route);travelDetails.push(`${total.complete?"전체 구간 합계":"확인된 구간 합계"}: ${formatTravelDistance(total.distanceMeters)} · ${formatTravelDuration(total.durationSeconds)}`);
         if(route.calculatedAt){const date=new Date(route.calculatedAt);travelFootnotes.push(`동선 계산: ${Number.isNaN(date.getTime())?route.calculatedAt:new Intl.DateTimeFormat("ko-KR",{timeZone:"Asia/Seoul",dateStyle:"medium",timeStyle:"short"}).format(date)}`);}
-        travelFootnotes.push(`동선 출처: ${route.credit??route.provider??"경로 제공자 정보 없음"} · 실제 도로 경로의 예상시간이며 교통·보행 상황에 따라 달라질 수 있습니다.`);
+        travelFootnotes.push(`동선 출처: ${route.credit??route.provider??"경로 제공자 정보 없음"} · 자동차 기준 실제 도로 경로의 예상시간이며 교통 상황에 따라 달라질 수 있습니다.`);
       }
     }
     return {title,subtitle:subtitle||"백지도 · 현재 표시 범위",details:[`표시된 위치포인트 ${visible.length}개`,...travelDetails],legend:[...legend.values()].slice(0,20),footnotes:[...(legend.size>20?[`범례 외 ${legend.size-20}종`]:[]),...(boundaries?.missingIds.length?[`일부 지역 경계 ${boundaries.missingIds.length}곳 없음`]:[]),boundaries?`경계: ${boundaries.source} · ${boundaries.updatedAt} · https://github.com/vuski/admdongkor`:"행정구역 경계 자료 없음",...(props.workbench?["반경·연결선·메모는 개인 분석 도구의 표시 상태입니다."]:[]),...travelFootnotes]};

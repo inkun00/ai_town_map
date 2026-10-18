@@ -12,7 +12,7 @@
 .travel-route-planner__sheet button{min-height:44px;border:1px solid #a9bfb3;border-radius:9px;background:#f2f6ea;color:#254d40;font:inherit;font-weight:700;cursor:pointer}
 .travel-route-planner__sheet>header button{width:44px;flex:none;font-size:23px}
 .travel-route-planner__sheet button:disabled,.travel-route-planner__bar button:disabled{opacity:.5;cursor:default}
-.travel-route-planner button:focus-visible,.travel-route-planner select:focus-visible{outline:3px solid #156fa7;outline-offset:2px}
+.travel-route-planner button:focus-visible{outline:3px solid #156fa7;outline-offset:2px}
 .travel-route-planner__help{margin:7px 0;color:#5b7168;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
 .travel-route-planner__notice,.travel-route-planner__error{margin:9px 0;padding:9px;border:1px solid #c4d2b7;border-radius:9px;background:#eef6e5;line-height:1.55;overflow-wrap:anywhere}
 .travel-route-planner__error{border-color:#dfb5a5;background:#fff0e8;color:#853b2b}
@@ -26,8 +26,7 @@
 .travel-route-planner__stop>div{display:flex;gap:4px;flex:none}
 .travel-route-planner__stop button{width:44px;font-size:18px}
 .travel-route-planner__leg{margin:6px 0 0 32px;display:flex;align-items:flex-start;flex-wrap:wrap;gap:5px 8px}
-.travel-route-planner__leg label{display:flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap}
-.travel-route-planner__leg select{width:auto;min-height:44px;padding:6px;border:1px solid #b4c8bf;border-radius:8px;background:#fff;color:#173e51;font-size:13px}
+.travel-route-planner__leg>b{font-size:11px;white-space:nowrap}
 .travel-route-planner__leg>span{align-self:center;color:#527164;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
 .travel-route-planner__total{margin:12px 0;padding:10px;border-radius:10px;background:#e3efdc;font-weight:800;line-height:1.5}
 .travel-route-planner__retry{width:100%;padding:8px}

@@ -13,7 +13,6 @@ const run = () => getTravelRouter().route(origin, destination, "car");
 
 beforeEach(() => {
   vi.stubEnv("KAKAO_REST_API_KEY", "test-server-key-never-in-errors");
-  vi.stubEnv("KAKAO_WALKING_ENABLED", "false");
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
 });
@@ -44,17 +43,10 @@ describe("Kakao travel router", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("does not fetch walking routes before partnership approval", async () => {
-    expect(await getTravelRouter().route(origin, destination, "walk")).toEqual({ status: "unavailable", paths: [], distanceMeters: null, durationSeconds: null, message: "도보 길찾기는 제휴 승인 후 이용할 수 있어요." });
+  it.each(["walk", "bike", "", null, undefined])("rejects unsupported runtime modes without a provider call: %j", async mode => {
+    const router = getTravelRouter();
+    await expect(Reflect.apply(router.route, router, [origin, destination, mode])).rejects.toMatchObject({ status: 422, code: "TRAVEL_MODE_UNSUPPORTED" });
     expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("uses only the affiliate walking endpoint when explicitly enabled", async () => {
-    vi.stubEnv("KAKAO_WALKING_ENABLED", "true"); fetchMock.mockResolvedValue(respond(fixture()));
-    expect((await getTravelRouter().route(origin, destination, "walk")).status).toBe("ready");
-    const url = new URL(String(fetchMock.mock.calls[0][0]));
-    expect(url.pathname).toBe("/affiliate/walking/v1/directions");
-    expect(url.searchParams.get("priority")).toBe("DISTANCE");
   });
 
   it.each([null, [], "provider-secret", {}, { routes: null }, { routes: [] }, { routes: [null] }, { routes: [{ result_code: "0" }] }])("rejects malformed root and route objects: %j", async payload => {

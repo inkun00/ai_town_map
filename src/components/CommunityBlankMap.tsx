@@ -43,7 +43,7 @@ export default function CommunityBlankMap({bounds,features,onViewportChange,poin
     }
     if(!travelRoute.draft)for(const [index,leg] of travelRoute.legs.slice(0,11).entries()){
       const path=leg.status==="ready"?leg.paths.reduce<Coordinates[]>((best,part)=>part.length>best.length?part:best,[]):[],location=path[Math.floor(path.length/2)]??travelRoute.stops.find(stop=>stop.id===leg.fromId)?.location;
-      if(!location)continue;const lines=[`${index+1}구간 · ${travelModeLabel(leg.mode)}`,`${formatTravelDistance(leg.status==="ready"?leg.distanceMeters:null)} · ${formatTravelDuration(leg.status==="ready"?leg.durationSeconds:null)}`];
+      if(!location)continue;const lines=[`${index+1}구간 · ${travelModeLabel(leg.mode)} (자동차 기준)`,`${formatTravelDistance(leg.status==="ready"?leg.distanceMeters:null)} · ${formatTravelDuration(leg.status==="ready"?leg.durationSeconds:null)}`];
       const item=add(`1-leg:${index}`,location,lines,lines.join(" · "),leg.status==="ready"?-12:30,travelModeColor(leg.mode),"leg");if(item)anchors.push(item);
     }
     const placements=placeWeatherBoundaryLabels(anchors,{width:size.width,height:size.height,top:70,bottom:135}),placed=new Set(placements.map(item=>item.id));

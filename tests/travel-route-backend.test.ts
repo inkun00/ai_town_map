@@ -25,7 +25,7 @@ import {ApiError} from "../src/server/http";
 import {POST} from "../src/app/api/v1/maps/[mapId]/travel-route/route";
 
 let owner:AppSession,mapId:string,ids:string[],serial=0;
-const plan=(modes=["car","car","car"])=>({stops:ids.map((pointId,index)=>({pointId,mode:modes[index]}))});
+const plan=()=>({stops:ids.map(pointId=>({pointId,mode:"car"}))});
 beforeAll(async()=>{
   db=new PGlite();await db.exec("CREATE ROLE anon; CREATE ROLE authenticated;");
   for(const file of ["001_core.sql","002_observations.sql","003_community_moderation.sql","004_analysis_proposals.sql","005_retention.sql","006_exploration_games.sql","007_account_roles_game_deletion.sql","008_map_participation_passwords.sql","009_student_identifiers.sql"])await db.exec(await readFile(`db/migrations/${file}`,"utf8"));
@@ -51,8 +51,8 @@ afterEach(()=>{vi.unstubAllEnvs();});
 describe("server-owned travel route sources",()=>{
   it("uses registered published coordinates only, in selected order, without editing map data",async()=>{
     const before=await execute("SELECT data_revision,version FROM app.maps WHERE id=$1",[mapId]);
-    const result=await calculateTravelRoute(mapId,null,plan(["car","walk","walk"]),"school-wifi");
-    expect(result).toMatchObject({provider:"Kakao",credit:"카카오모빌리티"});expect(result.legs.map(leg=>[leg.fromId,leg.toId,leg.mode])).toEqual([[ids[0],ids[1],"car"],[ids[1],ids[2],"walk"]]);
+    const result=await calculateTravelRoute(mapId,null,plan(),"school-wifi");
+    expect(result).toMatchObject({provider:"Kakao",credit:"카카오모빌리티"});expect(result.legs.map(leg=>[leg.fromId,leg.toId,leg.mode])).toEqual([[ids[0],ids[1],"car"],[ids[1],ids[2],"car"]]);
     expect(probe.route).toHaveBeenCalledTimes(2);expect(Object.keys(probe.route.mock.calls[0][0])).toEqual(["lat","lng"]);
     expect(await execute("SELECT data_revision,version FROM app.maps WHERE id=$1",[mapId])).toEqual(before);
   });
@@ -72,18 +72,19 @@ describe("server-owned travel route sources",()=>{
     probe.route.mockImplementationOnce(async()=>{await execute("UPDATE app.observations SET lng=lng+0.001 WHERE id=$1",[ids[0]]);return {status:"ready",paths:[],distanceMeters:100,durationSeconds:60};});
     await expect(calculateTravelRoute(mapId,null,plan(),"actor")).rejects.toMatchObject({code:"TRAVEL_POINTS_CHANGED"});
     probe.route.mockImplementationOnce(async()=>{await execute("UPDATE app.observations SET status='hidden' WHERE id=$1",[ids[0]]);return {status:"ready",paths:[],distanceMeters:100,durationSeconds:60};});
-    await expect(calculateTravelRoute(mapId,null,plan(["walk","walk","walk"]),"actor")).rejects.toMatchObject({code:"TRAVEL_POINTS_CHANGED"});
+    await expect(calculateTravelRoute(mapId,null,plan(),"actor")).rejects.toMatchObject({code:"TRAVEL_POINTS_CHANGED"});
   });
 });
 
 describe("bounded provider calls and honest partial results",()=>{
-  it("keeps unavailable walking legs out of calculated distance and has no fabricated fallback",async()=>{
-    probe.route.mockImplementation(async(from,to,mode)=>mode==="walk"?{status:"unavailable",paths:[],distanceMeters:null,durationSeconds:null,message:"도보 길찾기는 제휴 승인 후 이용할 수 있어요."}:{status:"ready",paths:[[from,to]],distanceMeters:1300,durationSeconds:240});
-    const result=await calculateTravelRoute(mapId,null,plan(["car","walk","car"]),"actor");expect(result.legs[1]).toMatchObject({status:"unavailable",paths:[],distanceMeters:null,durationSeconds:null});
+  it("keeps unavailable road legs out of calculated distance and has no fabricated fallback",async()=>{
+    probe.route.mockResolvedValueOnce({status:"ready",paths:[[{lat:37.5,lng:126.8},{lat:37.51,lng:126.81}]],distanceMeters:1300,durationSeconds:240});
+    probe.route.mockResolvedValueOnce({status:"unavailable",paths:[],distanceMeters:null,durationSeconds:null,message:"이 구간의 이동 경로를 찾지 못했어요."});
+    const result=await calculateTravelRoute(mapId,null,plan(),"actor");expect(result.legs[0]).toMatchObject({status:"ready",distanceMeters:1300,durationSeconds:240});expect(result.legs[1]).toMatchObject({status:"unavailable",paths:[],distanceMeters:null,durationSeconds:null});
   });
   it("reuses recent successful coordinate/mode legs and preserves their original calculation time",async()=>{
     const first=await calculateTravelRoute(mapId,null,plan(),"actor");
-    const next=await calculateTravelRoute(mapId,null,plan(["car","car","walk"]),"actor");expect(probe.route).toHaveBeenCalledTimes(2);expect(next.calculatedAt).toBe(first.calculatedAt);
+    const next=await calculateTravelRoute(mapId,null,plan(),"actor");expect(probe.route).toHaveBeenCalledTimes(2);expect(next.calculatedAt).toBe(first.calculatedAt);
     await execute("UPDATE app.observations SET lat=lat+0.0001 WHERE id=$1",[ids[2]]);await calculateTravelRoute(mapId,null,plan(),"actor");expect(probe.route).toHaveBeenCalledTimes(3);
   });
   it("fails cleanly for missing setup and cancellation before calling a provider",async()=>{
@@ -99,5 +100,15 @@ describe("bounded provider calls and honest partial results",()=>{
     const request=(origin:string)=>new NextRequest(`http://localhost:3001/api/v1/maps/${mapId}/travel-route`,{method:"POST",headers:{origin,"content-type":"application/json"},body:JSON.stringify(plan())});
     const context={params:Promise.resolve({mapId})};expect((await POST(request("https://outside.example"),context)).status).toBe(403);expect(probe.route).not.toHaveBeenCalled();
     const response=await POST(request("http://localhost:3001"),context);expect(response.status).toBe(200);expect(response.headers.get("cache-control")).toBe("private, no-store");expect((await response.json()).data.legs).toHaveLength(2);
+  });
+  it("rejects walking API requests with 422 before provider work",async()=>{
+    const input={stops:ids.map(pointId=>({pointId,mode:"walk"}))};
+    const request=new NextRequest(`http://localhost:3001/api/v1/maps/${mapId}/travel-route`,{method:"POST",headers:{origin:"http://localhost:3001","content-type":"application/json"},body:JSON.stringify(input)});
+    const response=await POST(request,{params:Promise.resolve({mapId})});
+    expect(response.status).toBe(422);expect(probe.config).not.toHaveBeenCalled();expect(probe.route).not.toHaveBeenCalled();
+  });
+  it("uses car routing when the mode is omitted",async()=>{
+    const result=await calculateTravelRoute(mapId,null,{stops:ids.map(pointId=>({pointId}))},"actor");
+    expect(result.legs.map(leg=>leg.mode)).toEqual(["car","car"]);expect(probe.route).toHaveBeenCalledTimes(2);
   });
 });

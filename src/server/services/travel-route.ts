@@ -9,7 +9,7 @@ import {ApiError} from "@/server/http";
 import {getTravelRouter} from "@/server/routing/kakao";
 import {communityMap} from "./community-access";
 
-export const travelRouteInput=z.strictObject({stops:z.array(z.strictObject({pointId:z.uuid(),mode:z.enum(["car","walk"])})).min(2).max(maximumTravelStops)}).refine(input=>new Set(input.stops.map(stop=>stop.pointId)).size===input.stops.length,{message:"같은 장소를 두 번 선택할 수 없어요."});
+export const travelRouteInput=z.strictObject({stops:z.array(z.strictObject({pointId:z.uuid(),mode:z.literal("car").default("car")})).min(2).max(maximumTravelStops)}).refine(input=>new Set(input.stops.map(stop=>stop.pointId)).size===input.stops.length,{message:"같은 장소를 두 번 선택할 수 없어요."});
 type Input=z.infer<typeof travelRouteInput>;
 type Point={id:string;lat:number;lng:number};
 type Routed=Awaited<ReturnType<ReturnType<typeof getTravelRouter>["route"]>>;

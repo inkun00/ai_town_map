@@ -15,10 +15,9 @@ const responseLimit = 2 * 1024 * 1024;
 const coordinateLimit = 10_000;
 const requestTimeout = 8_000;
 const unavailableMessage = "이 구간의 이동 경로를 찾지 못했어요.";
-const walkingMessage = "도보 길찾기는 제휴 승인 후 이용할 수 있어요.";
 
-function unavailable(message = unavailableMessage): KakaoRoutingResult {
-  return { status: "unavailable", paths: [], distanceMeters: null, durationSeconds: null, message };
+function unavailable(): KakaoRoutingResult {
+  return { status: "unavailable", paths: [], distanceMeters: null, durationSeconds: null, message: unavailableMessage };
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -88,25 +87,24 @@ export function getTravelRouter() {
   if (!key || /replace[-_ ]?me|replace[-_ ]?with|your[-_]?(?:api|key)/i.test(key)) {
     throw new ApiError(503, "TRAVEL_NOT_CONFIGURED", "자동차 길찾기 연결 설정이 필요합니다.");
   }
-  const walkingEnabled = process.env.KAKAO_WALKING_ENABLED === "true";
   return {
     provider: "Kakao" as const,
     credit: "길찾기: 카카오모빌리티",
-    async route(from: RouteLocation, to: RouteLocation, mode: "car" | "walk", signal?: AbortSignal): Promise<KakaoRoutingResult> {
-      if (!location(from) || !location(to) || (mode !== "car" && mode !== "walk")) throw new ApiError(422, "TRAVEL_COORDINATES_INVALID", "이동할 위치를 확인해 주세요.");
-      if (mode === "walk" && !walkingEnabled) return unavailable(walkingMessage);
+    async route(from: RouteLocation, to: RouteLocation, mode: "car", signal?: AbortSignal): Promise<KakaoRoutingResult> {
+      if (mode !== "car") throw new ApiError(422, "TRAVEL_MODE_UNSUPPORTED", "지원하는 길찾기 요청인지 확인해 주세요.");
+      if (!location(from) || !location(to)) throw new ApiError(422, "TRAVEL_COORDINATES_INVALID", "이동할 위치를 확인해 주세요.");
       const controller = new AbortController();
       const abort = () => controller.abort();
       if (signal?.aborted) abort(); else signal?.addEventListener("abort", abort, { once: true });
       const timer = setTimeout(abort, requestTimeout);
       try {
         if (controller.signal.aborted) throw new Error("Cancelled");
-        const url = new URL(mode === "car" ? "https://apis-navi.kakaomobility.com/v1/directions" : "https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions");
+        const url = new URL("https://apis-navi.kakaomobility.com/v1/directions");
         url.searchParams.set("origin", `${from.lng},${from.lat}`);
         url.searchParams.set("destination", `${to.lng},${to.lat}`);
         url.searchParams.set("summary", "false");
-        url.searchParams.set("priority", mode === "car" ? "RECOMMEND" : "DISTANCE");
-        if (mode === "car") url.searchParams.set("alternatives", "false");
+        url.searchParams.set("priority", "RECOMMEND");
+        url.searchParams.set("alternatives", "false");
         const response = await fetch(url.toString(), {
           method: "GET", cache: "no-store", redirect: "error", signal: controller.signal,
           headers: { Authorization: `KakaoAK ${key}`, Accept: "application/json", "Content-Type": "application/json" },
