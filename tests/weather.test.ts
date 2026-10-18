@@ -10,6 +10,12 @@ const daily = "#START7777\n# YYMMDD STN TA_AVG TA_MIN TA_MAX RN_DAY HM_AVG WS_AV
 const current = "#START7777\n# YYMMDDHHMI STN TA RN_DAY HM WS CA_TOT SD_TOT\n202610181100 112 16.5 3.0 70.0 2.0 8.0 0.0\n#7777END";
 // Public KMA responses received on 2026-10-18. Keep their fixed-width two-line headers:
 // duplicate names identify different variables and WW may contain spaces.
+const publishedStations = `#START7777
+# STN           LON           LAT STN_SP          HT     HT_PA     HT_TA     HT_WD     HT_RN STN STN_KO               STN_EN               FCT_ID   LAW_ID    BASIN LAW_ADDR
+#  ID         degee        degree --------         m         m         m         m         m  AD -------------------- -------------------- -------- ---------- ---- ----------------------------------------------------------
+   90  128.56473000   38.25085000 35100        17.53     18.73      1.70     10.00      1.40  90 속초                 Sokcho               11D20401 5182033035 ---- 강원특별자치도 고성군 토성면 봉포리
+   93  127.75443000   37.94738000 31201        95.78     96.78      1.50     10.00      1.40 101 북춘천               Bukchuncheon         11D10301 5111025024 ---- 강원특별자치도 춘천시 신북읍 산천리
+#7777END`;
 const publishedCurrent = `#START7777
 # YYMMDDHHMI STN  WD   WS GST  GST  GST     PA     PS PT    PR    TA    TD    HM    PV     RN     RN     RN     RN     SD     SD     SD WC WP WW                      CA  CA   CH CT        CT  CT  CT    VS   SS    SI ST    TS    TE    TE    TE    TE  ST   WH BF IR IX
 #        KST  ID  16  m/s  WD   WS   TM    hPa    hPa  -   hPa     C     C     %   hPa     mm    DAY    JUN    INT    HR3    DAY    TOT -- -- ---------------------- TOT MID  MIN -------- TOP MID LOW                  GD     C     5    10    20    30 SEA    m --  -  -
@@ -96,6 +102,37 @@ describe("official nationwide location hierarchy", () => {
 });
 
 describe("KMA parser and data service", () => {
+  it("reads actual station ids and names despite repeated STN columns and multiword addresses", () => {
+    expect(parseWeatherStations(publishedStations)).toEqual([
+      { id: "90", name: "속초", lat: 38.25085, lng: 128.56473 },
+      { id: "93", name: "북춘천", lat: 37.94738, lng: 127.75443 },
+    ]);
+  });
+  it("finds station fields by their published names when unique headers are reordered", () => {
+    expect(parseWeatherStations("# LAT STN_KO STN_ID LON\n37.4777 인천 112 126.6249")).toEqual([
+      { id: "112", name: "인천", lat: 37.4777, lng: 126.6249 },
+    ]);
+  });
+  it.each([
+    "# STN_ID LON LAT STN_KO\n112 126.6249 37.4777",
+    "# STN_ID LON LAT STN_KO\n112 not-a-number 37.4777 인천",
+    "# STN_ID LON LAT STN_KO\n112 126.6249 Infinity 인천",
+    "# STN_ID LON LAT STN_KO\n112 126.6249 0 인천",
+    "# STN_ID LON LAT STN_KO\nnot-an-id 126.6249 37.4777 인천",
+  ])("rejects incomplete or invalid station identity/coordinates: %s", (text) => {
+    expect(parseWeatherStations(text)).toEqual([]);
+  });
+  it("uses live station metadata rather than the fallback when the actual SFC response succeeds", async () => {
+    const fetch = vi.fn(async (url: URL) => new Response(url.pathname.endsWith("stn_inf.php") ? publishedStations : daily));
+    vi.stubGlobal("fetch", fetch);
+    const result = await getWeather(query);
+    expect(result.configured).toBe(true);
+    expect(result.items[0].station).toEqual({ id: "93", name: "북춘천", lat: 37.94738, lng: 127.75443 });
+    expect(result.source).toContain("기상청 API허브");
+    expect(result.source).not.toContain("공개 관측지점 이력");
+    expect(result.notice).not.toContain("관측소 정보 API 대신");
+    expect(fetch.mock.calls.filter(([url]) => url.pathname.endsWith("stn_inf.php"))).toHaveLength(1);
+  });
   it("reads the actual two-line daily header without confusing values and observation times", () => {
     const parsed = parseWeatherDays(publishedDaily);
     expect(parsed.size).toBe(2);

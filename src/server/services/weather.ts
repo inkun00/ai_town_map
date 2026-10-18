@@ -154,12 +154,29 @@ function weatherTable(text: string): { header: string[] | null; numericRows: num
 export function parseWeatherTable(text: string): Record<string, string>[] { return weatherTable(text).records; }
 
 export function parseWeatherStations(text: string): WeatherStation[] {
-  return parseWeatherTable(text).flatMap((row) => {
-    const id = row.STN_ID ?? row.STN;
-    const lat = Number(row.LAT), lng = Number(row.LON);
-    if (!/^\d{1,4}$/.test(id ?? "") || !Number.isFinite(lat) || !Number.isFinite(lng) || lat < 32 || lat > 40 || lng < 123 || lng > 133 || !row.STN_KO) return [];
-    return [{ id, name: row.STN_KO, lat, lng }];
-  });
+  let columns: { id: number; lat: number; lng: number; name: number } | null = null;
+  const stations: WeatherStation[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("#")) {
+      const fields = line.replace(/^#+\s*/, "").split(/\s+/);
+      if (fields.includes("LON") && fields.includes("LAT") && fields.includes("STN_KO")) {
+        // SFC prints STN twice: the first is the station ID, the second its office ID.
+        const id = fields.includes("STN_ID") ? fields.indexOf("STN_ID") : fields.indexOf("STN");
+        columns = id < 0 ? null : { id, lat: fields.indexOf("LAT"), lng: fields.indexOf("LON"), name: fields.indexOf("STN_KO") };
+      }
+      continue;
+    }
+    if (!columns) continue;
+    // The trailing LAW_ADDR contains spaces, so whole-row token counts are not fixed.
+    const fields = line.split(/\s+/);
+    const id = fields[columns.id], name = fields[columns.name];
+    const lat = Number(fields[columns.lat]), lng = Number(fields[columns.lng]);
+    if (!/^\d{1,4}$/.test(id ?? "") || !Number.isFinite(lat) || !Number.isFinite(lng) || lat < 32 || lat > 40 || lng < 123 || lng > 133 || !name) continue;
+    stations.push({ id, name, lat, lng });
+  }
+  return stations;
 }
 
 /** Public KMA station history keeps observation queries usable during metadata API outages. */
