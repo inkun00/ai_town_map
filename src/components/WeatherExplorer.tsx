@@ -24,6 +24,7 @@ const chartKeys:ChartKey[]=[...Object.keys(weatherMetrics) as WeatherMetric[],..
 const chartColors=["#156f94","#4054b2","#bc4550","#04766a","#8848a5","#8c581e","#526c20","#aa4d87","#ad6000","#956300","#546276","#1266ab","#6553a0"];
 function countKey(key:ChartKey):CountKind|null{return key.startsWith("count:")?key.slice(6) as CountKind:null;}
 function chartMetadata(key:ChartKey){const kind=countKey(key);return kind?{label:countLabels[kind],unit:"일"}:weatherMetrics[key as WeatherMetric];}
+function defaultChartKind(key:ChartKey):ChartKind{return countKey(key)?"bar":weatherMetrics[key as WeatherMetric].chart;}
 function bucketValue(bucket:WeatherBucket,key:ChartKey){const kind=countKey(key);return kind?bucket.weatherCounts[kind]:bucket.values[key as WeatherMetric];}
 function shiftDay(date:string,days:number){const value=new Date(`${date}T00:00:00Z`);value.setUTCDate(value.getUTCDate()+days);return value.toISOString().slice(0,10);}
 function dateLabel(date:string){return date.length>=10?`${Number(date.slice(5,7))}/${Number(date.slice(8,10))}`:date;}
@@ -70,7 +71,8 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
   const [cityId,setCityId]=useState(""),[districtId,setDistrictId]=useState(""),[dongId,setDongId]=useState("");
   const [regionBusy,setRegionBusy]=useState({city:true,district:false,dong:false}),[regionError,setRegionError]=useState(""),[regionAttempt,setRegionAttempt]=useState(0);
   const [period,setPeriod]=useState<WeatherPeriod>("day"),[start,setStart]=useState(()=>shiftDay(today,-6)),[end,setEnd]=useState(today);
-  const [mapMetric,setMapMetric]=useState<ChartKey>("temperature"),[chartKind,setChartKind]=useState<ChartKind>("line");
+  const [mapMetric,setMapMetric]=useState<ChartKey>("temperature");
+  const [chartKinds,setChartKinds]=useState<Record<ChartKey,ChartKind>>(()=>Object.fromEntries(chartKeys.map(key=>[key,defaultChartKind(key)])) as Record<ChartKey,ChartKind>);
   const [chartMetrics,setChartMetrics]=useState<ChartKey[]>(["temperature"]),[queryOpen,setQueryOpen]=useState(true),[chartOpen,setChartOpen]=useState(false),[formError,setFormError]=useState("");
   const [mapMode,setMapMode]=useState<"summary"|"current">("summary");
   const [query,setQuery]=useState<Query|null>(null),[result,setResult]=useState<WeatherResult|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[selectedId,setSelectedId]=useState("");
@@ -106,7 +108,7 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
   const hasCurrent=result?.end===today&&result.items.some(item=>!!item.current);
   const mapPoints=useMemo<MapPoint[]>(()=>result?.items.map(item=>{const value=mapMode==="current"?item.current?.values[metric]??null:kind?countValue(item,kind):item.summary.values[metric];const label=mapMode==="current"?currentLabels[metric]:metadata.label;return {id:item.region.id,title:`${item.region.name} · ${label} ${numberLabel(value,unit)} · ${item.station.name} 관측소${mapMode==="current"&&item.current?` · ${timestampLabel(item.current.observedAt)}`:""}`,label:`${item.region.name} ${numberLabel(value,unit)}`,emoji:kind?countEmoji[kind]:metricEmoji[metric],color:item.region.id===result.region.id?"#176a62":"#277d99",location:{lat:item.region.lat,lng:item.region.lng},description:`${item.region.fullName} · ${item.station.name} 관측소 대표자료`};})??[],[result,metric,kind,metadata.label,mapMode,unit]);
   const focus=useMemo<MapFocus|null>(()=>result?.items.length?{location:{lat:result.region.lat,lng:result.region.lng},locations:result.items.map(item=>({lat:item.region.lat,lng:item.region.lng})),nonce:query?.nonce??0}:selectedRegion?{location:{lat:selectedRegion.lat,lng:selectedRegion.lng},radiusMeters:selectedRegion.level==="city"?30000:selectedRegion.level==="district"?6000:1500,nonce:serial.current}:null,[result,query,selectedRegion]);
-  const chartSeries=useMemo<WeatherChartSeries[]>(()=>chartMetrics.map(key=>({id:key,...chartMetadata(key),color:chartColors[chartKeys.indexOf(key)],data:selected?.series.map(bucket=>({label:dateLabel(bucket.date),value:bucketValue(bucket,key)}))??[]})),[selected,chartMetrics]);
+  const chartSeries=useMemo<WeatherChartSeries[]>(()=>chartMetrics.map(key=>({id:key,...chartMetadata(key),kind:chartKinds[key],color:chartColors[chartKeys.indexOf(key)],data:selected?.series.map(bucket=>({label:dateLabel(bucket.date),value:bucketValue(bucket,key)}))??[]})),[selected,chartMetrics,chartKinds]);
   function submit(event:FormEvent){
     event.preventDefault();if(!selectedRegion)return;
     if(!validWeatherDate(start)||!validWeatherDate(end)||start>end||start<"1904-01-01"){setFormError("시작일과 마지막 날을 다시 확인해 주세요. 1904년 이후 날짜를 선택할 수 있어요.");return;}
@@ -165,9 +167,8 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
     {chartOpen&&selected&&result&&<WeatherDialog label="날씨 그래프" onClose={()=>setChartOpen(false)} wide>
       <label className="weather-chart-region" htmlFor={`${id}-result`}>그래프로 볼 지역<select id={`${id}-result`} value={selected.region.id} onChange={event=>setSelectedId(event.target.value)}>{result.items.map(item=><option key={item.region.id} value={item.region.id}>{item.region.name}{item.region.id===result.region.id?" 전체":""}</option>)}</select></label>
       <p className="weather-chart-period">기간 통계 · {result.start} ~ {result.end}</p>
-      <details className="weather-chart-options"><summary>항목 선택 <span>{chartMetrics.length}개</span></summary><fieldset className="weather-chart-metrics"><legend>그래프 항목</legend><div>{chartKeys.map(key=>{const metadata=chartMetadata(key);const checked=chartMetrics.includes(key);return <label key={key} style={{borderColor:checked?chartColors[chartKeys.indexOf(key)]:undefined}}><input type="checkbox" checked={checked} disabled={checked&&chartMetrics.length===1} onChange={()=>toggleChartMetric(key)}/><span>{metadata.label} ({metadata.unit})</span></label>;})}</div></fieldset></details>
-      <div className="weather-chart-picker" role="group" aria-label="그래프 종류"><button type="button" aria-pressed={chartKind==="bar"} onClick={()=>setChartKind("bar")}>막대</button><button type="button" aria-pressed={chartKind==="line"} onClick={()=>setChartKind("line")}>꺾은선</button></div>
-      <WeatherMultiChart series={chartSeries} kind={chartKind}/>
+      <details className="weather-chart-options"><summary>항목 선택 <span>{chartMetrics.length}개</span></summary><fieldset className="weather-chart-metrics"><legend>그래프 항목</legend><div>{chartKeys.map(key=>{const metadata=chartMetadata(key);const checked=chartMetrics.includes(key);return <div className="weather-chart-metric" key={key} style={{borderColor:checked?chartColors[chartKeys.indexOf(key)]:undefined}}><label className="weather-chart-metric__toggle"><input type="checkbox" checked={checked} disabled={checked&&chartMetrics.length===1} onChange={()=>toggleChartMetric(key)}/><span>{metadata.label} ({metadata.unit})</span></label><label className="weather-chart-metric__kind" hidden={!checked}><span className="sr-only">{metadata.label} 그래프 종류</span><select aria-label={`${metadata.label} 그래프 종류`} disabled={!checked} value={chartKinds[key]} onChange={event=>setChartKinds(current=>({...current,[key]:event.target.value as ChartKind}))}><option value="bar">막대</option><option value="line">꺾은선</option></select></label></div>;})}</div></fieldset></details>
+      <WeatherMultiChart series={chartSeries}/>
       <WeatherDataTable buckets={selected.series} metrics={chartMetrics}/>
     </WeatherDialog>}
   </section>;

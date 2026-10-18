@@ -95,7 +95,7 @@ describe("weather explorer map and dialogs",()=>{
     expect(container.querySelector(".weather-chart")).toBeNull();
   });
   it("keeps the desktop graph outside the app frame and updates it while using the map",async()=>{
-    const media={matches:true,media:"(min-width: 1024px) and (pointer: fine)",onchange:null,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn(),dispatchEvent:vi.fn()};
+    const media={matches:true,media:"(any-hover: hover) and (any-pointer: fine)",onchange:null,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn(),dispatchEvent:vi.fn()};
     vi.stubGlobal("matchMedia",vi.fn(()=>media));
     vi.stubGlobal("innerWidth",1440);vi.stubGlobal("innerHeight",900);
     container.className="app-frame";container.style.width="460px";
@@ -161,8 +161,56 @@ describe("weather explorer map and dialogs",()=>{
     const table=modal.querySelector("table")!;
     expect(table.querySelector("thead")?.textContent).toContain("평균 기온");expect(table.querySelector("thead")?.textContent).toContain("강수량");
     expect(table.textContent).toContain("15℃");expect(table.textContent).toContain("4.6mm");
-    await click("막대",modal);expect(modal.querySelectorAll("svg rect").length).toBeGreaterThan(0);
-    await click("꺾은선",modal);expect(modal.querySelectorAll("svg circle")).toHaveLength(4);
+    await change("평균 기온 그래프 종류","bar");expect(modal.querySelectorAll("svg rect")).toHaveLength(4);
+    await change("평균 기온 그래프 종류","line");await change("강수량 그래프 종류","line");expect(modal.querySelectorAll("svg circle")).toHaveLength(4);
+  });
+  it("defaults each selected metric to its own chart type and changes only the chosen series",async()=>{
+    await load();await click("그래프");const modal=dialog("날씨 그래프")!;
+    expect(select("평균 기온 그래프 종류",modal).value).toBe("line");
+    expect(select("강수량 그래프 종류",modal).value).toBe("bar");
+    expect(select("강수량 그래프 종류",modal).disabled).toBe(true);
+    expect(select("맑은 날 그래프 종류",modal).value).toBe("bar");
+    await check("강수량 (mm)");
+    expect(select("강수량 그래프 종류",modal).disabled).toBe(false);
+    const series=(label:string)=>modal.querySelector<SVGGElement>(`.weather-multi-chart__series[aria-label="${label}"]`)!;
+    expect(modal.querySelectorAll("svg")).toHaveLength(1);
+    expect(modal.querySelector("svg > title")?.textContent).toContain("혼합 그래프");
+    expect(series("평균 기온").querySelectorAll("circle")).toHaveLength(2);
+    expect(series("평균 기온").querySelector("rect")).toBeNull();
+    expect(series("강수량").querySelectorAll("rect")).toHaveLength(2);
+    expect(series("강수량").querySelector("circle")).toBeNull();
+    const legend=modal.querySelector('[aria-label="그래프 항목과 단위"]')!;
+    expect(legend.textContent).toContain("평균 기온 (℃) · 꺾은선");
+    expect(legend.textContent).toContain("강수량 (mm) · 막대");
+    const rainValues=[...series("강수량").querySelectorAll("rect")].map(bar=>bar.getAttribute("aria-label"));
+    await change("평균 기온 그래프 종류","bar");
+    expect(series("평균 기온").querySelectorAll("rect")).toHaveLength(2);
+    expect(series("평균 기온").querySelector("circle")).toBeNull();
+    expect([...series("강수량").querySelectorAll("rect")].map(bar=>bar.getAttribute("aria-label"))).toEqual(rainValues);
+    expect(series("강수량").querySelector("circle")).toBeNull();
+    expect(select("강수량 그래프 종류",modal).value).toBe("bar");
+    expect(legend.textContent).toContain("평균 기온 (℃) · 막대");
+    expect(legend.textContent).toContain("강수량 (mm) · 막대");
+  });
+  it("retains a metric's graph type when deselected, moved to another region, and reopened",async()=>{
+    await load();await click("그래프");await check("강수량 (mm)");
+    await change("강수량 그래프 종류","line");
+    await toggle("강수량 (mm)");
+    expect(select("강수량 그래프 종류").disabled).toBe(true);
+    expect(select("강수량 그래프 종류").value).toBe("line");
+    await check("강수량 (mm)");
+    expect(select("강수량 그래프 종류").disabled).toBe(false);
+    expect(select("강수량 그래프 종류").value).toBe("line");
+    await change("그래프로 볼 지역",district.id);
+    expect(select("강수량 그래프 종류").value).toBe("line");
+    await click("그래프 닫기");await click("그래프");
+    const modal=dialog("날씨 그래프")!;
+    expect(select("그래프로 볼 지역",modal).value).toBe(district.id);
+    expect(select("강수량 그래프 종류",modal).value).toBe("line");
+    expect(labelled<HTMLInputElement>("input","강수량 (mm)",modal).checked).toBe(true);
+    expect(modal.querySelector('.weather-multi-chart__series[aria-label="강수량"] circle')).not.toBeNull();
+    expect(modal.querySelector('.weather-multi-chart__series[aria-label="강수량"] rect')).toBeNull();
+    expect(weatherReads()).toHaveLength(1);
   });
   it("keeps the displayed result while query edits are unsubmitted",async()=>{
     await load();const before=mapProbe.points.map(point=>({...point}));await click("지역·기간");await change("시·군·구",district.id);await click("주별");

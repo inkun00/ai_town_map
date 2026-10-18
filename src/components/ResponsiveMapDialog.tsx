@@ -15,11 +15,11 @@ export type ResponsiveMapDialogProps={
   closeLabel?:string;
 };
 
-const desktopQuery="(min-width:900px) and (pointer:fine)";
+const desktopQuery="(any-hover:hover) and (any-pointer:fine)";
 const inset=8;
 let frontLayer=1200;
 
-/** Desktop windows share the map's page; touch screens retain a native modal. */
+/** Mouse-capable windows share the map's page at any width; touch-only screens retain a native modal. */
 export function ResponsiveMapDialog({label,onClose,children,className="",headerClassName="",bodyClassName="",closeLabel=`${label} 닫기`}:ResponsiveMapDialogProps){
   const [desktop,setDesktop]=useState<boolean|null>(null),[position,setPosition]=useState<Position|null>(null),[dragging,setDragging]=useState(false),[layer,setLayer]=useState(1200);
   const dialogRef=useRef<HTMLDialogElement>(null),dragRef=useRef<Drag|null>(null),positionRef=useRef<Position|null>(null);

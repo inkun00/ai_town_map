@@ -5,7 +5,7 @@ import {afterEach,beforeEach,describe,expect,it,vi} from "vitest";
 import {ResponsiveMapDialog} from "../src/components/ResponsiveMapDialog";
 
 let container:HTMLDivElement,root:Root,opener:HTMLButtonElement,mapControl:HTMLButtonElement;
-let desktop=true,width=1200,height=800,dialogWidth=400,dialogHeight=300;
+let desktop=true,width=1200,height=800,dialogWidth=400,dialogHeight=300,requestedMediaQuery="";
 let media:MediaQueryList,mediaListeners:Set<(event:MediaQueryListEvent)=>void>,resizeCallbacks:Set<ResizeObserverCallback>;
 let show:ReturnType<typeof vi.spyOn>,showModal:ReturnType<typeof vi.spyOn>,close:ReturnType<typeof vi.spyOn>;
 const onClose=vi.fn();
@@ -19,11 +19,11 @@ async function key(target:HTMLElement,key:string,shiftKey=false){await act(async
 async function setMode(value:boolean){desktop=value;await act(async()=>mediaListeners.forEach(listener=>listener({matches:value} as MediaQueryListEvent)));}
 
 beforeEach(()=>{
-  desktop=true;width=1200;height=800;dialogWidth=400;dialogHeight=300;mediaListeners=new Set();resizeCallbacks=new Set();onClose.mockReset();
+  desktop=true;width=1200;height=800;dialogWidth=400;dialogHeight=300;requestedMediaQuery="";mediaListeners=new Set();resizeCallbacks=new Set();onClose.mockReset();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);
   vi.spyOn(window,"innerWidth","get").mockImplementation(()=>width);vi.spyOn(window,"innerHeight","get").mockImplementation(()=>height);
-  media={get matches(){return desktop;},media:"(min-width:900px) and (pointer:fine)",addEventListener:(_type:string,listener:(event:MediaQueryListEvent)=>void)=>mediaListeners.add(listener),removeEventListener:(_type:string,listener:(event:MediaQueryListEvent)=>void)=>mediaListeners.delete(listener)} as unknown as MediaQueryList;
-  vi.stubGlobal("matchMedia",vi.fn(()=>media));
+  media={get matches(){const minWidth=/min-width\s*:\s*(\d+)px/.exec(requestedMediaQuery);return desktop&&(!minWidth||width>=Number(minWidth[1]));},get media(){return requestedMediaQuery;},addEventListener:(_type:string,listener:(event:MediaQueryListEvent)=>void)=>mediaListeners.add(listener),removeEventListener:(_type:string,listener:(event:MediaQueryListEvent)=>void)=>mediaListeners.delete(listener)} as unknown as MediaQueryList;
+  vi.stubGlobal("matchMedia",vi.fn((query:string)=>{requestedMediaQuery=query;return media;}));
   vi.stubGlobal("ResizeObserver",class {callback:ResizeObserverCallback;constructor(callback:ResizeObserverCallback){this.callback=callback;}observe(){resizeCallbacks.add(this.callback);}disconnect(){resizeCallbacks.delete(this.callback);}unobserve(){}});
   vi.spyOn(HTMLDialogElement.prototype,"getBoundingClientRect").mockImplementation(function(this:HTMLDialogElement){return rect(parseFloat(this.style.left)||0,parseFloat(this.style.top)||0,Math.min(dialogWidth,width-16),Math.min(dialogHeight,height-16));});
   const open=function(this:HTMLDialogElement){this.open=true;this.querySelector<HTMLElement>('[tabindex="0"],button,input')?.focus();};
@@ -38,6 +38,18 @@ describe("responsive map windows",()=>{
     await render();expect(popup().parentElement).toBe(document.body);expect(container.contains(popup())).toBe(false);expect(show).toHaveBeenCalledOnce();expect(showModal).not.toHaveBeenCalled();expect(popup().getAttribute("aria-modal")).not.toBe("true");expect(position()).toEqual({left:400,top:250});
     const useMap=vi.fn();mapControl.addEventListener("click",useMap);mapControl.focus();mapControl.click();expect(useMap).toHaveBeenCalledOnce();expect(popup().open).toBe(true);
     await act(async()=>root.render(null));expect(document.activeElement).toBe(mapControl);
+  });
+  it.each([634,800])("keeps a %ipx mouse-capable browser draggable and clamps to the browser rather than the map",async(browserWidth)=>{
+    width=browserWidth;height=700;await render();
+    expect(requestedMediaQuery).toBe("(any-hover:hover) and (any-pointer:fine)");expect(requestedMediaQuery).not.toMatch(/(?:min|max)-width/);
+    expect(show).toHaveBeenCalledOnce();expect(showModal).not.toHaveBeenCalled();expect(popup().dataset.desktop).toBe("true");expect(header().textContent).toContain("끌어서 이동");expect(popup().parentElement).toBe(document.body);
+    const origin=position();await pointer(header(),"pointerdown",origin.left+20,origin.top+20);await pointer(header(),"pointermove",2000,2000);await pointer(header(),"pointerup",2000,2000);
+    expect(position()).toEqual({left:browserWidth-dialogWidth-8,top:392});
+    width=500;height=500;await act(async()=>window.dispatchEvent(new Event("resize")));expect(position()).toEqual({left:92,top:192});expect(popup().dataset.desktop).toBe("true");expect(showModal).not.toHaveBeenCalled();
+  });
+  it.each([390,1200])("keeps a %ipx coarse-only touch device modal",async(browserWidth)=>{
+    desktop=false;width=browserWidth;await render();expect(requestedMediaQuery).toContain("any-pointer:fine");expect(showModal).toHaveBeenCalledOnce();expect(show).not.toHaveBeenCalled();expect(popup().dataset.desktop).toBe("false");expect(header().textContent).not.toContain("끌어서 이동");
+    await pointer(header(),"pointerdown",100,100);await pointer(header(),"pointermove",300,300);expect(popup().style.left).toBe("");
   });
   it("keeps touch screens modal, closes on native cancel once, and supports browsers without matchMedia",async()=>{
     vi.stubGlobal("matchMedia",undefined);await render();expect(showModal).toHaveBeenCalledOnce();expect(show).not.toHaveBeenCalled();expect(header().hasAttribute("tabindex")).toBe(false);expect(popup().querySelector('[aria-label="창 위치 초기화"]')).toBeNull();

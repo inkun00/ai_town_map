@@ -14,3 +14,4 @@
 .responsive-map-dialog__move-hint>span{font-size:1rem;vertical-align:middle}
 .responsive-map-dialog__actions button{cursor:pointer;flex:none}
 .responsive-map-dialog--mobile{position:fixed}
+@media (max-width:600px){.responsive-map-dialog--desktop .responsive-map-dialog__header{gap:8px;padding:8px 10px}.responsive-map-dialog--desktop .responsive-map-dialog__title{gap:2px 8px}.responsive-map-dialog--desktop .responsive-map-dialog__actions{gap:6px}}
