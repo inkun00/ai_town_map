@@ -1,0 +1,24 @@
+.adventure-theme--heritage { --theme-surface: #f2e5d1; }
+.adventure-theme--weather_data { --theme-surface: #dceef4; }
+.theme-pill--heritage { background: #f8edda; color: #785125; }
+.theme-pill--weather_data { background: #e1f1f7; color: #205d78; }
+.weather-workspace-tabs { display: flex; flex: none; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #fff9e5; }
+.weather-workspace-tabs button { flex: 1; min-height: 44px; padding: 8px; border: 1px solid #8faca6; border-radius: 12px; background: #fffdf4; color: #294552; font-weight: 800; }
+.weather-workspace-tabs button[aria-pressed="true"] { background: #285f60; color: #fff; border-color: #285f60; }
+.weather-workspace-tabs button:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+.map-point-value { min-height: 44px; padding: 5px 9px; border: 1.5px solid #347a86; border-radius: 10px; background: #fffdf4f5; color: #204951; font: inherit; font-size: 12px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 5px #1d514c30; }
+.map-point-value[aria-pressed="true"] { border-color: #184943; background: #ffdf7d; color: #193d38; }
+.map-point-value:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+.kakao-place-results { position: absolute; left: 9px; right: 9px; top: 62px; z-index: 4; overflow: hidden; border: 1px solid #a9bdb3; border-radius: 14px; background: #fffdf5; box-shadow: 0 5px 18px #153b2530; color: #253d4c; }
+.kakao-place-results__header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #dbe4d9; font-size: 13px; }
+.kakao-place-results__header button { min-height: 44px; min-width: 44px; border: 0; border-radius: 10px; background: #edf2e5; color: #253d4c; font-size: 20px; }
+.kakao-place-results__list { max-height: min(38dvh, 310px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin: 0; padding: 0; list-style: none; }
+.kakao-place-result { width: 100%; display: grid; gap: 4px; padding: 12px; min-height: 60px; border: 0; border-bottom: 1px solid #e0e7dd; background: transparent; text-align: left; color: #253d4c; }
+.kakao-place-result strong { font-size: 14px; }
+.kakao-place-result small { font-size: 12px; line-height: 1.5; color: #526b70; }
+.kakao-place-result>span { justify-self: start; font-size: 11px; font-weight: 800; color: #176a62; }
+.kakao-place-result:hover { background: #eef4e3; }
+.kakao-place-result:focus-visible { outline: 3px solid #267253; outline-offset: -3px; }
+.kakao-place-results__pages { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; font-size: 12px; }
+.kakao-place-results__pages button { min-height: 44px; padding: 8px 14px; border: 1px solid #b6c8ba; border-radius: 9px; background: #eef4e3; color: #253d4c; }
+.kakao-place-results__pages button:disabled { opacity: .45; }

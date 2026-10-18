@@ -4076,6 +4076,1516 @@
       ]
     },
     {
+      "version": 1,
+      "key": "heritage",
+      "label": "문화유산",
+      "features": {
+        "ratingEnabled": false,
+        "ideasEnabled": true,
+        "proposalsEnabled": true,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "category"
+      },
+      "rating": null,
+      "categories": [
+        {
+          "key": "palaces",
+          "label": "궁궐·성곽",
+          "color": "#B45309",
+          "defaultEmojiKey": "palaces-1",
+          "emojiOptions": [
+            {
+              "key": "palaces-1",
+              "glyph": "🏯",
+              "label": "궁궐·궁터"
+            },
+            {
+              "key": "palaces-2",
+              "glyph": "🏰",
+              "label": "성곽·성터"
+            },
+            {
+              "key": "palaces-3",
+              "glyph": "⛩️",
+              "label": "옛 대문·홍살문"
+            },
+            {
+              "key": "palaces-4",
+              "glyph": "🚪",
+              "label": "성문·누문"
+            },
+            {
+              "key": "palaces-5",
+              "glyph": "🧱",
+              "label": "성벽·담장"
+            },
+            {
+              "key": "palaces-6",
+              "glyph": "🛖",
+              "label": "옛 건축 터"
+            },
+            {
+              "key": "palaces-7",
+              "glyph": "🏛️",
+              "label": "관아·객사"
+            },
+            {
+              "key": "palaces-8",
+              "glyph": "🏘️",
+              "label": "한옥 건물"
+            },
+            {
+              "key": "palaces-9",
+              "glyph": "🌉",
+              "label": "옛 다리"
+            },
+            {
+              "key": "palaces-10",
+              "glyph": "🗼",
+              "label": "봉수대·망루"
+            },
+            {
+              "key": "palaces-11",
+              "glyph": "🏔️",
+              "label": "산성"
+            },
+            {
+              "key": "palaces-12",
+              "glyph": "🌊",
+              "label": "수군 유적"
+            },
+            {
+              "key": "palaces-13",
+              "glyph": "⚔️",
+              "label": "전투 유적"
+            },
+            {
+              "key": "palaces-14",
+              "glyph": "🛡️",
+              "label": "방어 시설"
+            },
+            {
+              "key": "palaces-15",
+              "glyph": "👑",
+              "label": "왕실 유산"
+            },
+            {
+              "key": "palaces-16",
+              "glyph": "🪦",
+              "label": "왕릉·능묘"
+            },
+            {
+              "key": "palaces-17",
+              "glyph": "📜",
+              "label": "궁궐 기록"
+            },
+            {
+              "key": "palaces-18",
+              "glyph": "🗺️",
+              "label": "성곽 길"
+            }
+          ]
+        },
+        {
+          "key": "sacred",
+          "label": "사찰·신앙",
+          "color": "#7C3AED",
+          "defaultEmojiKey": "sacred-1",
+          "emojiOptions": [
+            {
+              "key": "sacred-1",
+              "glyph": "🛕",
+              "label": "사찰·절터"
+            },
+            {
+              "key": "sacred-2",
+              "glyph": "🪷",
+              "label": "불교 유산"
+            },
+            {
+              "key": "sacred-3",
+              "glyph": "🗿",
+              "label": "불상·석불"
+            },
+            {
+              "key": "sacred-4",
+              "glyph": "🔔",
+              "label": "범종·종각"
+            },
+            {
+              "key": "sacred-5",
+              "glyph": "🕯️",
+              "label": "신앙 의례"
+            },
+            {
+              "key": "sacred-6",
+              "glyph": "🧘",
+              "label": "수행 문화"
+            },
+            {
+              "key": "sacred-7",
+              "glyph": "🏮",
+              "label": "연등 문화"
+            },
+            {
+              "key": "sacred-8",
+              "glyph": "🙏",
+              "label": "민간 신앙"
+            },
+            {
+              "key": "sacred-9",
+              "glyph": "⛩️",
+              "label": "사당·서원"
+            },
+            {
+              "key": "sacred-10",
+              "glyph": "📿",
+              "label": "신앙 유물"
+            },
+            {
+              "key": "sacred-11",
+              "glyph": "⛪",
+              "label": "오래된 교회"
+            },
+            {
+              "key": "sacred-12",
+              "glyph": "🕌",
+              "label": "다양한 종교 유산"
+            },
+            {
+              "key": "sacred-13",
+              "glyph": "🪨",
+              "label": "석탑·부도"
+            },
+            {
+              "key": "sacred-14",
+              "glyph": "🌳",
+              "label": "당산나무"
+            },
+            {
+              "key": "sacred-15",
+              "glyph": "🏞️",
+              "label": "기도·제례 장소"
+            },
+            {
+              "key": "sacred-16",
+              "glyph": "🎎",
+              "label": "마을 제당"
+            },
+            {
+              "key": "sacred-17",
+              "glyph": "📖",
+              "label": "경전·의식서"
+            },
+            {
+              "key": "sacred-18",
+              "glyph": "🎨",
+              "label": "종교 벽화"
+            }
+          ]
+        },
+        {
+          "key": "archaeology",
+          "label": "고고·유적",
+          "color": "#92400E",
+          "defaultEmojiKey": "archaeology-1",
+          "emojiOptions": [
+            {
+              "key": "archaeology-1",
+              "glyph": "🪨",
+              "label": "고인돌·선돌"
+            },
+            {
+              "key": "archaeology-2",
+              "glyph": "⛰️",
+              "label": "옛사람의 생활 터"
+            },
+            {
+              "key": "archaeology-3",
+              "glyph": "🪦",
+              "label": "고분·무덤"
+            },
+            {
+              "key": "archaeology-4",
+              "glyph": "🏺",
+              "label": "토기·가마터"
+            },
+            {
+              "key": "archaeology-5",
+              "glyph": "🛖",
+              "label": "집터"
+            },
+            {
+              "key": "archaeology-6",
+              "glyph": "🔥",
+              "label": "화덕·불 땐 자리"
+            },
+            {
+              "key": "archaeology-7",
+              "glyph": "⛏️",
+              "label": "발굴 유적"
+            },
+            {
+              "key": "archaeology-8",
+              "glyph": "🪓",
+              "label": "석기·도구"
+            },
+            {
+              "key": "archaeology-9",
+              "glyph": "🗿",
+              "label": "바위그림·암각화"
+            },
+            {
+              "key": "archaeology-10",
+              "glyph": "🧱",
+              "label": "옛 건물 터"
+            },
+            {
+              "key": "archaeology-11",
+              "glyph": "🕳️",
+              "label": "동굴 유적"
+            },
+            {
+              "key": "archaeology-12",
+              "glyph": "🌾",
+              "label": "농경 유적"
+            },
+            {
+              "key": "archaeology-13",
+              "glyph": "🐚",
+              "label": "조개무지"
+            },
+            {
+              "key": "archaeology-14",
+              "glyph": "⚱️",
+              "label": "옛 매장 문화"
+            },
+            {
+              "key": "archaeology-15",
+              "glyph": "💧",
+              "label": "우물·수로"
+            },
+            {
+              "key": "archaeology-16",
+              "glyph": "🚩",
+              "label": "유적 안내 지점"
+            },
+            {
+              "key": "archaeology-17",
+              "glyph": "📍",
+              "label": "유적 위치 표식"
+            },
+            {
+              "key": "archaeology-18",
+              "glyph": "🔍",
+              "label": "더 조사할 유적"
+            }
+          ]
+        },
+        {
+          "key": "modern",
+          "label": "근현대 건축·산업",
+          "color": "#0369A1",
+          "defaultEmojiKey": "modern-1",
+          "emojiOptions": [
+            {
+              "key": "modern-1",
+              "glyph": "🏫",
+              "label": "옛 학교"
+            },
+            {
+              "key": "modern-2",
+              "glyph": "🏥",
+              "label": "옛 병원"
+            },
+            {
+              "key": "modern-3",
+              "glyph": "🏢",
+              "label": "근현대 공공건축"
+            },
+            {
+              "key": "modern-4",
+              "glyph": "🏭",
+              "label": "공장·산업 유산"
+            },
+            {
+              "key": "modern-5",
+              "glyph": "🚉",
+              "label": "옛 기차역"
+            },
+            {
+              "key": "modern-6",
+              "glyph": "🛤️",
+              "label": "옛 철길"
+            },
+            {
+              "key": "modern-7",
+              "glyph": "⚓",
+              "label": "항만·부두 유산"
+            },
+            {
+              "key": "modern-8",
+              "glyph": "🚢",
+              "label": "선박·해운 유산"
+            },
+            {
+              "key": "modern-9",
+              "glyph": "💡",
+              "label": "옛 발전·전기 시설"
+            },
+            {
+              "key": "modern-10",
+              "glyph": "⛏️",
+              "label": "광산 유산"
+            },
+            {
+              "key": "modern-11",
+              "glyph": "📮",
+              "label": "옛 우체국"
+            },
+            {
+              "key": "modern-12",
+              "glyph": "🏦",
+              "label": "옛 은행"
+            },
+            {
+              "key": "modern-13",
+              "glyph": "🎭",
+              "label": "옛 극장"
+            },
+            {
+              "key": "modern-14",
+              "glyph": "🏠",
+              "label": "근현대 주택"
+            },
+            {
+              "key": "modern-15",
+              "glyph": "🌉",
+              "label": "근현대 다리"
+            },
+            {
+              "key": "modern-16",
+              "glyph": "🗼",
+              "label": "등대·탑"
+            },
+            {
+              "key": "modern-17",
+              "glyph": "📻",
+              "label": "방송·통신 유산"
+            },
+            {
+              "key": "modern-18",
+              "glyph": "🛠️",
+              "label": "기계·기술 유산"
+            }
+          ]
+        },
+        {
+          "key": "artifacts",
+          "label": "유물·기록·박물관",
+          "color": "#BE123C",
+          "defaultEmojiKey": "artifacts-1",
+          "emojiOptions": [
+            {
+              "key": "artifacts-1",
+              "glyph": "🏺",
+              "label": "도자기·토기"
+            },
+            {
+              "key": "artifacts-2",
+              "glyph": "⚱️",
+              "label": "금속 공예"
+            },
+            {
+              "key": "artifacts-3",
+              "glyph": "🖼️",
+              "label": "그림·서화"
+            },
+            {
+              "key": "artifacts-4",
+              "glyph": "📜",
+              "label": "옛 문서"
+            },
+            {
+              "key": "artifacts-5",
+              "glyph": "📚",
+              "label": "고서·책판"
+            },
+            {
+              "key": "artifacts-6",
+              "glyph": "🪙",
+              "label": "옛 화폐"
+            },
+            {
+              "key": "artifacts-7",
+              "glyph": "👘",
+              "label": "옛 의복"
+            },
+            {
+              "key": "artifacts-8",
+              "glyph": "👑",
+              "label": "장신구·관"
+            },
+            {
+              "key": "artifacts-9",
+              "glyph": "⚔️",
+              "label": "무기·군사 유물"
+            },
+            {
+              "key": "artifacts-10",
+              "glyph": "🎻",
+              "label": "옛 악기"
+            },
+            {
+              "key": "artifacts-11",
+              "glyph": "🪑",
+              "label": "옛 가구"
+            },
+            {
+              "key": "artifacts-12",
+              "glyph": "🧺",
+              "label": "생활 도구"
+            },
+            {
+              "key": "artifacts-13",
+              "glyph": "📷",
+              "label": "옛 사진"
+            },
+            {
+              "key": "artifacts-14",
+              "glyph": "🗺️",
+              "label": "옛 지도"
+            },
+            {
+              "key": "artifacts-15",
+              "glyph": "🏛️",
+              "label": "역사 박물관"
+            },
+            {
+              "key": "artifacts-16",
+              "glyph": "🗃️",
+              "label": "기록관·자료관"
+            },
+            {
+              "key": "artifacts-17",
+              "glyph": "🧵",
+              "label": "직물·바느질 유물"
+            },
+            {
+              "key": "artifacts-18",
+              "glyph": "✒️",
+              "label": "서예·인쇄 유산"
+            }
+          ]
+        },
+        {
+          "key": "intangible",
+          "label": "무형유산·전통기술",
+          "color": "#9D174D",
+          "defaultEmojiKey": "intangible-1",
+          "emojiOptions": [
+            {
+              "key": "intangible-1",
+              "glyph": "🎭",
+              "label": "탈춤·가면극"
+            },
+            {
+              "key": "intangible-2",
+              "glyph": "🎶",
+              "label": "민요·소리"
+            },
+            {
+              "key": "intangible-3",
+              "glyph": "🥁",
+              "label": "농악·전통 타악"
+            },
+            {
+              "key": "intangible-4",
+              "glyph": "🎻",
+              "label": "전통 기악"
+            },
+            {
+              "key": "intangible-5",
+              "glyph": "💃",
+              "label": "전통 춤"
+            },
+            {
+              "key": "intangible-6",
+              "glyph": "🎎",
+              "label": "전통 인형극"
+            },
+            {
+              "key": "intangible-7",
+              "glyph": "🪭",
+              "label": "부채·공연 문화"
+            },
+            {
+              "key": "intangible-8",
+              "glyph": "🎨",
+              "label": "전통 회화 기술"
+            },
+            {
+              "key": "intangible-9",
+              "glyph": "🏺",
+              "label": "도자기 만들기"
+            },
+            {
+              "key": "intangible-10",
+              "glyph": "🧵",
+              "label": "길쌈·자수"
+            },
+            {
+              "key": "intangible-11",
+              "glyph": "🪡",
+              "label": "전통 바느질"
+            },
+            {
+              "key": "intangible-12",
+              "glyph": "🪚",
+              "label": "목공·소목"
+            },
+            {
+              "key": "intangible-13",
+              "glyph": "🔨",
+              "label": "금속·대장장이"
+            },
+            {
+              "key": "intangible-14",
+              "glyph": "🧺",
+              "label": "대나무·짚 공예"
+            },
+            {
+              "key": "intangible-15",
+              "glyph": "📃",
+              "label": "한지·종이 공예"
+            },
+            {
+              "key": "intangible-16",
+              "glyph": "🫖",
+              "label": "다례·차 문화"
+            },
+            {
+              "key": "intangible-17",
+              "glyph": "🏹",
+              "label": "전통 무예·활쏘기"
+            },
+            {
+              "key": "intangible-18",
+              "glyph": "🧑‍🎨",
+              "label": "전승자·기술 보유자"
+            }
+          ]
+        },
+        {
+          "key": "living",
+          "label": "생활·마을 문화",
+          "color": "#15803D",
+          "defaultEmojiKey": "living-1",
+          "emojiOptions": [
+            {
+              "key": "living-1",
+              "glyph": "🏘️",
+              "label": "오래된 마을"
+            },
+            {
+              "key": "living-2",
+              "glyph": "🏡",
+              "label": "전통 살림집"
+            },
+            {
+              "key": "living-3",
+              "glyph": "🏪",
+              "label": "오래된 가게"
+            },
+            {
+              "key": "living-4",
+              "glyph": "🛍️",
+              "label": "전통 시장"
+            },
+            {
+              "key": "living-5",
+              "glyph": "🌾",
+              "label": "농사·농촌 문화"
+            },
+            {
+              "key": "living-6",
+              "glyph": "🎣",
+              "label": "어업·어촌 문화"
+            },
+            {
+              "key": "living-7",
+              "glyph": "🧂",
+              "label": "소금·염전 문화"
+            },
+            {
+              "key": "living-8",
+              "glyph": "🍚",
+              "label": "전통 음식"
+            },
+            {
+              "key": "living-9",
+              "glyph": "🥬",
+              "label": "김장 문화"
+            },
+            {
+              "key": "living-10",
+              "glyph": "🍶",
+              "label": "전통 술·발효"
+            },
+            {
+              "key": "living-11",
+              "glyph": "🪁",
+              "label": "전통 놀이"
+            },
+            {
+              "key": "living-12",
+              "glyph": "🎊",
+              "label": "마을 축제"
+            },
+            {
+              "key": "living-13",
+              "glyph": "🌳",
+              "label": "마을 나무·당산"
+            },
+            {
+              "key": "living-14",
+              "glyph": "💧",
+              "label": "마을 우물"
+            },
+            {
+              "key": "living-15",
+              "glyph": "🪨",
+              "label": "돌담·장승"
+            },
+            {
+              "key": "living-16",
+              "glyph": "👣",
+              "label": "옛길·마을길"
+            },
+            {
+              "key": "living-17",
+              "glyph": "🤝",
+              "label": "품앗이·공동체"
+            },
+            {
+              "key": "living-18",
+              "glyph": "🧑‍🍳",
+              "label": "생활문화 전승 장소"
+            }
+          ]
+        },
+        {
+          "key": "stories",
+          "label": "인물·이야기·기념",
+          "color": "#475569",
+          "defaultEmojiKey": "stories-1",
+          "emojiOptions": [
+            {
+              "key": "stories-1",
+              "glyph": "🗣️",
+              "label": "구전 이야기"
+            },
+            {
+              "key": "stories-2",
+              "glyph": "📖",
+              "label": "전설·설화"
+            },
+            {
+              "key": "stories-3",
+              "glyph": "🧓",
+              "label": "마을 어르신의 기억"
+            },
+            {
+              "key": "stories-4",
+              "glyph": "✍️",
+              "label": "지역 작가·문학"
+            },
+            {
+              "key": "stories-5",
+              "glyph": "👤",
+              "label": "역사 인물"
+            },
+            {
+              "key": "stories-6",
+              "glyph": "🏠",
+              "label": "인물 생가·옛집"
+            },
+            {
+              "key": "stories-7",
+              "glyph": "🪦",
+              "label": "인물 묘소"
+            },
+            {
+              "key": "stories-8",
+              "glyph": "🗿",
+              "label": "기념비·동상"
+            },
+            {
+              "key": "stories-9",
+              "glyph": "🕊️",
+              "label": "독립·평화 유산"
+            },
+            {
+              "key": "stories-10",
+              "glyph": "🎗️",
+              "label": "기억·추모 장소"
+            },
+            {
+              "key": "stories-11",
+              "glyph": "📅",
+              "label": "지역의 역사 사건"
+            },
+            {
+              "key": "stories-12",
+              "glyph": "📰",
+              "label": "신문·지역 기록"
+            },
+            {
+              "key": "stories-13",
+              "glyph": "🎤",
+              "label": "인터뷰 장소"
+            },
+            {
+              "key": "stories-14",
+              "glyph": "🧭",
+              "label": "옛 지명·땅이름"
+            },
+            {
+              "key": "stories-15",
+              "glyph": "💬",
+              "label": "방언·지역 말"
+            },
+            {
+              "key": "stories-16",
+              "glyph": "🧑‍🤝‍🧑",
+              "label": "이주·다문화 이야기"
+            },
+            {
+              "key": "stories-17",
+              "glyph": "📸",
+              "label": "옛 모습과 오늘 비교"
+            },
+            {
+              "key": "stories-18",
+              "glyph": "🔎",
+              "label": "출처를 확인할 이야기"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "key": "era",
+          "label": "관련 시대·시기",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 200
+        },
+        {
+          "key": "designation",
+          "label": "지정·등록 정보",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 200
+        },
+        {
+          "key": "heritage_story",
+          "label": "문화유산의 이야기·특징",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 500
+        },
+        {
+          "key": "evidence_source",
+          "label": "확인한 출처·안내 자료",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 500
+        },
+        {
+          "key": "preservation",
+          "label": "보존 상태·지켜야 할 점",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 500
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "key": "weather_data",
+      "label": "기상청 날씨",
+      "features": {
+        "ratingEnabled": false,
+        "ideasEnabled": true,
+        "proposalsEnabled": true,
+        "commentsEnabled": true
+      },
+      "pin": {
+        "mode": "category"
+      },
+      "rating": null,
+      "categories": [
+        {
+          "key": "sky",
+          "label": "하늘·구름",
+          "color": "#0369A1",
+          "defaultEmojiKey": "sky-1",
+          "emojiOptions": [
+            {
+              "key": "sky-1",
+              "glyph": "☀️",
+              "label": "맑은 하늘"
+            },
+            {
+              "key": "sky-2",
+              "glyph": "🌤️",
+              "label": "구름 조금"
+            },
+            {
+              "key": "sky-3",
+              "glyph": "⛅",
+              "label": "구름 많음"
+            },
+            {
+              "key": "sky-4",
+              "glyph": "☁️",
+              "label": "흐림"
+            },
+            {
+              "key": "sky-5",
+              "glyph": "🌥️",
+              "label": "해를 가린 구름"
+            },
+            {
+              "key": "sky-6",
+              "glyph": "🌅",
+              "label": "아침 하늘"
+            },
+            {
+              "key": "sky-7",
+              "glyph": "🌇",
+              "label": "저녁 하늘"
+            },
+            {
+              "key": "sky-8",
+              "glyph": "🌙",
+              "label": "밤하늘"
+            },
+            {
+              "key": "sky-9",
+              "glyph": "🌈",
+              "label": "무지개"
+            },
+            {
+              "key": "sky-10",
+              "glyph": "🌌",
+              "label": "별이 보이는 밤"
+            },
+            {
+              "key": "sky-11",
+              "glyph": "🛰️",
+              "label": "구름 관측 자료"
+            },
+            {
+              "key": "sky-12",
+              "glyph": "📸",
+              "label": "하늘 관찰 사진"
+            },
+            {
+              "key": "sky-13",
+              "glyph": "👀",
+              "label": "구름 관찰 장소"
+            },
+            {
+              "key": "sky-14",
+              "glyph": "🏙️",
+              "label": "도심 하늘"
+            },
+            {
+              "key": "sky-15",
+              "glyph": "🏞️",
+              "label": "공원 하늘"
+            },
+            {
+              "key": "sky-16",
+              "glyph": "🌊",
+              "label": "바닷가 하늘"
+            }
+          ]
+        },
+        {
+          "key": "temperature",
+          "label": "기온·더위·추위",
+          "color": "#C2410C",
+          "defaultEmojiKey": "temperature-1",
+          "emojiOptions": [
+            {
+              "key": "temperature-1",
+              "glyph": "🌡️",
+              "label": "기온 관측"
+            },
+            {
+              "key": "temperature-2",
+              "glyph": "🥵",
+              "label": "더위"
+            },
+            {
+              "key": "temperature-3",
+              "glyph": "🥶",
+              "label": "추위"
+            },
+            {
+              "key": "temperature-4",
+              "glyph": "🔥",
+              "label": "뜨거운 지면"
+            },
+            {
+              "key": "temperature-5",
+              "glyph": "🧊",
+              "label": "차가운 지면"
+            },
+            {
+              "key": "temperature-6",
+              "glyph": "🌞",
+              "label": "한낮의 햇볕"
+            },
+            {
+              "key": "temperature-7",
+              "glyph": "🌳",
+              "label": "나무 그늘"
+            },
+            {
+              "key": "temperature-8",
+              "glyph": "🏖️",
+              "label": "해변의 기온"
+            },
+            {
+              "key": "temperature-9",
+              "glyph": "🏙️",
+              "label": "도심 기온"
+            },
+            {
+              "key": "temperature-10",
+              "glyph": "🏡",
+              "label": "주택가 기온"
+            },
+            {
+              "key": "temperature-11",
+              "glyph": "⛰️",
+              "label": "산의 기온"
+            },
+            {
+              "key": "temperature-12",
+              "glyph": "🌙",
+              "label": "밤 기온"
+            },
+            {
+              "key": "temperature-13",
+              "glyph": "🌅",
+              "label": "아침 기온"
+            },
+            {
+              "key": "temperature-14",
+              "glyph": "🏫",
+              "label": "학교 기온"
+            },
+            {
+              "key": "temperature-15",
+              "glyph": "📈",
+              "label": "기온이 오른 곳"
+            },
+            {
+              "key": "temperature-16",
+              "glyph": "📉",
+              "label": "기온이 내려간 곳"
+            }
+          ]
+        },
+        {
+          "key": "rain",
+          "label": "비·강수·물",
+          "color": "#1D4ED8",
+          "defaultEmojiKey": "rain-1",
+          "emojiOptions": [
+            {
+              "key": "rain-1",
+              "glyph": "🌧️",
+              "label": "비"
+            },
+            {
+              "key": "rain-2",
+              "glyph": "☔",
+              "label": "우산이 필요한 비"
+            },
+            {
+              "key": "rain-3",
+              "glyph": "💧",
+              "label": "빗방울"
+            },
+            {
+              "key": "rain-4",
+              "glyph": "💦",
+              "label": "많은 비"
+            },
+            {
+              "key": "rain-5",
+              "glyph": "⛈️",
+              "label": "뇌우"
+            },
+            {
+              "key": "rain-6",
+              "glyph": "🌦️",
+              "label": "소나기"
+            },
+            {
+              "key": "rain-7",
+              "glyph": "🌂",
+              "label": "비가 그친 곳"
+            },
+            {
+              "key": "rain-8",
+              "glyph": "🫧",
+              "label": "물방울 관찰"
+            },
+            {
+              "key": "rain-9",
+              "glyph": "🕳️",
+              "label": "물고임"
+            },
+            {
+              "key": "rain-10",
+              "glyph": "🌊",
+              "label": "불어난 물"
+            },
+            {
+              "key": "rain-11",
+              "glyph": "🚧",
+              "label": "빗길 주의"
+            },
+            {
+              "key": "rain-12",
+              "glyph": "👢",
+              "label": "젖은 바닥"
+            },
+            {
+              "key": "rain-13",
+              "glyph": "🏞️",
+              "label": "하천 주변"
+            },
+            {
+              "key": "rain-14",
+              "glyph": "🪣",
+              "label": "강수량 관찰"
+            },
+            {
+              "key": "rain-15",
+              "glyph": "🌾",
+              "label": "농경지의 비"
+            },
+            {
+              "key": "rain-16",
+              "glyph": "📝",
+              "label": "비 관찰 메모"
+            }
+          ]
+        },
+        {
+          "key": "snow",
+          "label": "눈·얼음",
+          "color": "#0E7490",
+          "defaultEmojiKey": "snow-1",
+          "emojiOptions": [
+            {
+              "key": "snow-1",
+              "glyph": "🌨️",
+              "label": "눈"
+            },
+            {
+              "key": "snow-2",
+              "glyph": "❄️",
+              "label": "눈송이"
+            },
+            {
+              "key": "snow-3",
+              "glyph": "☃️",
+              "label": "쌓인 눈"
+            },
+            {
+              "key": "snow-4",
+              "glyph": "⛄",
+              "label": "눈놀이 장소"
+            },
+            {
+              "key": "snow-5",
+              "glyph": "🧊",
+              "label": "얼음"
+            },
+            {
+              "key": "snow-6",
+              "glyph": "🥶",
+              "label": "어는 날씨"
+            },
+            {
+              "key": "snow-7",
+              "glyph": "🛣️",
+              "label": "도로 결빙"
+            },
+            {
+              "key": "snow-8",
+              "glyph": "👣",
+              "label": "눈 위의 발자국"
+            },
+            {
+              "key": "snow-9",
+              "glyph": "🌲",
+              "label": "눈 쌓인 나무"
+            },
+            {
+              "key": "snow-10",
+              "glyph": "🏔️",
+              "label": "눈 덮인 산"
+            },
+            {
+              "key": "snow-11",
+              "glyph": "🌬️",
+              "label": "눈보라"
+            },
+            {
+              "key": "snow-12",
+              "glyph": "🚧",
+              "label": "미끄럼 주의"
+            },
+            {
+              "key": "snow-13",
+              "glyph": "🌡️",
+              "label": "영하 기온"
+            },
+            {
+              "key": "snow-14",
+              "glyph": "💧",
+              "label": "눈 녹은 물"
+            },
+            {
+              "key": "snow-15",
+              "glyph": "📏",
+              "label": "적설 관찰"
+            },
+            {
+              "key": "snow-16",
+              "glyph": "📸",
+              "label": "눈·얼음 사진"
+            }
+          ]
+        },
+        {
+          "key": "wind",
+          "label": "바람·풍향·풍속",
+          "color": "#047857",
+          "defaultEmojiKey": "wind-1",
+          "emojiOptions": [
+            {
+              "key": "wind-1",
+              "glyph": "🌬️",
+              "label": "바람"
+            },
+            {
+              "key": "wind-2",
+              "glyph": "🍃",
+              "label": "약한 바람"
+            },
+            {
+              "key": "wind-3",
+              "glyph": "💨",
+              "label": "강한 바람"
+            },
+            {
+              "key": "wind-4",
+              "glyph": "🌪️",
+              "label": "매우 강한 바람"
+            },
+            {
+              "key": "wind-5",
+              "glyph": "🧭",
+              "label": "풍향 관찰"
+            },
+            {
+              "key": "wind-6",
+              "glyph": "🚩",
+              "label": "깃발로 보는 바람"
+            },
+            {
+              "key": "wind-7",
+              "glyph": "🎏",
+              "label": "바람개비·풍향 도구"
+            },
+            {
+              "key": "wind-8",
+              "glyph": "🪁",
+              "label": "연이 나는 바람"
+            },
+            {
+              "key": "wind-9",
+              "glyph": "🌳",
+              "label": "나뭇가지 움직임"
+            },
+            {
+              "key": "wind-10",
+              "glyph": "🌊",
+              "label": "바닷바람"
+            },
+            {
+              "key": "wind-11",
+              "glyph": "🏙️",
+              "label": "건물 사이 바람"
+            },
+            {
+              "key": "wind-12",
+              "glyph": "🏞️",
+              "label": "공원 바람"
+            },
+            {
+              "key": "wind-13",
+              "glyph": "⛰️",
+              "label": "산바람"
+            },
+            {
+              "key": "wind-14",
+              "glyph": "🍂",
+              "label": "낙엽 날림"
+            },
+            {
+              "key": "wind-15",
+              "glyph": "🚲",
+              "label": "바람이 센 길"
+            },
+            {
+              "key": "wind-16",
+              "glyph": "📝",
+              "label": "바람 관찰 메모"
+            }
+          ]
+        },
+        {
+          "key": "humidity",
+          "label": "습도·안개·이슬",
+          "color": "#6D28D9",
+          "defaultEmojiKey": "humidity-1",
+          "emojiOptions": [
+            {
+              "key": "humidity-1",
+              "glyph": "🌫️",
+              "label": "안개"
+            },
+            {
+              "key": "humidity-2",
+              "glyph": "💧",
+              "label": "이슬"
+            },
+            {
+              "key": "humidity-3",
+              "glyph": "💦",
+              "label": "습한 날씨"
+            },
+            {
+              "key": "humidity-4",
+              "glyph": "🏜️",
+              "label": "건조한 날씨"
+            },
+            {
+              "key": "humidity-5",
+              "glyph": "🪟",
+              "label": "창문 물방울"
+            },
+            {
+              "key": "humidity-6",
+              "glyph": "🌿",
+              "label": "잎의 이슬"
+            },
+            {
+              "key": "humidity-7",
+              "glyph": "🕸️",
+              "label": "거미줄의 이슬"
+            },
+            {
+              "key": "humidity-8",
+              "glyph": "🌊",
+              "label": "해안 안개"
+            },
+            {
+              "key": "humidity-9",
+              "glyph": "🏞️",
+              "label": "물가 안개"
+            },
+            {
+              "key": "humidity-10",
+              "glyph": "⛰️",
+              "label": "산안개"
+            },
+            {
+              "key": "humidity-11",
+              "glyph": "🌙",
+              "label": "밤의 습도"
+            },
+            {
+              "key": "humidity-12",
+              "glyph": "🌅",
+              "label": "아침의 습도"
+            },
+            {
+              "key": "humidity-13",
+              "glyph": "🏠",
+              "label": "집 주변 습도"
+            },
+            {
+              "key": "humidity-14",
+              "glyph": "🏫",
+              "label": "학교 주변 습도"
+            },
+            {
+              "key": "humidity-15",
+              "glyph": "🌡️",
+              "label": "습도 관측 지점"
+            },
+            {
+              "key": "humidity-16",
+              "glyph": "📝",
+              "label": "습도·안개 메모"
+            }
+          ]
+        },
+        {
+          "key": "measurements",
+          "label": "기상 관측·자료",
+          "color": "#475569",
+          "defaultEmojiKey": "measurements-1",
+          "emojiOptions": [
+            {
+              "key": "measurements-1",
+              "glyph": "📍",
+              "label": "날씨 관측 위치"
+            },
+            {
+              "key": "measurements-2",
+              "glyph": "🏫",
+              "label": "학교 관측 지점"
+            },
+            {
+              "key": "measurements-3",
+              "glyph": "🏙️",
+              "label": "도시 관측 지점"
+            },
+            {
+              "key": "measurements-4",
+              "glyph": "🏞️",
+              "label": "공원 관측 지점"
+            },
+            {
+              "key": "measurements-5",
+              "glyph": "🌊",
+              "label": "바다 관측 지점"
+            },
+            {
+              "key": "measurements-6",
+              "glyph": "⛰️",
+              "label": "산 관측 지점"
+            },
+            {
+              "key": "measurements-7",
+              "glyph": "🛰️",
+              "label": "기상청 자료 참고"
+            },
+            {
+              "key": "measurements-8",
+              "glyph": "📡",
+              "label": "관측 장비"
+            },
+            {
+              "key": "measurements-9",
+              "glyph": "🗓️",
+              "label": "관측 날짜"
+            },
+            {
+              "key": "measurements-10",
+              "glyph": "🕒",
+              "label": "관측 시각"
+            },
+            {
+              "key": "measurements-11",
+              "glyph": "📊",
+              "label": "막대그래프 비교"
+            },
+            {
+              "key": "measurements-12",
+              "glyph": "📈",
+              "label": "꺾은선그래프 변화"
+            },
+            {
+              "key": "measurements-13",
+              "glyph": "📝",
+              "label": "현장 관찰 메모"
+            },
+            {
+              "key": "measurements-14",
+              "glyph": "🔍",
+              "label": "더 확인할 날씨"
+            },
+            {
+              "key": "measurements-15",
+              "glyph": "⚠️",
+              "label": "날씨 영향·주의"
+            },
+            {
+              "key": "measurements-16",
+              "glyph": "🤝",
+              "label": "함께 관찰한 곳"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "key": "observed_date",
+          "label": "현장 관찰 날짜·시각",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 100
+        },
+        {
+          "key": "observation_notes",
+          "label": "직접 본 날씨·생활 영향",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 500
+        },
+        {
+          "key": "weather_source",
+          "label": "참고한 날씨 자료·발표 시각",
+          "type": "text",
+          "required": false,
+          "allowUnknown": true,
+          "allowNotApplicable": true,
+          "maxLength": 500
+        }
+      ]
+    },
+    {
       "version": 2,
       "key": "custom",
       "label": "직접 만들기",

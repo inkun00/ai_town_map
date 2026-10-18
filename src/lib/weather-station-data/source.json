@@ -1,0 +1,21 @@
+{
+  "publisher": "기상청 국가기후데이터센터",
+  "title": "관측지점정보 · 종관기상관측(SFC01)",
+  "sourceUrl": "https://data.kma.go.kr/tmeta/stn/selectStnList.do?pgmNo=123",
+  "downloadUrl": "https://data.kma.go.kr/tmeta/stn/selectStnListDownload.do?fileType=csv&pgmNo=123&serviceSe=F00101&mddlClssCd=SFC01",
+  "datasetUrl": "https://www.data.go.kr/data/15043574/fileData.do",
+  "license": "공공누리 제1유형 · 출처표시",
+  "licenseUrl": "https://www.data.go.kr/data/15043574/fileData.do",
+  "retrievedAt": "2026-10-18",
+  "sourceSha256": "6be25ca2d0f1cbe639685fc819b2c38d062ed69702791b71fd7fe1d2dd6b9d2d",
+  "rowCount": 148,
+  "fields": [
+    "지점번호",
+    "시작일(YYYY-MM-DD)",
+    "종료일(YYYY-MM-DD, 공란은 null)",
+    "지점명",
+    "위도(WGS84)",
+    "경도(WGS84)"
+  ],
+  "processing": "공식 CSV의 해당 열만 추출. 시작일·종료일·좌표를 보존. 같은 날 종료/시작하는 이력은 더 최근 시작한 행을 사용. 주소·고도·장비 정보는 제외."
+}

@@ -17,7 +17,7 @@ type Session={kind:"account"|"guest";accountRole:string|null;canCreateMap:boolea
 type MergePreview={sources:MergeSource[];points:MergePreviewPoint[]};
 type Creation={map:Pick<LiveMap,"id">;copiedPoints:number;repeated:boolean};
 const maxSelectedPoints=1000;
-const symbols:Record<ThemeKey,string>={ecology:"🌳",safety:"🚸",universal_design:"♿",weather_life:"☀️",tourism:"🏯",custom:"✨"};
+const symbols:Record<ThemeKey,string>={ecology:"🌳",safety:"🚸",universal_design:"♿",weather_life:"☀️",tourism:"🏯",heritage:"🏛️",weather_data:"🌦️",custom:"✨"};
 
 class MergeError extends Error {constructor(message:string,readonly status:number){super(message);}}
 async function readResponse<T>(response:Response):Promise<T>{

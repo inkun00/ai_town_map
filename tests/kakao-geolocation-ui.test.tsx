@@ -96,7 +96,10 @@ describe("ordinary map precision measurement",()=>{
     await act(async()=>input.focus());expect(request.signal?.aborted).toBe(true);
     await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(input,"학교");input.dispatchEvent(new Event("input",{bubbles:true}));});
     await click("검색");const callback=keywordSearch.mock.calls[0][1] as (result:{x:string;y:string;place_name:string}[],status:string)=>void;
-    await act(async()=>callback([{x:"128",y:"38",place_name:"우리 학교"}],"OK"));await finish(request,fix(4,40));
+    await act(async()=>callback([{x:"128",y:"38",place_name:"우리 학교"}],"OK"));
+    expect(onPick).not.toHaveBeenCalled();
+    await act(async()=>container.querySelector<HTMLButtonElement>(".kakao-place-result")!.click());
+    await finish(request,fix(4,40));
     expect(onPick).toHaveBeenCalledExactlyOnceWith({lat:38,lng:128},"search","우리 학교");expect(maps[0].setCenter).toHaveBeenCalledTimes(1);
   });
 
