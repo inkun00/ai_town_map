@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect,useRef,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import {copyWeatherPng,createWeatherPng,downloadWeatherPng,type WeatherImageOptions} from "@/lib/weather-image-export";
 
 type Props={label:string;getSvg:()=>SVGSVGElement|null;options:WeatherImageOptions;filename:string;disabled?:boolean};
@@ -10,8 +10,9 @@ type Feedback={kind:"success"|"error";text:string};
 export function WeatherImageActions({label,getSvg,options,filename,disabled=false}:Props){
   const [busy,setBusy]=useState(false),[feedback,setFeedback]=useState<Feedback|null>(null);
   const busyRef=useRef(false),mounted=useRef(true),revision=useRef(0);
+  const selectionKey=useMemo(()=>JSON.stringify(options),[options]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;revision.current++;};},[]);
-  useEffect(()=>{revision.current++;setFeedback(null);},[options,filename]);
+  useEffect(()=>{revision.current++;setFeedback(null);},[selectionKey,filename]);
 
   function run(action:"copy"|"save"){
     if(disabled||busyRef.current)return;

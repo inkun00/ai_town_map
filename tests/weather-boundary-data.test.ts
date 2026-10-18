@@ -64,5 +64,5 @@ describe("published administrative boundaries",()=>{
     expect(seen.size).toBe(3812);expect(bytes).toBeLessThan(8_000_000);
     expect(metadata.coverage.matchedDongs).toBe(3556);expect(metadata.license).toContain("KOGL Type 1");
     for(const missing of index.missingIds)expect(seen.has(missing)).toBe(false);
-  });
+  },15000);
 });

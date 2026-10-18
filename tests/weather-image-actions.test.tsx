@@ -21,6 +21,11 @@ beforeEach(()=>{
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.unstubAllGlobals();});
 
 describe("weather image export actions",()=>{
+  it("keeps feedback when a live map rerenders with equivalent export metadata",async()=>{
+    await render();await click("copy");expect(container.querySelector('[role="status"]')?.textContent).toContain("이미지를 복사했어요");
+    options={...options,details:[...options.details!],legend:options.legend!.map(item=>({...item})),footnotes:[...options.footnotes!]};await render();
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("이미지를 복사했어요");
+  });
   it("starts the clipboard helper directly in the click event and snapshots metadata once",async()=>{
     await render();let resolve:((blob:Blob)=>void)|undefined;image.create.mockImplementation(()=>new Promise<Blob>(reply=>{resolve=reply;}));
     await act(async()=>{button("copy").click();expect(image.copy).toHaveBeenCalledTimes(1);expect(image.create).toHaveBeenCalledTimes(1);});

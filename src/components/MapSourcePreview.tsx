@@ -9,7 +9,7 @@ import type {MergePoint} from "@/domain/map-merge";
 import {PointDialog} from "./PointDialog";
 import type {MapFocus,MapPoint} from "./KakaoMap";
 
-const KakaoMap=dynamic(()=>import("./KakaoMap"),{loading:()=> <p role="status">전체 지도를 불러오고 있어요…</p>});
+const ExplorerMap=dynamic(()=>import("./ExplorerMap"),{loading:()=> <p role="status">전체 지도를 불러오고 있어요…</p>});
 type PreviewRecord=MergePoint&{status:"published"};
 type Dataset={theme:Theme;points:DemoPoint[]};
 const historyProperty="mapSourcePreview";
@@ -89,7 +89,7 @@ export default function MapSourcePreview({map,onClose}:{map:LiveMap;onClose:()=>
       <header className="map-source-preview__header"><div><small>🔍 전체 지도 미리보기</small><h2>{map.title}</h2></div><button type="button" aria-label="지도 미리보기 닫기" onClick={close}>×</button></header>
       <section className="map-source-preview__summary"><p>{map.description||"지도에 등록된 기록을 둘러보세요."}</p><div><strong>{loading?"기록 불러오는 중":dataset?`게시된 포인트 ${dataset.points.length}개`:"기록을 확인해 주세요"}</strong><span>{map.visibility==="invite_only"?"일부공개 · 인증 후 기록":"전체공개 · 누구나 기록"} · {map.location}</span></div></section>
       {loading?<div className="map-source-preview__message" role="status">지도의 모든 게시 기록을 불러오고 있어요…</div>:error?<div className="map-source-preview__message"><p className="map-merge-error" role="alert">{error}</p><button type="button" className="button button--light" onClick={()=>setAttempt(value=>value+1)}>미리보기 다시 불러오기</button></div>:dataset&&<>
-        <div className="map-source-preview__map"><KakaoMap autoLocate={false} center={map.center??focus?.location} focus={focus} points={markers} selectedId={selectedId} onSelectPoint={setSelectedId}/></div>
+        <div className="map-source-preview__map"><ExplorerMap title={map.title} subtitle={`지도 미리보기 · ${map.location}`} autoLocate={false} center={map.center??focus?.location} focus={focus} points={markers} selectedId={selectedId} onSelectPoint={setSelectedId}/></div>
         <footer className="map-source-preview__footer"><p>미리보기는 읽기 전용이에요. 합칠 지도 선택은 바뀌지 않아요.</p><button type="button" aria-expanded={showList} aria-controls="map-source-preview-records" onClick={()=>setShowList(value=>!value)}>{showList?"기록 목록 접기":"기록 목록 보기"}</button></footer>
         <section id="map-source-preview-records" className="map-source-preview__records" hidden={!showList} aria-label="미리보기 기록 목록" tabIndex={0}>{!points?.length?<p>아직 게시된 위치 기록이 없어요.</p>:points.slice(0,listLimit).map(point=><button type="button" key={point.id} onClick={()=>setSelectedId(point.id)}><span aria-hidden="true">{getPointEmoji(dataset.theme,point)?.glyph??"📍"}</span><span><strong>{point.title}</strong><small>{point.locationLabel}</small></span><span aria-hidden="true">›</span></button>)}{(points?.length??0)>listLimit&&<button type="button" onClick={()=>setListLimit(value=>value+80)}>기록 더 보기</button>}</section>
       </>}

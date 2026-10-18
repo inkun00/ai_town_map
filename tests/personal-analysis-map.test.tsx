@@ -8,7 +8,10 @@ import type {ObservationFilter} from "../src/domain/analysis";
 import type {Coordinates} from "../src/components/KakaoMap";
 
 type MapProbe={
+  title?:string;
+  subtitle?:string;
   points?:{id:string;title:string}[];
+  anchorPoints?:{id:string;title:string}[];
   workbench?:WorkbenchState;
   onSelectPoint?:(id:string)=>void;
   contextPointId?:string|null;
@@ -28,6 +31,7 @@ vi.mock("../src/components/KakaoMap",()=>({default:(props:MapProbe)=>{
     <button type="button" aria-label="지도 이동" onClick={()=>props.onBoundsChange?.([126,36,128,38])}>지도 이동</button>
   </div>;
 }}));
+vi.mock("../src/components/ExplorerMap",async()=>({default:(await import("../src/components/KakaoMap")).default}));
 vi.mock("../src/components/PointDialog",()=>({PointDialog:({label,children}:{label:string;children:ReactNode})=><section role="dialog" aria-label={label}>{children}</section>}));
 import {MapWorkspace} from "../src/components/MapWorkspace";
 
@@ -50,7 +54,7 @@ function Harness({scope="teacher-a",mapId="map-a",startAnalysis=false,publicPoin
   const [filter,setFilter]=useState<ObservationFilter>(initialFilter);
   const point=points.find(item=>item.id===selectedId);
   return <>
-    <MapWorkspace mapId={mapId} scope={scope} theme={themeByKey.safety} points={publicPoints} live center={{lat:37,lng:127}} analysisMode={analysisMode} onAnalysisModeChange={setAnalysisMode} loadAnalysisPoints={loadAnalysisPoints} onAnalysisPointSelect={analysisSelected} selectedId={selectedId} onSelect={id=>{selected(id);setSelectedId(id);}} filter={filter} onFilter={value=>{sharedFilter(value);setFilter(value);}} onBounds={sharedBounds} showList={showList} onToggleList={()=>setShowList(value=>!value)} loading={false} error="" fallback={()=>null}/>
+    <MapWorkspace mapId={mapId} mapTitle="우리 학교 탐험 기록" mapDescription="인천 연수구" scope={scope} theme={themeByKey.safety} points={publicPoints} live center={{lat:37,lng:127}} analysisMode={analysisMode} onAnalysisModeChange={setAnalysisMode} loadAnalysisPoints={loadAnalysisPoints} onAnalysisPointSelect={analysisSelected} selectedId={selectedId} onSelect={id=>{selected(id);setSelectedId(id);}} filter={filter} onFilter={value=>{sharedFilter(value);setFilter(value);}} onBounds={sharedBounds} showList={showList} onToggleList={()=>setShowList(value=>!value)} loading={false} error="" fallback={()=>null}/>
     {point&&<article aria-label="등록 기록"><h2>{point.title}</h2><img src={point.photoUrl??undefined} alt="등록한 사진"/><p>{point.body}</p><a href={point.link}>등록한 링크</a></article>}
   </>;
 }
@@ -85,6 +89,11 @@ beforeEach(()=>{
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.unstubAllGlobals();});
 
 describe("public map and personal analysis map",()=>{
+  it("passes the map name, region and private analysis context to the reusable map",async()=>{
+    await render();expect(mapProbe.props?.title).toBe("우리 학교 탐험 기록");expect(mapProbe.props?.subtitle).toContain(themeByKey.safety.label);expect(mapProbe.props?.subtitle).toContain("인천 연수구");expect(mapProbe.props?.subtitle).toContain("공용 지도");
+    await click("분석지도 만들기");expect(mapProbe.props?.title).toBe("우리 학교 탐험 기록");expect(mapProbe.props?.subtitle).toContain("나의 분석지도 · 개인용");expect(mapProbe.props?.subtitle).not.toContain("공용 지도");
+    await click("공용 지도 보기");expect(mapProbe.props?.subtitle).toContain("공용 지도");
+  });
   it("opens registered information directly and ignores old personal drawings on the public map",async()=>{
     const key=workbenchKey("teacher-a","map-a"),saved=serializeWorkbench("map-a",savedState());
     localStorage.setItem(key,saved);
@@ -109,6 +118,7 @@ describe("public map and personal analysis map",()=>{
     await render();
     await click("분석지도 만들기");
     expect(markerIds()).toEqual(["point-b"]);
+    expect(mapProbe.props?.anchorPoints?.map(point=>point.id)).toEqual(["point-a","point-b"]);
     expect(mapProbe.props?.workbench?.radii).toEqual([{pointId:"point-b",meters:[500]}]);
     expect(mapProbe.props?.workbench?.notes).toHaveLength(1);
     await click("핀 어두운 골목");

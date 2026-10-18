@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/v1/weather/boundaries": ["./src/lib/weather-boundary-data/cities/*.json", "./src/lib/weather-boundary-data/districts/*.json"],
+    "/api/v1/map-boundaries": ["./src/lib/weather-boundary-data/cities/*.json", "./src/lib/weather-boundary-data/districts/*.json"],
   },
   images: {
     // Only bundled illustrations use the shared optimizer. Observation photos
