@@ -7,9 +7,11 @@ import type {WeatherBoundaryFeature,WeatherBoundaryResult} from "../src/domain/w
 
 const mapProbe=vi.hoisted(()=>({autoLocate:undefined as boolean|undefined,focus:null as MapFocus|null,points:[] as MapPoint[]}));
 const blankProbe=vi.hoisted(()=>({features:[] as WeatherBoundaryFeature[],points:[] as MapPoint[]}));
+const imageProbe=vi.hoisted(()=>({create:vi.fn(),copy:vi.fn(),download:vi.fn()}));
+vi.mock("../src/lib/weather-image-export",()=>({createWeatherPng:imageProbe.create,copyWeatherPng:imageProbe.copy,downloadWeatherPng:imageProbe.download,weatherImageFilename:(title:string,start:string,end:string)=>`${title}_${start}_${end}.png`}));
 vi.mock("next/dynamic",async()=>{const {lazy,Suspense}=await import("react");return {default:(loader:()=>Promise<{default:ComponentType<Record<string,unknown>>}>)=>{const Loaded=lazy(loader);return function Dynamic(props:Record<string,unknown>){return <Suspense fallback={<p>지도 불러오는 중</p>}><Loaded {...props}/></Suspense>;};}};});
 vi.mock("../src/components/KakaoMap",()=>({default:({autoLocate,focus,points,onSelectPoint}:{autoLocate:boolean;focus:MapFocus|null;points:MapPoint[];onSelectPoint:(id:string)=>void})=>{mapProbe.autoLocate=autoLocate;mapProbe.focus=focus;mapProbe.points=points;return <div aria-label="날씨 지도">{points.map(point=><button type="button" key={point.id} onClick={()=>onSelectPoint(point.id)}>{point.title}</button>)}</div>;}}));
-vi.mock("../src/components/WeatherBlankMap",()=>({default:({features,points,selectedId,onSelectPoint,loading,error,onRetry}:{features:WeatherBoundaryFeature[];points:MapPoint[];selectedId?:string;onSelectPoint:(id:string)=>void;loading?:boolean;error?:string;onRetry?:()=>void})=>{blankProbe.features=features;blankProbe.points=points;return <div aria-label="지역별 백지도" aria-busy={loading}>{error?<p role="alert">{error}</p>:loading?<p role="status">지역 경계를 불러오고 있어요.</p>:features.map(feature=><button type="button" key={feature.id} aria-pressed={feature.id===selectedId} onClick={()=>onSelectPoint(feature.id)}>{points.find(point=>point.id===feature.id)?.label??feature.name}</button>)}{error&&onRetry&&<button type="button" onClick={onRetry}>경계 다시 불러오기</button>}</div>;}}));
+vi.mock("../src/components/WeatherBlankMap",()=>({default:({features,points,selectedId,onSelectPoint,loading,error,onRetry}:{features:WeatherBoundaryFeature[];points:MapPoint[];selectedId?:string;onSelectPoint:(id:string)=>void;loading?:boolean;error?:string;onRetry?:()=>void})=>{blankProbe.features=features;blankProbe.points=points;return <div aria-label="지역별 백지도" aria-busy={loading}>{error?<p role="alert">{error}</p>:loading?<p role="status">지역 경계를 불러오고 있어요.</p>:features.map(feature=><button type="button" key={feature.id} aria-pressed={feature.id===selectedId} onClick={()=>onSelectPoint(feature.id)}>{points.find(point=>point.id===feature.id)?.label??feature.name}</button>)}{!loading&&!error&&!!features.length&&<svg className="weather-blank-map-canvas" viewBox="0 0 390 700"/>}{error&&onRetry&&<button type="button" onClick={onRetry}>경계 다시 불러오기</button>}</div>;}}));
 import {WeatherChart,WeatherExplorer} from "../src/components/WeatherExplorer";
 import {koreanWeatherDate,weatherMetrics,type WeatherMetric} from "../src/domain/weather";
 
@@ -50,6 +52,20 @@ beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);vi.stubGlobal("ma
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 describe("weather explorer map and dialogs",()=>{
+  beforeEach(()=>{imageProbe.create.mockReset().mockResolvedValue(new Blob(["png"],{type:"image/png"}));imageProbe.copy.mockReset().mockImplementation(async(create:()=>Promise<Blob>)=>{await create();});imageProbe.download.mockReset();});
+  it("exports only the blank map and the chosen graph with current context and legends",async()=>{
+    await load();expect(container.querySelector('[aria-label="백지도 이미지 내보내기"]')).toBeNull();
+    await click("백지도");await vi.waitFor(()=>expect(button("백지도 이미지 복사").disabled).toBe(false));await click("백지도 이미지 복사");
+    expect(imageProbe.create.mock.calls[0][0]).toBe(container.querySelector(".weather-blank-map-canvas"));
+    expect(imageProbe.create.mock.calls[0][1]).toMatchObject({title:"인천광역시 날씨 백지도",details:["평균 기온 (℃)"]});expect(imageProbe.create.mock.calls[0][1].subtitle).toContain(result().start);expect(imageProbe.create.mock.calls[0][1].footnotes.join(" ")).toContain("SGIS");
+    await change("지도에 표시할 항목","rainfall");await click("백지도 PNG 저장");expect(imageProbe.create.mock.calls.at(-1)![1].details).toEqual(["강수량 (mm)"]);expect(imageProbe.download.mock.calls[0][1]).toContain("인천광역시_백지도_강수량");
+    await click("그래프");await check("강수량 (mm)");await change("강수량 그래프 종류","bar");await click("그래프 PNG 저장");
+    const [svg,options]=imageProbe.create.mock.calls.at(-1)!;expect(svg).toBe(dialog("날씨 그래프")!.querySelector(".weather-multi-chart__svg"));expect(options.title).toBe("인천광역시 연수구 날씨 그래프");expect(options.legend.map((item:{label:string})=>item.label)).toEqual(["평균 기온 (℃) · 꺾은선","강수량 (mm) · 막대"]);expect(imageProbe.download.mock.calls.at(-1)![1]).toContain("연수구_날씨그래프");
+  });
+  it("does not export empty graph data or an unavailable boundary",async()=>{
+    await render();fetchSpy.mockResolvedValueOnce(ok({...result(),items:[{...location(district),series:location(district).series.map(bucket=>({...bucket,values:values(null)}))}]}));await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(1));await click("그래프");expect(button("그래프 PNG 저장").disabled).toBe(true);await click("그래프 닫기");
+    fetchSpy.mockResolvedValueOnce(ok({...boundaryResult(),features:[],missingIds:[district.id]}));await click("백지도");await vi.waitFor(()=>expect(container.querySelector(".weather-boundary-warning")).not.toBeNull());expect(button("백지도 이미지 복사").disabled).toBe(true);expect(imageProbe.create).not.toHaveBeenCalled();
+  });
   it("keeps a map surface visible and asks for a region and period before reading weather",async()=>{
     await render();
     expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();

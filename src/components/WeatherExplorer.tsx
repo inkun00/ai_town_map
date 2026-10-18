@@ -7,6 +7,8 @@ import type {MapFocus,MapPoint} from "./KakaoMap";
 import {WeatherMultiChart,type WeatherChartSeries} from "./WeatherMultiChart";
 import {ResponsiveMapDialog} from "./ResponsiveMapDialog";
 import type {WeatherBoundaryResult} from "@/domain/weather-boundaries";
+import {WeatherImageActions} from "./WeatherImageActions";
+import {weatherImageFilename,type WeatherImageOptions} from "@/lib/weather-image-export";
 
 const KakaoMap=dynamic(()=>import("./KakaoMap"),{loading:()=> <p className="weather-map-loading" role="status">날씨 지도를 펼치고 있어요…</p>});
 const WeatherBlankMap=dynamic(()=>import("./WeatherBlankMap"),{loading:()=> <p className="weather-map-loading" role="status">백지도를 펼치고 있어요…</p>});
@@ -80,6 +82,7 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
   const [blankMode,setBlankMode]=useState(false),[boundaries,setBoundaries]=useState<WeatherBoundaryResult|null>(null),[boundaryBusy,setBoundaryBusy]=useState(false),[boundaryError,setBoundaryError]=useState(""),[boundaryAttempt,setBoundaryAttempt]=useState(0);
   const [query,setQuery]=useState<Query|null>(null),[result,setResult]=useState<WeatherResult|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[selectedId,setSelectedId]=useState("");
   const serial=useRef(0);
+  const mapImageRef=useRef<HTMLDivElement>(null),chartImageRef=useRef<HTMLDivElement>(null);
   const id=useId(),selectedRegion=dongs.find(region=>region.id===dongId)??districts.find(region=>region.id===districtId)??cities.find(region=>region.id===cityId);
 
   useEffect(()=>{
@@ -120,6 +123,9 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
   const mapPoints=useMemo<MapPoint[]>(()=>{if(!result)return [];const children=result.items.filter(item=>item.region.id!==result.region.id);return (children.length?children:result.items).map(item=>{const value=mapMode==="current"?item.current?.values[metric]??null:kind?countValue(item,kind):item.summary.values[metric];const label=mapMode==="current"?currentLabels[metric]:metadata.label;return {id:item.region.id,title:`${item.region.name} · ${label} ${numberLabel(value,unit)} · ${item.station.name} 관측소${mapMode==="current"&&item.current?` · ${timestampLabel(item.current.observedAt)}`:""}`,label:`${item.region.name} ${numberLabel(value,unit)}`,emoji:kind?countEmoji[kind]:metricEmoji[metric],color:"#277d99",location:{lat:item.region.lat,lng:item.region.lng},description:`${item.region.fullName} · ${item.station.name} 관측소 대표자료`};});},[result,metric,kind,metadata.label,mapMode,unit]);
   const focus=useMemo<MapFocus|null>(()=>result?.items.length?{location:{lat:result.region.lat,lng:result.region.lng},locations:result.items.map(item=>({lat:item.region.lat,lng:item.region.lng})),nonce:query?.nonce??0}:selectedRegion?{location:{lat:selectedRegion.lat,lng:selectedRegion.lng},radiusMeters:selectedRegion.level==="city"?30000:selectedRegion.level==="district"?6000:1500,nonce:serial.current}:null,[result,query,selectedRegion]);
   const chartSeries=useMemo<WeatherChartSeries[]>(()=>chartMetrics.map(key=>({id:key,...chartMetadata(key),kind:chartKinds[key],color:chartColors[chartKeys.indexOf(key)],data:selected?.series.map(bucket=>({label:dateLabel(bucket.date),value:bucketValue(bucket,key)}))??[]})),[selected,chartMetrics,chartKinds]);
+  const imagePeriod=result?`${result.start} ~ ${result.end} · ${result.period==="day"?"일별":result.period==="week"?"주별":"월별"}`:"";
+  const mapImageOptions:WeatherImageOptions={title:`${result?.region.fullName??""} 날씨 백지도`,subtitle:`${imagePeriod} · ${mapMode==="current"?"최근 실황":"기간 통계"}`,details:[`${mapMode==="current"?currentLabels[metric]:metadata.label} (${unit})`],footnotes:["기상청 · 인근 관측소 대표값 (지역 전체 평균이 아님)","경계: SGIS 행정동 경계 가공 · vuski/admdongkor · CC BY 4.0",`경계 기준: ${boundaries?.updatedAt??""} · github.com/vuski/admdongkor`,...(boundaries?.missingIds.length?[`경계 없음: ${boundaries.missingIds.map(code=>result?.items.find(item=>item.region.id===code)?.region.name??code).join(", ")}`]:[])]};
+  const chartImageOptions:WeatherImageOptions={title:`${selected?.region.fullName??""} 날씨 그래프`,subtitle:`${imagePeriod} · 기간 통계`,legend:chartSeries.map(item=>({color:item.color,label:`${item.label} (${item.unit}) · ${item.kind==="bar"?"막대":"꺾은선"}${item.data.some(point=>point.value!==null&&Number.isFinite(point.value))?"":" · 자료 없음"}`})),footnotes:[`기상청 · ${selected?.station.name??""} 관측소 대표값 (지역 전체 평균이 아님)`,"빈 구간은 자료 없음 · 서로 다른 단위는 별도 눈금","출처: data.kma.go.kr · 모두의 지도"]};
   function submit(event:FormEvent){
     event.preventDefault();if(!selectedRegion)return;
     if(!validWeatherDate(start)||!validWeatherDate(end)||start>end||start<"1904-01-01"){setFormError("시작일과 마지막 날을 다시 확인해 주세요. 1904년 이후 날짜를 선택할 수 있어요.");return;}
@@ -136,7 +142,7 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
       <h1>🌤️ 기상청 날씨지도</h1>
     </header>}
     <div className="weather-canvas">
-      <div className="weather-map">{blankMode?<WeatherBlankMap features={boundaries?.features??[]} points={mapPoints} selectedId={selected?.region.id} onSelectPoint={setSelectedId} loading={boundaryBusy||busy} error={boundaryError} onRetry={()=>setBoundaryAttempt(value=>value+1)}/>:<KakaoMap autoLocate={false} points={mapPoints} selectedId={selected?.region.id} onSelectPoint={setSelectedId} focus={focus}/>}</div>
+      <div className="weather-map" ref={mapImageRef}>{blankMode?<WeatherBlankMap features={boundaries?.features??[]} points={mapPoints} selectedId={selected?.region.id} onSelectPoint={setSelectedId} loading={boundaryBusy||busy} error={boundaryError} onRetry={()=>setBoundaryAttempt(value=>value+1)}/>:<KakaoMap autoLocate={false} points={mapPoints} selectedId={selected?.region.id} onSelectPoint={setSelectedId} focus={focus}/>}</div>
       <div className="weather-map-toolbar" aria-label="날씨지도 도구">
         <div className="weather-map-toolbar__actions">
           <button type="button" onClick={()=>setQueryOpen(true)} aria-haspopup="dialog"><span aria-hidden="true">📍</span> 지역·기간</button>
@@ -153,6 +159,7 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
         {result?.configured&&<p className="weather-query-chip">{result.region.fullName} · {result.start} ~ {result.end} · {mapMode==="current"?"최근 실황":result.period==="day"?"일별":result.period==="week"?"주별":"월별"}</p>}
         {blankMode&&!!boundaries?.missingIds.length&&<p className="weather-boundary-warning" role="status">경계 없음: {boundaries.missingIds.map(code=>result?.items.find(item=>item.region.id===code)?.region.name??code).join(", ")}</p>}
       </div>
+      {blankMode&&result?.configured&&<div className="weather-map-export"><WeatherImageActions label="백지도" getSvg={()=>mapImageRef.current?.querySelector<SVGSVGElement>(".weather-blank-map-canvas")??null} options={mapImageOptions} filename={weatherImageFilename(`${result.region.fullName}_백지도_${metadata.label}`,result.start,result.end)} disabled={busy||boundaryBusy||!!boundaryError||!boundaries?.features.length}/></div>}
       <div className="weather-map-status" aria-live="polite">
         {busy&&<p className="weather-loading" role="status">기상청 관측자료를 불러오고 있어요…</p>}
         {error&&<div className="weather-error" role="alert"><p>{error}</p>{query&&<button type="button" onClick={()=>setQuery({...query,nonce:++serial.current})}>날씨 다시 불러오기</button>}</div>}
@@ -181,8 +188,9 @@ export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initi
     {chartOpen&&selected&&result&&<WeatherDialog label="날씨 그래프" onClose={()=>setChartOpen(false)} wide>
       <label className="weather-chart-region" htmlFor={`${id}-result`}>그래프로 볼 지역<select id={`${id}-result`} value={selected.region.id} onChange={event=>setSelectedId(event.target.value)}>{result.items.map(item=><option key={item.region.id} value={item.region.id}>{item.region.name}{item.region.id===result.region.id?" 전체":""}</option>)}</select></label>
       <p className="weather-chart-period">기간 통계 · {result.start} ~ {result.end}</p>
+      <WeatherImageActions label="그래프" getSvg={()=>chartImageRef.current?.querySelector<SVGSVGElement>(".weather-multi-chart__svg")??null} options={chartImageOptions} filename={weatherImageFilename(`${selected.region.fullName}_날씨그래프`,result.start,result.end)} disabled={busy||!chartSeries.some(item=>item.data.some(point=>point.value!==null&&Number.isFinite(point.value)))}/>
       <details className="weather-chart-options"><summary>항목 선택 <span>{chartMetrics.length}개</span></summary><fieldset className="weather-chart-metrics"><legend>그래프 항목</legend><div>{chartKeys.map(key=>{const metadata=chartMetadata(key);const checked=chartMetrics.includes(key);return <div className="weather-chart-metric" key={key} style={{borderColor:checked?chartColors[chartKeys.indexOf(key)]:undefined}}><label className="weather-chart-metric__toggle"><input type="checkbox" checked={checked} disabled={checked&&chartMetrics.length===1} onChange={()=>toggleChartMetric(key)}/><span>{metadata.label} ({metadata.unit})</span></label><label className="weather-chart-metric__kind" hidden={!checked}><span className="sr-only">{metadata.label} 그래프 종류</span><select aria-label={`${metadata.label} 그래프 종류`} disabled={!checked} value={chartKinds[key]} onChange={event=>setChartKinds(current=>({...current,[key]:event.target.value as ChartKind}))}><option value="bar">막대</option><option value="line">꺾은선</option></select></label></div>;})}</div></fieldset></details>
-      <WeatherMultiChart series={chartSeries}/>
+      <div className="weather-chart-visual" ref={chartImageRef}><WeatherMultiChart series={chartSeries}/></div>
       <WeatherDataTable buckets={selected.series} metrics={chartMetrics}/>
     </WeatherDialog>}
   </section>;

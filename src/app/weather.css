@@ -24,6 +24,15 @@
 .weather-boundary-attribution { position:absolute; z-index:2; bottom:7px; left:9px; max-width:calc(100% - 75px); padding:3px 6px; border-radius:4px; background:#fffdf4eb; color:#365c60; font-size:9px; text-decoration:none; }
 .weather-map-status { position:absolute; z-index:4; top:40%; left:14px; right:14px; pointer-events:none; }
 .weather-map-status>* { pointer-events:auto; }
+.weather-map-export { position:absolute; z-index:3; left:10px; bottom:60px; max-width:calc(100% - 76px); }
+.weather-image-actions { display:grid; gap:6px; min-width:0; }
+.weather-image-actions__buttons { display:flex; flex-wrap:wrap; gap:6px; }
+.weather-image-actions__buttons button { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:44px; padding:8px 10px; border:1.5px solid #6d8a87; border-radius:10px; background:#fffdf4; color:#253d4c; box-shadow:0 2px 4px #173e5115; font:inherit; font-size:12px; font-weight:800; white-space:nowrap; cursor:pointer; }
+.weather-image-actions__buttons button:disabled { opacity:.55; cursor:default; }
+.weather-image-actions__feedback { margin:0; padding:7px 9px; border:1px solid #bad1c5; border-radius:8px; background:#fffef8; color:#28564c; font-size:12px; line-height:1.5; overflow-wrap:anywhere; }
+.weather-image-actions__feedback[role="alert"] { border-color:#d6ab98; background:#fff0e8; color:#912e26; }
+.weather-dialog .weather-image-actions { margin-bottom:12px; }
+.weather-chart-visual { margin-top:16px; }
 .weather-attribution { position:absolute; z-index:2; bottom:26px; left:9px; max-width:calc(100% - 18px); border-radius:5px; padding:4px 7px; background:#fffdf4eF; color:#365c60; font-size:10px; text-decoration:none; }
 .weather-start-button { margin:auto; }
 .weather-dialog { position:fixed; inset:0; width:min(540px,calc(100% - 24px)); max-width:calc(100% - 24px); max-height:calc(100dvh - 32px); padding:0; margin:auto; overflow:hidden; border:2px solid #334c59; border-radius:22px; background:#fffdf4; color:#253d4c; box-shadow:0 14px 45px #132d3b40; }
