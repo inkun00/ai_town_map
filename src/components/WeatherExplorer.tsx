@@ -5,6 +5,7 @@ import {useEffect,useId,useMemo,useRef,useState,type FormEvent,type ReactNode} f
 import {koreanWeatherDate,validWeatherDate,weatherMetrics,type WeatherBucket,type WeatherLocationResult,type WeatherMetric,type WeatherPeriod,type WeatherRegion,type WeatherResult} from "@/domain/weather";
 import type {MapFocus,MapPoint} from "./KakaoMap";
 import {WeatherMultiChart,type WeatherChartSeries} from "./WeatherMultiChart";
+import {ResponsiveMapDialog} from "./ResponsiveMapDialog";
 
 const KakaoMap=dynamic(()=>import("./KakaoMap"),{loading:()=> <p className="weather-map-loading" role="status">날씨 지도를 펼치고 있어요…</p>});
 type RegionList={items:WeatherRegion[];source:string;updatedAt:string};
@@ -58,11 +59,9 @@ function WeatherDataTable({buckets,metrics}:{buckets:WeatherBucket[];metrics:Cha
   return <details className="weather-table-details"><summary>관측자료 표로 보기</summary><div className="weather-table-scroll" tabIndex={0} role="region" aria-label="기간별 날씨 자료 표"><table><caption>선택한 항목의 기간 통계</caption><thead><tr><th scope="col">기간</th>{metrics.map(key=><th key={key} scope="col">{chartMetadata(key).label} ({chartMetadata(key).unit})</th>)}</tr></thead><tbody>{buckets.map(bucket=><tr key={bucket.date}><th scope="row">{bucket.date}{bucket.date!==bucket.endDate&&<> ~ {bucket.endDate}</>}</th>{metrics.map(key=><td key={key}>{numberLabel(bucketValue(bucket,key),chartMetadata(key).unit)}</td>)}</tr>)}</tbody></table></div></details>;
 }
 
-/** Native dialogs trap keyboard focus, support Escape and restore the opening control. */
+/** Desktop windows move independently of the map; mobile keeps native modality. */
 function WeatherDialog({label,onClose,children,wide=false}:{label:string;onClose:()=>void;children:ReactNode;wide?:boolean}){
-  const ref=useRef<HTMLDialogElement>(null);
-  useEffect(()=>{const dialog=ref.current;const opener=document.activeElement instanceof HTMLElement?document.activeElement:null;dialog?.showModal();return()=>{dialog?.close();if(opener?.isConnected)opener.focus();};},[]);
-  return <dialog ref={ref} className={`weather-dialog${wide?" weather-dialog--graph":""}`} aria-label={label} onCancel={event=>{event.preventDefault();onClose();}} onClick={event=>{if(event.target===event.currentTarget)onClose();}}><header className="weather-dialog__header"><h2>{label}</h2><button type="button" aria-label={`${label==="날씨 그래프"?"그래프":label} 닫기`} onClick={onClose}>×</button></header><div className="weather-dialog__body">{children}</div></dialog>;
+  return <ResponsiveMapDialog label={label} onClose={onClose} className={`weather-dialog${wide?" weather-dialog--graph":""}`} headerClassName="weather-dialog__header" bodyClassName="weather-dialog__body" closeLabel={`${label==="날씨 그래프"?"그래프":label} 닫기`}>{children}</ResponsiveMapDialog>;
 }
 
 export function WeatherExplorer({onClose,initialRegion}:{onClose?:()=>void;initialRegion?:string}={}){

@@ -22,18 +22,18 @@ function ok(data:unknown){return {ok:true,json:async()=>({data})};}
 let container:HTMLDivElement,root:Root;
 const fetchSpy=vi.fn();
 let configured:boolean;
-function labelled<T extends Element>(tag:string,label:string,scope:ParentNode=container):T{
+function labelled<T extends Element>(tag:string,label:string,scope:ParentNode=document.body):T{
   const direct=[...scope.querySelectorAll<T>(tag)].find(item=>item.getAttribute("aria-label")===label);
   if(direct)return direct;
   const matching=[...scope.querySelectorAll<HTMLLabelElement>("label")].find(item=>{const copy=item.cloneNode(true) as HTMLElement;copy.querySelectorAll("input,select,textarea").forEach(control=>control.remove());return copy.textContent?.replace(/\s+/g," ").trim()===label;});
   const element=matching?.querySelector<T>(tag)??(matching?.htmlFor?scope.querySelector<T>(`#${CSS.escape(matching.htmlFor)}`):null);
   if(!element)throw new Error(`Missing ${tag}: ${label}`);return element;
 }
-function select(label:string,scope:ParentNode=container){return labelled<HTMLSelectElement>("select",label,scope);}
-function dialog(label:string){return container.querySelector<HTMLElement>(`dialog[aria-label="${label}"],[role="dialog"][aria-label="${label}"]`);}
-function button(label:string,scope:ParentNode=container){const found=[...scope.querySelectorAll<HTMLButtonElement>("button")].find(item=>{const copy=item.cloneNode(true) as HTMLElement;copy.querySelectorAll('[aria-hidden="true"]').forEach(node=>node.remove());return item.getAttribute("aria-label")===label||copy.textContent?.replace(/\s+/g," ").trim()===label;});if(!found)throw new Error(`Missing button: ${label}`);return found;}
+function select(label:string,scope:ParentNode=document.body){return labelled<HTMLSelectElement>("select",label,scope);}
+function dialog(label:string){return document.body.querySelector<HTMLDialogElement>(`dialog[aria-label="${label}"],[role="dialog"][aria-label="${label}"]`);}
+function button(label:string,scope:ParentNode=document.body){const found=[...scope.querySelectorAll<HTMLButtonElement>("button")].find(item=>{const copy=item.cloneNode(true) as HTMLElement;copy.querySelectorAll('[aria-hidden="true"]').forEach(node=>node.remove());return item.getAttribute("aria-label")===label||copy.textContent?.replace(/\s+/g," ").trim()===label;});if(!found)throw new Error(`Missing button: ${label}`);return found;}
 async function change(label:string,value:string){await act(async()=>{const element=select(label);element.value=value;element.dispatchEvent(new Event("change",{bubbles:true}));});}
-async function click(label:string,scope:ParentNode=container){await act(async()=>button(label,scope).click());}
+async function click(label:string,scope:ParentNode=document.body){await act(async()=>button(label,scope).click());}
 async function toggle(label:string){await act(async()=>labelled<HTMLInputElement>("input",label,dialog("날씨 그래프")!).click());}
 async function check(label:string){if(!labelled<HTMLInputElement>("input",label,dialog("날씨 그래프")!).checked)await toggle(label);}
 async function submit(){await act(async()=>dialog("지역·기간 선택")!.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));}
@@ -41,8 +41,8 @@ async function render(){await act(async()=>root.render(<WeatherExplorer initialR
 async function load(){await render();await submit();await vi.waitFor(()=>expect(mapProbe.points).toHaveLength(2));}
 function weatherReads(){return fetchSpy.mock.calls.filter(([url])=>new URL(String(url),"http://localhost:3001").pathname==="/api/v1/weather");}
 
-beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);configured=true;mapProbe.points=[];mapProbe.focus=null;mapProbe.autoLocate=undefined;fetchSpy.mockReset().mockImplementation(async(raw:RequestInfo|URL)=>{const url=new URL(String(raw),"http://localhost:3001");if(url.pathname==="/api/v1/weather/regions"){const parentId=url.searchParams.get("parentId");return ok({items:parentId===city.id?[district]:parentId===district.id?[dong]:parentId?[]:[city],source:"기상청 행정구역",updatedAt:"2026-07-01"});}if(url.pathname==="/api/v1/weather")return ok(configured?result():{...result(),configured:false,items:[],notice:"기상청 API 인증키 설정이 필요해요."});throw new Error(`Unexpected URL: ${url}`);});vi.stubGlobal("fetch",fetchSpy);container=document.createElement("div");document.body.appendChild(container);root=createRoot(container);});
-afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.unstubAllGlobals();});
+beforeEach(()=>{vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);vi.stubGlobal("matchMedia",undefined);configured=true;mapProbe.points=[];mapProbe.focus=null;mapProbe.autoLocate=undefined;fetchSpy.mockReset().mockImplementation(async(raw:RequestInfo|URL)=>{const url=new URL(String(raw),"http://localhost:3001");if(url.pathname==="/api/v1/weather/regions"){const parentId=url.searchParams.get("parentId");return ok({items:parentId===city.id?[district]:parentId===district.id?[dong]:parentId?[]:[city],source:"기상청 행정구역",updatedAt:"2026-07-01"});}if(url.pathname==="/api/v1/weather")return ok(configured?result():{...result(),configured:false,items:[],notice:"기상청 API 인증키 설정이 필요해요."});throw new Error(`Unexpected URL: ${url}`);});vi.stubGlobal("fetch",fetchSpy);container=document.createElement("div");document.body.appendChild(container);root=createRoot(container);});
+afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 describe("weather explorer map and dialogs",()=>{
   it("keeps a map surface visible and asks for a region and period before reading weather",async()=>{
@@ -93,6 +93,34 @@ describe("weather explorer map and dialogs",()=>{
     await click("그래프 닫기");
     expect(dialog("날씨 그래프")).toBeNull();
     expect(container.querySelector(".weather-chart")).toBeNull();
+  });
+  it("keeps the desktop graph outside the app frame and updates it while using the map",async()=>{
+    const media={matches:true,media:"(min-width: 1024px) and (pointer: fine)",onchange:null,addEventListener:vi.fn(),removeEventListener:vi.fn(),addListener:vi.fn(),removeListener:vi.fn(),dispatchEvent:vi.fn()};
+    vi.stubGlobal("matchMedia",vi.fn(()=>media));
+    vi.stubGlobal("innerWidth",1440);vi.stubGlobal("innerHeight",900);
+    container.className="app-frame";container.style.width="460px";
+    const show=vi.spyOn(HTMLDialogElement.prototype,"show");
+    const showModal=vi.spyOn(HTMLDialogElement.prototype,"showModal");
+    await load();await click("그래프");
+    const graph=dialog("날씨 그래프")!;
+    expect(graph.open).toBe(true);expect(graph.getAttribute("aria-modal")).not.toBe("true");
+    expect(graph.closest(".app-frame")).toBeNull();expect(document.body.contains(graph)).toBe(true);
+    expect(show).toHaveBeenCalled();expect(showModal).not.toHaveBeenCalled();
+    vi.spyOn(container,"getBoundingClientRect").mockReturnValue({x:490,y:0,left:490,top:0,right:950,bottom:900,width:460,height:900,toJSON:()=>({})});
+    vi.spyOn(graph,"getBoundingClientRect").mockImplementation(()=>{const left=Number.parseFloat(graph.style.left)||500,top=Number.parseFloat(graph.style.top)||100;return {x:left,y:top,left,top,right:left+420,bottom:top+400,width:420,height:400,toJSON:()=>({})};});
+    const header=graph.querySelector<HTMLElement>(".responsive-map-dialog__header")!;
+    Object.defineProperty(header,"setPointerCapture",{value:vi.fn()});Object.defineProperty(header,"releasePointerCapture",{value:vi.fn()});
+    await act(async()=>{header.dispatchEvent(new PointerEvent("pointerdown",{pointerId:1,pointerType:"mouse",button:0,isPrimary:true,clientX:550,clientY:120,bubbles:true}));});
+    await act(async()=>{header.dispatchEvent(new PointerEvent("pointermove",{pointerId:1,pointerType:"mouse",clientX:-5000,clientY:5000,bubbles:true}));header.dispatchEvent(new PointerEvent("pointerup",{pointerId:1,pointerType:"mouse",clientX:-5000,clientY:5000,bubbles:true}));});
+    expect(Number.parseFloat(graph.style.left)).toBeGreaterThanOrEqual(8);expect(Number.parseFloat(graph.style.left)+420).toBeLessThanOrEqual(container.getBoundingClientRect().left);
+    expect(Number.parseFloat(graph.style.top)).toBeGreaterThanOrEqual(8);expect(Number.parseFloat(graph.style.top)+400).toBeLessThanOrEqual(window.innerHeight-8);
+    expect(select("그래프로 볼 지역",graph).value).toBe(city.id);
+    await act(async()=>container.querySelectorAll<HTMLButtonElement>('[aria-label="날씨 지도"] button')[1].click());
+    expect(dialog("날씨 그래프")).toBe(graph);expect(graph.open).toBe(true);
+    expect(select("그래프로 볼 지역",graph).value).toBe(district.id);
+    expect(weatherReads()).toHaveLength(1);
+    await click("그래프 닫기",graph);expect(dialog("날씨 그래프")).toBeNull();
+    expect(container.querySelector('[aria-label="날씨 지도"]')).not.toBeNull();
   });
   it("shows missing weather counts as missing, while a measured zero remains zero",async()=>{
     await load();
